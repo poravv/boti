@@ -203,6 +203,32 @@ export function createRouter(
     }
   });
 
+  router.get('/lines/:lineId/context', authMiddleware, async (req, res) => {
+    try {
+      const { lineId } = req.params;
+      const line = await prisma.whatsAppLine.findUnique({ where: { id: lineId } });
+      if (!line) return res.status(404).json({ error: 'Line not found' });
+      res.json({ businessContext: line.businessContext, systemPrompt: line.systemPrompt });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  router.put('/lines/:lineId/context', authMiddleware, async (req, res) => {
+    try {
+      const { lineId } = req.params;
+      const { businessContext, systemPrompt } = req.body;
+      const updated = await prisma.whatsAppLine.upsert({
+        where: { id: lineId },
+        create: { id: lineId, name: lineId, businessContext, systemPrompt, assignedAiProvider: 'gemini' },
+        update: { businessContext, systemPrompt },
+      });
+      res.json({ businessContext: updated.businessContext, systemPrompt: updated.systemPrompt });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   router.post('/lines/:lineId/disconnect', authMiddleware, async (req, res) => {
     try {
       await whatsApp.disconnectLine(req.params.lineId);
@@ -273,7 +299,8 @@ export function createRouter(
         status: 'ACTIVE',
         assignedTo: c.assignedTo,
         aiPausedUntil: c.aiPausedUntil,
-        unreadCount: (c as any)._count.messages
+        unreadCount: (c as any)._count.messages,
+        lineId: c.messages[0]?.lineId
       }));
 
       res.json({ chats });

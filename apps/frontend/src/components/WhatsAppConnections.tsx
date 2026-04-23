@@ -1,5 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { apiFetch, apiFetchJson } from '../lib/apiClient';
 import { QRCodeSVG } from 'qrcode.react';
+import {
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  FormInput,
+  Icon,
+  Modal,
+  SkeletonCard,
+  cn,
+  useToast,
+} from './ui';
 
 interface WhatsAppLine {
   id: string;
@@ -9,6 +22,20 @@ interface WhatsAppLine {
   qrCode?: string;
 }
 
+const STATUS_BADGE_VARIANT: Record<WhatsAppLine['status'], 'success' | 'warning' | 'danger' | 'neutral'> = {
+  CONNECTED: 'success',
+  QR_PENDING: 'warning',
+  CONNECTING: 'neutral',
+  DISCONNECTED: 'danger',
+};
+
+const STATUS_LABEL: Record<WhatsAppLine['status'], string> = {
+  CONNECTED: 'Conectada',
+  QR_PENDING: 'QR pendiente',
+  CONNECTING: 'Conectando',
+  DISCONNECTED: 'Desconectada',
+};
+
 const WhatsAppConnections = () => {
   const [lines, setLines] = useState<WhatsAppLine[]>([]);
   const [loading, setLoading] = useState(true);
@@ -16,15 +43,12 @@ const WhatsAppConnections = () => {
   const [newLineName, setNewLineName] = useState('');
   const [activeQrLine, setActiveQrLine] = useState<string | null>(null);
   const [currentQr, setCurrentQr] = useState<string | null>(null);
-
-  const token = localStorage.getItem('token');
+  const [submitting, setSubmitting] = useState(false);
+  const toast = useToast();
 
   const fetchLines = async () => {
     try {
-      const res = await fetch('/api/lines', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const data = await res.json();
+      const data = await apiFetchJson<{ lines: WhatsAppLine[] }>('/api/lines');
       setLines(data.lines || []);
     } catch (err) {
       console.error('Error fetching lines:', err);
@@ -35,309 +59,354 @@ const WhatsAppConnections = () => {
 
   useEffect(() => {
     fetchLines();
-    
-    // WebSocket setup
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/ws`;
-    const ws = new WebSocket(wsUrl);
+  }, []);
 
-    ws.onmessage = (event) => {
-      try {
-        const { event: wsEvent, data } = JSON.parse(event.data);
-        if (wsEvent === 'line:status') {
-          setLines(prev => prev.map(line => 
-            line.id === data.lineId 
-              ? { ...line, status: data.status, qrCode: data.qrCode } 
-              : line
-          ));
-        }
-      } catch (err) {
-        console.error('WS parsing error:', err);
-      }
+  useEffect(() => {
+    const handleWSEvent = (event: Event) => {
+      const detail = (event as CustomEvent<{ event: string; data?: Record<string, unknown> }>).detail;
+      if (!detail || detail.event !== 'line:status') return;
+      const data = (detail.data || {}) as { lineId?: string; status?: WhatsAppLine['status']; qrCode?: string };
+      if (!data.lineId) return;
+      setLines((prev) =>
+        prev.map((line) =>
+          line.id === data.lineId
+            ? { ...line, status: data.status ?? line.status, qrCode: data.qrCode }
+            : line,
+        ),
+      );
     };
 
-    ws.onopen = () => console.log('WS Connected to Boti Backend');
-    ws.onclose = () => console.log('WS Disconnected');
+    window.addEventListener('boti:ws-event', handleWSEvent);
+    return () => window.removeEventListener('boti:ws-event', handleWSEvent);
+  }, []);
 
-    return () => ws.close();
-  }, [token]);
-
-  // Auto-update currentQr if activeQrLine is set
   useEffect(() => {
-    if (activeQrLine) {
-      const activeLine = lines.find(l => l.id === activeQrLine);
-      if (activeLine?.qrCode) {
-        setCurrentQr(activeLine.qrCode);
-      }
-      
-      // If the line is already connected, clear the active QR view
-      if (activeLine?.status === 'CONNECTED') {
-        setActiveQrLine(null);
-        setCurrentQr(null);
-      }
+    if (!activeQrLine) return;
+    const activeLine = lines.find((line) => line.id === activeQrLine);
+    if (activeLine?.qrCode) {
+      setCurrentQr(activeLine.qrCode);
     }
-  }, [lines, activeQrLine]);
+    if (activeLine?.status === 'CONNECTED') {
+      setActiveQrLine(null);
+      setCurrentQr(null);
+      toast.show('Línea conectada correctamente.', { variant: 'success' });
+    }
+  }, [lines, activeQrLine, toast]);
 
   const handleAddLine = async (existingId?: string) => {
-    if (!existingId && !newLineName) return;
+    if (!existingId && !newLineName.trim()) return;
     const lineId = existingId || newLineName.toLowerCase().replace(/\s+/g, '-');
-    
+    setSubmitting(true);
+
     try {
-      // Connect first to get QR
-      const res = await fetch(`/api/lines/${lineId}/connect`, { 
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const data = await res.json();
+      const data = await apiFetchJson<{ qrCode?: string }>(`/api/lines/${lineId}/connect`, { method: 'POST' });
       setActiveQrLine(lineId);
-      setCurrentQr(data.qrCode);
+      setCurrentQr(data.qrCode ?? null);
       setShowAddLine(false);
-      setNewLineName(''); // Clear input
+      setNewLineName('');
       fetchLines();
     } catch (err) {
       console.error('Error adding/reconnecting line:', err);
+      toast.show('No se pudo iniciar la vinculación.', { variant: 'error' });
+    } finally {
+      setSubmitting(false);
     }
   };
 
   const handleDisconnect = async (id: string) => {
     try {
-      await fetch(`/api/lines/${id}/disconnect`, { 
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      await apiFetch(`/api/lines/${id}/disconnect`, { method: 'POST' });
       fetchLines();
+      toast.show('Línea desconectada.', { variant: 'info' });
     } catch (err) {
       console.error('Error disconnecting:', err);
+      toast.show('Error al desconectar la línea.', { variant: 'error' });
     }
   };
 
+  const connectedCount = lines.filter((line) => line.status === 'CONNECTED').length;
+
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+    <section className="space-y-6">
+      <header className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <h1 className="text-4xl font-black text-primary tracking-tighter">Connection Management</h1>
-          <p className="text-on-surface-variant font-medium mt-2">Manage your WhatsApp bot instances and link new numbers via QR code.</p>
+          <h1 className="text-display-sm text-primary">Connection Management</h1>
+          <p className="text-body text-on-surface-variant mt-2">
+            Gestiona tus líneas de WhatsApp y vincula nuevos dispositivos mediante QR.
+          </p>
         </div>
-        <button 
+        <Button
+          variant="primary"
+          size="lg"
+          leadingIcon="add"
           onClick={() => setShowAddLine(true)}
-          className="px-6 py-3 bg-secondary text-on-primary rounded-xl flex items-center gap-2 font-bold shadow-lg hover:shadow-secondary/20 transition-all active:scale-95"
         >
-          <span className="material-symbols-outlined">add</span>
-          NEW CONNECTION
-        </button>
-      </div>
+          Nueva Conexión
+        </Button>
+      </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* QR Section (Bento Main) */}
-        <div className="lg:col-span-8 glass-card rounded-2xl p-8 flex flex-col md:flex-row gap-8 shadow-sm">
-          <div className="flex-1 space-y-6">
+        <Card
+          variant="glass-elevated"
+          padding="lg"
+          className="lg:col-span-8 flex flex-col md:flex-row gap-6 md:gap-8 animate-fade-in-up"
+        >
+          <div className="flex-1 space-y-5">
             <div>
-              <h2 className="text-2xl font-bold text-primary">Vincular Dispositivo</h2>
-              <p className="text-on-surface-variant text-sm mt-2">
-                {activeQrLine 
+              <h2 className="text-heading-md text-primary">Vincular dispositivo</h2>
+              <p className="text-body-sm text-on-surface-variant mt-2">
+                {activeQrLine
                   ? `Vinculando: ${activeQrLine}`
-                  : 'Escanea el código QR para autorizar a Boti como un dispositivo vinculado.'
-                }
+                  : 'Escanea el código QR para autorizar a Boti como un dispositivo vinculado.'}
               </p>
             </div>
-            
-            <div className="space-y-3">
+
+            <ol className="space-y-3">
               {[
                 'Abre WhatsApp en tu teléfono',
                 'Ve a Ajustes > Dispositivos Vinculados',
-                'Escanea el código QR que aparece a la derecha'
-              ].map((step, i) => (
-                <div key={i} className="flex items-center gap-3">
-                  <div className="w-6 h-6 bg-secondary/10 rounded-full flex items-center justify-center flex-shrink-0">
-                    <span className="text-secondary font-bold text-xs">{i + 1}</span>
-                  </div>
-                  <p className="text-sm text-on-surface-variant font-medium">{step}</p>
-                </div>
+                'Escanea el código QR que aparece a la derecha',
+              ].map((step, index) => (
+                <li key={step} className="flex items-center gap-3">
+                  <span className="w-7 h-7 bg-secondary/10 text-secondary rounded-full flex items-center justify-center text-caption font-semibold flex-shrink-0">
+                    {index + 1}
+                  </span>
+                  <p className="text-body-sm text-on-surface-variant">{step}</p>
+                </li>
               ))}
-            </div>
+            </ol>
 
             {activeQrLine && (
-              <div className="pt-4 flex gap-3">
-                <button 
-                  onClick={() => setActiveQrLine(null)}
-                  className="px-4 py-2 border border-outline-variant rounded-xl text-xs font-bold hover:bg-surface-container transition-colors"
-                >
-                  CANCELAR
-                </button>
-              </div>
+              <Button
+                variant="secondary"
+                size="sm"
+                leadingIcon="close"
+                onClick={() => {
+                  setActiveQrLine(null);
+                  setCurrentQr(null);
+                }}
+              >
+                Cancelar
+              </Button>
             )}
           </div>
 
-          <div className="w-full md:w-64 aspect-square glass-card rounded-2xl border-2 border-dashed border-teal-500/30 flex items-center justify-center relative overflow-hidden bg-white p-4">
+          <div className="w-full md:w-64 aspect-square rounded-2xl border-2 border-dashed border-secondary/30 flex items-center justify-center relative overflow-hidden bg-white p-4">
             {activeQrLine && currentQr ? (
-              <div className="p-4 bg-white rounded-xl shadow-inner">
+              <div className="p-4 bg-white rounded-xl shadow-glass-sm">
                 <QRCodeSVG value={currentQr} size={200} />
               </div>
             ) : (
-              <div className="text-center opacity-40">
-                <span className="material-symbols-outlined text-6xl text-teal-600 mb-2">qr_code_2</span>
-                <p className="text-[10px] font-black uppercase tracking-widest">Esperando...</p>
+              <div className="text-center opacity-50 space-y-2">
+                <Icon name="qr_code_2" size="xl" className="text-secondary" />
+                <p className="text-overline uppercase text-on-surface-variant">Esperando…</p>
               </div>
             )}
             {activeQrLine && !currentQr && (
-              <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex flex-col items-center justify-center">
-                <div className="w-8 h-8 border-4 border-secondary border-t-transparent rounded-full animate-spin mb-2"></div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-secondary">Generando QR</p>
+              <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex flex-col items-center justify-center gap-2">
+                <div className="w-8 h-8 border-4 border-secondary border-t-transparent rounded-full animate-spin" />
+                <p className="text-overline uppercase text-secondary">Generando QR</p>
               </div>
             )}
           </div>
-        </div>
+        </Card>
 
-        {/* Info Cards (Bento Side) */}
         <div className="lg:col-span-4 flex flex-col gap-6">
-          <div className="glass-card rounded-2xl p-6 flex-1 shadow-sm flex flex-col justify-between relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-24 h-24 bg-teal-500/5 rounded-full -mr-8 -mt-8"></div>
-            <span className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest opacity-60">System Pulse</span>
-            <div className="flex items-center justify-between my-4">
-              <span className="text-4xl font-black text-primary">{lines.filter(l => l.status === 'CONNECTED').length}</span>
-              <span className="material-symbols-outlined text-teal-500 text-4xl">hub</span>
+          <Card
+            variant="glass-elevated"
+            padding="lg"
+            className="flex-1 relative overflow-hidden animate-fade-in-up"
+            style={{ animationDelay: '60ms' }}
+          >
+            <div
+              aria-hidden="true"
+              className="absolute top-0 right-0 w-24 h-24 bg-success/10 rounded-full -mr-8 -mt-8 pointer-events-none"
+            />
+            <div className="relative flex flex-col gap-3">
+              <span className="text-overline uppercase text-on-surface-variant">System Pulse</span>
+              <div className="flex items-center justify-between">
+                <span className="text-display-sm text-primary">{connectedCount}</span>
+                <Icon name="hub" size="xl" className="text-success" filled />
+              </div>
+              <p className="text-caption text-on-surface-variant">
+                Líneas activas procesando interacciones en tiempo real.
+              </p>
             </div>
-            <p className="text-xs text-on-surface-variant font-medium leading-relaxed">
-              Líneas activas procesando interacciones en tiempo real.
-            </p>
-          </div>
-          <div className="glass-card rounded-2xl p-6 flex-1 shadow-sm flex flex-col justify-between overflow-hidden relative">
-            <div className="absolute -bottom-2 -right-2 w-24 h-24 bg-teal-500/5 rounded-full blur-2xl"></div>
-            <span className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest opacity-60">Uptime Average</span>
-            <div className="text-2xl font-black text-primary my-4">99.8%</div>
-            <div className="h-2 bg-surface-container rounded-full overflow-hidden">
-               <div className="h-full bg-secondary w-[99.8%] rounded-full shadow-[0_0_8px_rgba(0,107,95,0.4)]"></div>
+          </Card>
+          <Card
+            variant="glass-elevated"
+            padding="lg"
+            className="flex-1 animate-fade-in-up"
+            style={{ animationDelay: '120ms' }}
+          >
+            <div className="flex flex-col gap-3">
+              <span className="text-overline uppercase text-on-surface-variant">
+                Uptime Average
+              </span>
+              <span className="text-heading-md text-primary">99.8%</span>
+              <div className="h-2 bg-surface-container rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-success rounded-full"
+                  style={{ width: '99.8%' }}
+                />
+              </div>
             </div>
-          </div>
+          </Card>
         </div>
 
-        {/* Lines List */}
         <div className="lg:col-span-12 space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-xl font-bold text-primary">Connected Numbers</h3>
-            <span className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest opacity-60">
-              {lines.length} / 5 LIMIT
-            </span>
+            <h3 className="text-heading-sm text-primary">Connected Numbers</h3>
+            <Badge variant="neutral" size="sm">
+              {lines.length} / 5
+            </Badge>
           </div>
 
           {loading && lines.length === 0 ? (
-            <div className="py-20 flex flex-col items-center justify-center glass-card rounded-2xl border-dashed">
-              <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4"></div>
-              <p className="text-on-surface-variant font-bold uppercase tracking-widest text-[10px]">Cargando líneas...</p>
-            </div>
-          ) : lines.length === 0 ? (
-            <div className="py-20 flex flex-col items-center justify-center glass-card rounded-2xl border-dashed text-center px-6">
-              <span className="material-symbols-outlined text-6xl text-outline-variant mb-4">smartphone</span>
-              <h4 className="text-lg font-bold text-on-surface-variant">Sin líneas conectadas</h4>
-              <p className="text-sm text-on-surface-variant/60 max-w-sm mt-2">
-                No tienes ninguna línea de WhatsApp vinculada. Haz clic en el botón superior para agregar la primera.
-              </p>
-            </div>
-          ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {lines.map((line) => (
-                <div key={line.id} className="glass-card rounded-2xl p-5 flex items-center justify-between gap-4 hover:shadow-xl hover:translate-y-[-2px] transition-all duration-300 group relative overflow-hidden">
-                  {/* Subtle status background glow */}
-                  <div className={`absolute inset-0 opacity-[0.03] pointer-events-none ${
-                    line.status === 'CONNECTED' ? 'bg-emerald-500' : 
-                    line.status === 'QR_PENDING' ? 'bg-amber-500' : 'bg-red-500'
-                  }`}></div>
-
-                  <div className="flex items-center gap-4 relative">
-                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all ${
-                      line.status === 'CONNECTED' ? 'bg-emerald-100/50 text-emerald-600' : 
-                      line.status === 'QR_PENDING' ? 'bg-amber-100/50 text-amber-600' : 'bg-slate-100/50 text-slate-400'
-                    }`}>
-                      <span className="material-symbols-outlined text-2xl">smartphone</span>
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-on-surface flex items-center gap-2">
-                        {line.name}
-                        <div className={`w-2 h-2 rounded-full ${
-                          line.status === 'CONNECTED' ? 'bg-emerald-500 animate-pulse' : 
-                          line.status === 'QR_PENDING' ? 'bg-amber-500' : 'bg-red-500'
-                        }`}></div>
-                      </h4>
-                      <p className="text-[11px] text-on-surface-variant font-mono opacity-70">
-                        {line.status === 'CONNECTED' ? (line.phone || 'ACTIVE SESSION') : 'READY TO LINK'}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="hidden sm:block text-right">
-                       <span className={`text-[9px] font-black px-2 py-1 rounded-md tracking-widest ${
-                         line.status === 'CONNECTED' ? 'bg-emerald-100 text-emerald-700' : 
-                         line.status === 'QR_PENDING' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
-                       }`}>
-                         {line.status}
-                       </span>
-                    </div>
-                    
-                    {line.status !== 'CONNECTED' && (
-                      <button 
-                        onClick={() => {
-                          setActiveQrLine(line.id);
-                          handleAddLine(line.id); // Re-use connection logic
-                        }}
-                        className="px-3 py-2 rounded-xl bg-primary/10 text-primary text-[10px] font-black hover:bg-primary hover:text-white transition-all flex items-center gap-1"
-                      >
-                        <span className="material-symbols-outlined text-sm">qr_code</span>
-                        RECONNECT
-                      </button>
-                    )}
-
-                    <button 
-                      onClick={() => handleDisconnect(line.id)}
-                      className="w-10 h-10 flex items-center justify-center rounded-xl border border-outline-variant text-on-surface-variant hover:text-error hover:bg-error/5 transition-all"
-                      title="Logout/Remove"
-                    >
-                      <span className="material-symbols-outlined text-lg">link_off</span>
-                    </button>
-                  </div>
-                </div>
+              {Array.from({ length: 2 }).map((_, index) => (
+                <SkeletonCard key={index} />
               ))}
             </div>
+          ) : lines.length === 0 ? (
+            <Card variant="glass" padding="lg" className="border-dashed">
+              <EmptyState
+                icon="smartphone"
+                title="Sin líneas conectadas"
+                description="No tenés ninguna línea de WhatsApp vinculada. Usá el botón Nueva Conexión para empezar."
+                action={
+                  <Button
+                    variant="primary"
+                    size="md"
+                    leadingIcon="add"
+                    onClick={() => setShowAddLine(true)}
+                  >
+                    Nueva Conexión
+                  </Button>
+                }
+              />
+            </Card>
+          ) : (
+            <ul className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {lines.map((line, index) => (
+                <li
+                  key={line.id}
+                  className="animate-fade-in-up"
+                  style={{ animationDelay: `${Math.min(index, 10) * 30}ms` }}
+                >
+                  <Card
+                    variant="glass"
+                    interactive
+                    padding="md"
+                    className="flex items-center justify-between gap-4 relative overflow-hidden"
+                  >
+                    <div
+                      aria-hidden="true"
+                      className={cn(
+                        'absolute inset-0 opacity-[0.04] pointer-events-none',
+                        line.status === 'CONNECTED' && 'bg-success',
+                        line.status === 'QR_PENDING' && 'bg-warning',
+                        line.status === 'CONNECTING' && 'bg-info',
+                        line.status === 'DISCONNECTED' && 'bg-error',
+                      )}
+                    />
+
+                    <div className="flex items-center gap-4 relative min-w-0">
+                      <div
+                        className={cn(
+                          'w-12 h-12 rounded-xl flex items-center justify-center',
+                          line.status === 'CONNECTED' && 'bg-success-container text-on-success-container',
+                          line.status === 'QR_PENDING' && 'bg-warning-container text-on-warning-container',
+                          line.status === 'CONNECTING' && 'bg-info-container text-on-info-container',
+                          line.status === 'DISCONNECTED' && 'bg-error-container text-on-error-container',
+                        )}
+                      >
+                        <Icon name="smartphone" size="lg" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-body font-semibold text-on-surface truncate">
+                            {line.name}
+                          </h4>
+                          {line.status === 'CONNECTED' && <Badge variant="success" dot />}
+                        </div>
+                        <p className="text-caption text-on-surface-variant font-mono truncate">
+                          {line.status === 'CONNECTED'
+                            ? line.phone || 'Sesión activa'
+                            : 'Listo para vincular'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 relative flex-shrink-0">
+                      <Badge variant={STATUS_BADGE_VARIANT[line.status]} size="sm" className="hidden sm:inline-flex">
+                        {STATUS_LABEL[line.status]}
+                      </Badge>
+
+                      {line.status !== 'CONNECTED' && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          leadingIcon="qr_code"
+                          onClick={() => {
+                            setActiveQrLine(line.id);
+                            handleAddLine(line.id);
+                          }}
+                        >
+                          Reconectar
+                        </Button>
+                      )}
+
+                      <Button
+                        variant="icon"
+                        size="sm"
+                        aria-label="Desvincular línea"
+                        onClick={() => handleDisconnect(line.id)}
+                        className="text-on-surface-variant hover:text-error hover:bg-error/5"
+                      >
+                        <Icon name="link_off" size="sm" />
+                      </Button>
+                    </div>
+                  </Card>
+                </li>
+              ))}
+            </ul>
           )}
         </div>
       </div>
 
-      {/* Add Line Modal */}
-      {showAddLine && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-on-background/40 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl border border-outline-variant animate-in zoom-in-95 duration-300">
-            <h3 className="text-2xl font-black text-primary mb-2">New WhatsApp Line</h3>
-            <p className="text-on-surface-variant text-sm mb-6 font-medium">Asigna un nombre interno para identificar esta línea.</p>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest block mb-2 px-1">Friendly Name</label>
-                <input 
-                  type="text" 
-                  placeholder="Ej. Ventas Argentina" 
-                  className="w-full px-4 py-3 rounded-xl bg-surface-container-low border border-outline-variant focus:border-primary focus:ring-2 ring-primary/20 outline-none transition-all"
-                  value={newLineName}
-                  onChange={(e) => setNewLineName(e.target.value)}
-                />
-              </div>
-              <div className="flex gap-3 pt-4">
-                <button 
-                  onClick={() => setShowAddLine(false)}
-                  className="flex-1 py-3 rounded-xl font-bold text-on-surface-variant hover:bg-surface-container transition-colors"
-                >
-                  CANCEL
-                </button>
-                <button 
-                  onClick={() => handleAddLine()}
-                  className="flex-1 py-3 bg-primary text-on-primary rounded-xl font-black shadow-lg shadow-primary/20 hover:opacity-90 transition-all active:scale-95"
-                >
-                  CREATE & LINK
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+      <Modal
+        open={showAddLine}
+        onClose={() => setShowAddLine(false)}
+        size="sm"
+        title="Nueva línea de WhatsApp"
+        description="Asigná un nombre interno para identificar esta línea."
+        footer={
+          <>
+            <Button variant="ghost" size="md" onClick={() => setShowAddLine(false)}>
+              Cancelar
+            </Button>
+            <Button
+              variant="primary"
+              size="md"
+              loading={submitting}
+              disabled={!newLineName.trim()}
+              onClick={() => handleAddLine()}
+            >
+              Crear y vincular
+            </Button>
+          </>
+        }
+      >
+        <FormInput
+          label="Nombre amistoso"
+          floatingLabel
+          value={newLineName}
+          onChange={(event) => setNewLineName(event.target.value)}
+          autoFocus
+        />
+      </Modal>
+    </section>
   );
 };
 

@@ -1,35 +1,40 @@
-import React, { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { apiFetchJson } from '../lib/apiClient';
+import {
+  Badge,
+  Button,
+  Card,
+  FormInput,
+  FormSelect,
+  Icon,
+  useToast,
+} from './ui';
 
 interface AIConfig {
   systemPrompt: string;
-  businessContext: any;
+  businessContext: Record<string, unknown>;
   assignedAiProvider: string;
   aiApiKey?: string;
   aiModel?: string;
 }
 
 const AIConfiguration = () => {
-  const [lines, setLines] = useState<{ id: string, name: string }[]>([]);
+  const [lines, setLines] = useState<{ id: string; name: string }[]>([]);
   const [selectedLineId, setSelectedLineId] = useState<string>('');
   const [config, setConfig] = useState<AIConfig>({
     systemPrompt: '',
     businessContext: {},
-    assignedAiProvider: 'gemini'
+    assignedAiProvider: 'gemini',
   });
   const [jsonText, setJsonText] = useState('{}');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
-
-  const token = localStorage.getItem('token');
+  const toast = useToast();
 
   useEffect(() => {
     const fetchLines = async () => {
       try {
-        const res = await fetch('/api/lines', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        const data = await res.json();
+        const data = await apiFetchJson<{ lines: { id: string; name: string }[] }>('/api/lines');
         setLines(data.lines || []);
         if (data.lines?.length > 0 && !selectedLineId) {
           setSelectedLineId(data.lines[0].id);
@@ -39,7 +44,7 @@ const AIConfiguration = () => {
       }
     };
     fetchLines();
-  }, [token]);
+  }, []);
 
   useEffect(() => {
     if (!selectedLineId) return;
@@ -47,12 +52,12 @@ const AIConfiguration = () => {
     const fetchConfig = async () => {
       setLoading(true);
       try {
-        const res = await fetch(`/api/lines/${selectedLineId}/config`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        const data = await res.json();
-        setConfig(data);
-        setJsonText(JSON.stringify(data.businessContext || {}, null, 2));
+        const [contextData, configData] = await Promise.all([
+          apiFetchJson<{ businessContext: any; systemPrompt: string }>(`/api/lines/${selectedLineId}/context`),
+          apiFetchJson<{ assignedAiProvider: string; aiApiKey?: string; aiModel?: string }>(`/api/lines/${selectedLineId}/config`),
+        ]);
+        setConfig(prev => ({ ...prev, ...contextData, ...configData }));
+        setJsonText(JSON.stringify(contextData.businessContext || {}, null, 2));
       } catch (err) {
         console.error('Error fetching config:', err);
       } finally {
@@ -60,226 +65,274 @@ const AIConfiguration = () => {
       }
     };
     fetchConfig();
-  }, [selectedLineId, token]);
+  }, [selectedLineId]);
 
   const handleSave = async () => {
     setSaving(true);
-    setMessage(null);
     try {
-      let parsedContext = {};
+      let parsedContext: Record<string, unknown> = {};
       try {
         parsedContext = JSON.parse(jsonText);
-      } catch (e) {
-        setMessage({ type: 'error', text: 'Error en el formato JSON del contexto de negocio.' });
+      } catch {
+        toast.show('Error en el formato JSON del contexto de negocio.', {
+          variant: 'error',
+          title: 'JSON inválido',
+        });
         setSaving(false);
         return;
       }
 
-      const res = await fetch(`/api/lines/${selectedLineId}/config`, {
+      await apiFetchJson(`/api/lines/${selectedLineId}/context`, {
         method: 'PUT',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ businessContext: parsedContext, systemPrompt: config.systemPrompt }),
+      });
+      await apiFetchJson(`/api/lines/${selectedLineId}/config`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...config,
-          businessContext: parsedContext
-        })
+          assignedAiProvider: config.assignedAiProvider,
+          aiApiKey: config.aiApiKey,
+          aiModel: config.aiModel,
+        }),
       });
 
-      if (res.ok) {
-        setMessage({ type: 'success', text: 'Configuración guardada correctamente.' });
-      } else {
-        throw new Error('Error al guardar');
-      }
-    } catch (err) {
-      setMessage({ type: 'error', text: 'Hubo un problema al guardar la configuración.' });
+      toast.show('Configuración guardada correctamente.', {
+        variant: 'success',
+        title: 'Guardado',
+      });
+    } catch {
+      toast.show('Hubo un problema al guardar la configuración.', {
+        variant: 'error',
+        title: 'Error',
+      });
     } finally {
       setSaving(false);
     }
   };
 
+  const handleFormatJson = () => {
+    try {
+      setJsonText(JSON.stringify(JSON.parse(jsonText), null, 2));
+    } catch {
+      toast.show('No se puede formatear: el JSON tiene errores.', { variant: 'warning' });
+    }
+  };
+
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="flex flex-col gap-2">
-        <h1 className="text-4xl font-black text-primary tracking-tighter">AI Configuration</h1>
-        <p className="text-on-surface-variant font-medium">Define el comportamiento y contexto de tus agentes inteligentes.</p>
-      </div>
+    <section className="space-y-6">
+      <header className="flex flex-col gap-2">
+        <h1 className="text-display-sm text-primary">AI Configuration</h1>
+        <p className="text-body text-on-surface-variant">
+          Definí el comportamiento y contexto de tus agentes inteligentes.
+        </p>
+      </header>
 
       <div className="grid grid-cols-12 gap-6 items-start">
-        {/* Main Form */}
         <div className="col-span-12 lg:col-span-8 space-y-6">
-          {/* Line Selector */}
-          <section className="glass-card p-6 rounded-2xl border border-outline-variant/30 shadow-sm bg-white/70 backdrop-blur-xl">
-            <div className="flex items-center gap-3 mb-6 text-secondary">
-              <span className="material-symbols-outlined font-variation-settings-fill">account_tree</span>
-              <h3 className="font-bold uppercase tracking-wider text-xs">Seleccionar Línea</h3>
-            </div>
-            <select 
-              value={selectedLineId}
-              onChange={(e) => setSelectedLineId(e.target.value)}
-              className="w-full bg-white border border-outline-variant rounded-xl p-4 text-sm focus:ring-2 focus:ring-secondary focus:border-secondary outline-none transition-all font-bold text-primary"
-            >
-              {lines.map(line => (
-                <option key={line.id} value={line.id}>{line.name}</option>
-              ))}
-              {lines.length === 0 && <option value="">No hay líneas disponibles</option>}
-            </select>
-          </section>
+          <Card variant="glass" padding="lg" className="animate-fade-in-up">
+            <Card.Header>
+              <div className="flex items-center gap-3 text-secondary">
+                <Icon name="account_tree" size="md" filled />
+                <h3 className="text-title uppercase">Seleccionar línea</h3>
+              </div>
+            </Card.Header>
+            <Card.Body>
+              <FormSelect
+                aria-label="Seleccionar línea"
+                value={selectedLineId}
+                onChange={(event) => setSelectedLineId(event.target.value)}
+                disabled={lines.length === 0}
+              >
+                {lines.length === 0 && <option value="">No hay líneas disponibles</option>}
+                {lines.map((line) => (
+                  <option key={line.id} value={line.id}>
+                    {line.name}
+                  </option>
+                ))}
+              </FormSelect>
+            </Card.Body>
+          </Card>
 
-          {/* Model & System Prompt */}
-          <section className="glass-card p-8 rounded-2xl border border-outline-variant/30 shadow-sm space-y-8 bg-white/70 backdrop-blur-xl">
-            <div className="flex items-center gap-3 text-secondary">
-              <span className="material-symbols-outlined">psychology_alt</span>
-              <h3 className="font-bold uppercase tracking-wider text-sm">Personalidad y Modelo</h3>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest px-1">AI Provider</label>
-                <select 
+          <Card
+            variant="glass"
+            padding="lg"
+            className="animate-fade-in-up"
+            style={{ animationDelay: '60ms' }}
+          >
+            <Card.Header>
+              <div className="flex items-center gap-3 text-secondary">
+                <Icon name="psychology_alt" size="md" />
+                <h3 className="text-title uppercase">Personalidad y modelo</h3>
+              </div>
+            </Card.Header>
+            <Card.Body className="gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormSelect
+                  label="AI Provider"
                   value={config.assignedAiProvider}
-                  onChange={(e) => setConfig({ ...config, assignedAiProvider: e.target.value })}
-                  className="w-full bg-surface-container-low border border-outline-variant rounded-xl p-3 text-sm font-semibold outline-none focus:ring-2 ring-secondary/20 transition-all"
+                  onChange={(event) =>
+                    setConfig({ ...config, assignedAiProvider: event.target.value })
+                  }
                 >
                   <option value="gemini">Google Gemini 1.5 Pro</option>
                   <option value="openai">OpenAI GPT-4o</option>
                   <option value="anthropic">Anthropic Claude 3.5</option>
-                </select>
-              </div>
+                </FormSelect>
 
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest px-1">Model Name (Optional)</label>
-                <input 
-                  type="text"
+                <FormInput
+                  label="Model Name (Opcional)"
+                  placeholder="Ej. gpt-4o, gemini-1.5-pro"
                   value={config.aiModel || ''}
-                  onChange={(e) => setConfig({ ...config, aiModel: e.target.value })}
-                  placeholder="Ej: gpt-4o, gemini-1.5-pro"
-                  className="w-full bg-surface-container-low border border-outline-variant rounded-xl p-3 text-sm font-semibold outline-none focus:ring-2 ring-secondary/20 transition-all"
+                  onChange={(event) => setConfig({ ...config, aiModel: event.target.value })}
+                  helperText="Si se deja vacío, se usará el modelo estándar."
                 />
-                <p className="text-[9px] text-on-surface-variant/60 px-1 italic">Si se deja vacío, se usará el modelo estándar (Flash/Mini).</p>
-              </div>
 
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest px-1">API Key (Optional)</label>
-                <input 
+                <FormInput
+                  label="API Key (Opcional)"
                   type="password"
+                  placeholder="sk-..."
                   value={config.aiApiKey || ''}
-                  onChange={(e) => setConfig({ ...config, aiApiKey: e.target.value })}
-                  placeholder="Sk-..."
-                  className="w-full bg-surface-container-low border border-outline-variant rounded-xl p-3 text-sm font-semibold outline-none focus:ring-2 ring-secondary/20 transition-all"
+                  onChange={(event) => setConfig({ ...config, aiApiKey: event.target.value })}
+                  helperText="Si se deja vacío, se usará la clave por defecto."
+                  containerClassName="md:col-span-2"
                 />
-                <p className="text-[9px] text-on-surface-variant/60 px-1 italic">Si se deja vacío, se usará la clave configurada por defecto en el servidor.</p>
               </div>
-            </div>
 
-            <div className="space-y-2">
-              <div className="flex justify-between items-center px-1">
-                <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest">System Prompt</label>
-                <span className="text-[10px] font-mono text-on-surface-variant/50">{config.systemPrompt.length} / 4000</span>
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <label
+                    htmlFor="system-prompt"
+                    className="text-caption uppercase tracking-wider text-on-surface-variant"
+                  >
+                    System Prompt
+                  </label>
+                  <span className="text-overline font-mono text-on-surface-variant/70">
+                    {config.systemPrompt.length} / 4000
+                  </span>
+                </div>
+                <textarea
+                  id="system-prompt"
+                  value={config.systemPrompt}
+                  onChange={(event) =>
+                    setConfig({ ...config, systemPrompt: event.target.value })
+                  }
+                  disabled={loading}
+                  placeholder="Ej. Eres un asistente de ventas experto en seguros..."
+                  className="w-full h-48 bg-white/70 backdrop-blur-xl border border-outline-variant/60 hover:border-primary/40 focus:border-primary rounded-xl p-4 text-body text-on-surface placeholder:text-on-surface-variant/70 focus-ring transition-all duration-250 ease-premium resize-y"
+                />
               </div>
-              <textarea 
-                value={config.systemPrompt}
-                onChange={(e) => setConfig({ ...config, systemPrompt: e.target.value })}
-                className="w-full h-48 bg-surface-container-low border border-outline-variant rounded-2xl p-5 text-sm leading-relaxed focus:ring-2 focus:ring-secondary/20 outline-none transition-all resize-none font-medium text-on-surface"
-                placeholder="Ej. Eres un asistente de ventas experto en seguros..."
-              />
-            </div>
-          </section>
+            </Card.Body>
+          </Card>
 
-          {/* Business Context JSON */}
-          <section className="glass-card p-8 rounded-2xl border border-outline-variant/30 shadow-sm space-y-6 bg-white/70 backdrop-blur-xl">
-            <div className="flex items-center justify-between">
+          <Card
+            variant="glass"
+            padding="lg"
+            className="animate-fade-in-up"
+            style={{ animationDelay: '120ms' }}
+          >
+            <Card.Header>
               <div className="flex items-center gap-3 text-secondary">
-                <span className="material-symbols-outlined">database</span>
-                <h3 className="font-bold uppercase tracking-wider text-sm">Contexto de Negocio (JSON)</h3>
+                <Icon name="database" size="md" />
+                <h3 className="text-title uppercase">Contexto de negocio (JSON)</h3>
               </div>
-              <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md">DATOS DINÁMICOS</span>
-            </div>
-            
-            <p className="text-xs text-on-surface-variant font-medium">
-              Define la información base que el bot utilizará para responder (Precios, FAQs, Horarios, etc.) en formato JSON.
-            </p>
-
-            <div className="relative group">
-              <div className="absolute top-4 right-4 z-10 flex gap-2">
-                <button 
-                   onClick={() => {
-                     try { setJsonText(JSON.stringify(JSON.parse(jsonText), null, 2)); } catch(e) {}
-                   }}
-                   className="p-2 bg-white/80 backdrop-blur border border-outline-variant rounded-lg hover:bg-white transition-colors"
-                   title="Autoformat JSON"
-                >
-                  <span className="material-symbols-outlined text-sm">format_align_left</span>
-                </button>
+              <Badge variant="success" size="sm">
+                Datos dinámicos
+              </Badge>
+            </Card.Header>
+            <Card.Body>
+              <p className="text-body-sm text-on-surface-variant">
+                Definí la información base que el bot usará para responder (precios, FAQs,
+                horarios, etc.) en formato JSON.
+              </p>
+              <div className="relative">
+                <div className="absolute top-3 right-3 z-10">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    leadingIcon="format_align_left"
+                    onClick={handleFormatJson}
+                  >
+                    Formatear
+                  </Button>
+                </div>
+                <textarea
+                  aria-label="Contexto de negocio JSON"
+                  value={jsonText}
+                  onChange={(event) => setJsonText(event.target.value)}
+                  spellCheck={false}
+                  placeholder='{ "empresa": "Mi Negocio", "servicios": [] }'
+                  className="w-full h-80 bg-inverse-surface text-success font-mono text-body-sm p-5 pt-14 rounded-2xl border border-outline-variant/40 focus-ring transition-all duration-250 ease-premium resize-y"
+                />
               </div>
-              <textarea 
-                value={jsonText}
-                onChange={(e) => setJsonText(e.target.value)}
-                className="w-full h-80 bg-slate-900 text-teal-400 font-mono text-xs p-6 rounded-2xl border-none focus:ring-2 focus:ring-teal-500/50 outline-none transition-all resize-y shadow-2xl"
-                placeholder='{ "empresa": "Mi Negocio", "servicios": [...] }'
-              />
-            </div>
-          </section>
+            </Card.Body>
+          </Card>
         </div>
 
-        {/* Sidebar Actions */}
         <div className="col-span-12 lg:col-span-4 space-y-6 lg:sticky lg:top-24">
-          <div className="bg-primary p-8 rounded-3xl shadow-2xl shadow-primary/30 text-on-primary space-y-6 relative overflow-hidden">
-            <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-3xl"></div>
-            
-            <div className="flex items-center gap-3">
-              <span className="material-symbols-outlined text-secondary">verified_user</span>
-              <h4 className="font-black uppercase tracking-widest text-[11px]">Guardar Cambios</h4>
-            </div>
-
-            <p className="text-sm opacity-80 font-medium">
-              Los cambios se aplicarán instantáneamente a todas las conversaciones activas en esta línea.
-            </p>
-
-            {message && (
-              <div className={`p-4 rounded-xl text-xs font-bold ${
-                message.type === 'success' ? 'bg-emerald-500/20 text-emerald-200' : 'bg-red-500/20 text-red-200'
-              } animate-in zoom-in-95 duration-300`}>
-                {message.text}
+          <Card
+            variant="solid"
+            padding="lg"
+            className="bg-primary text-on-primary border-none shadow-glass-xl relative overflow-hidden animate-fade-in-up"
+            style={{ animationDelay: '180ms' }}
+          >
+            <div
+              aria-hidden="true"
+              className="absolute -top-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-3xl pointer-events-none"
+            />
+            <div className="relative flex flex-col gap-4">
+              <div className="flex items-center gap-2">
+                <Icon name="verified_user" size="md" className="text-secondary" />
+                <h4 className="text-title uppercase">Guardar cambios</h4>
               </div>
-            )}
+              <p className="text-body-sm opacity-80">
+                Los cambios se aplicarán instantáneamente a todas las conversaciones activas en
+                esta línea.
+              </p>
+              <Button
+                variant="secondary"
+                size="lg"
+                fullWidth
+                loading={saving}
+                disabled={!selectedLineId}
+                leadingIcon={saving ? undefined : 'save'}
+                onClick={handleSave}
+              >
+                {saving ? 'Guardando…' : 'Guardar configuración'}
+              </Button>
+            </div>
+          </Card>
 
-            <button 
-              onClick={handleSave}
-              disabled={saving || !selectedLineId}
-              className="w-full py-4 bg-secondary text-on-primary rounded-2xl font-black shadow-lg shadow-black/20 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 disabled:scale-100 flex items-center justify-center gap-2"
-            >
-              {saving ? (
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-              ) : (
-                <span className="material-symbols-outlined text-lg font-variation-settings-fill">save</span>
-              )}
-              {saving ? 'GUARDANDO...' : 'GUARDAR CONFIGURACIÓN'}
-            </button>
-          </div>
-
-          <div className="glass-card p-6 rounded-2xl border border-outline-variant/30 shadow-sm space-y-4 bg-white/70 backdrop-blur-xl">
-             <div className="flex items-center gap-2 text-on-surface-variant">
-               <span className="material-symbols-outlined text-lg">info</span>
-               <span className="text-[10px] font-black uppercase tracking-widest">Tips de Ingeniería</span>
-             </div>
-             <ul className="space-y-3">
-               {[
-                 'Usa un system prompt claro y conciso.',
-                 'Evita JSONs de más de 50KB para mejor performance.',
-                 'Gemini 1.5 Pro maneja mejor contextos largos.'
-               ].map((tip, i) => (
-                 <li key={i} className="flex gap-2 text-xs font-medium text-on-surface-variant opacity-80">
-                   <span className="text-secondary">•</span>
-                   {tip}
-                 </li>
-               ))}
-             </ul>
-          </div>
+          <Card
+            variant="glass"
+            padding="md"
+            className="animate-fade-in-up"
+            style={{ animationDelay: '240ms' }}
+          >
+            <Card.Header>
+              <div className="flex items-center gap-2 text-on-surface-variant">
+                <Icon name="info" size="sm" />
+                <span className="text-caption uppercase tracking-wider">Tips</span>
+              </div>
+            </Card.Header>
+            <Card.Body>
+              <ul className="space-y-2">
+                {[
+                  'Usá un system prompt claro y conciso.',
+                  'Evitá JSON de más de 50KB para mejor performance.',
+                  'Gemini 1.5 Pro maneja mejor contextos largos.',
+                ].map((tip) => (
+                  <li key={tip} className="flex gap-2 text-body-sm text-on-surface-variant">
+                    <Icon name="check_circle" size="xs" className="text-success mt-0.5" />
+                    <span>{tip}</span>
+                  </li>
+                ))}
+              </ul>
+            </Card.Body>
+          </Card>
         </div>
       </div>
-    </div>
+    </section>
   );
 };
 

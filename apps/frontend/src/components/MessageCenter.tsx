@@ -1,4 +1,18 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { apiFetch, apiFetchJson } from '../lib/apiClient';
+import {
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  FormInput,
+  FormSelect,
+  Icon,
+  Skeleton,
+  SkeletonCard,
+  SkeletonText,
+  cn,
+} from './ui';
 
 interface Chat {
   id: string;
@@ -10,6 +24,7 @@ interface Chat {
   aiPausedUntil?: string;
   assignedTo?: { id: string; name: string; email: string };
   unreadCount?: number;
+  lineId?: string;
 }
 
 interface Agent {
@@ -31,10 +46,11 @@ const MessageCenter = () => {
   const [activeChat, setActiveChat] = useState<Chat | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [loadingChats, setLoadingChats] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
   const [agents, setAgents] = useState<Agent[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const token = localStorage.getItem('token');
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -42,96 +58,80 @@ const MessageCenter = () => {
 
   const fetchChats = async () => {
     try {
-      const res = await fetch('/api/chats', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const data = await res.json();
+      const data = await apiFetchJson<{ chats: Chat[] }>('/api/chats');
       setChats(data.chats || []);
       if (data.chats?.length > 0 && !activeChat) {
         setActiveChat(data.chats[0]);
       }
-    } catch (err) {}
+    } catch {
+      // Silent: chat list falls back to previous state.
+    } finally {
+      setLoadingChats(false);
+    }
   };
 
   const fetchAgents = async () => {
     try {
-      const res = await fetch('/api/agents', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const data = await res.json();
+      const data = await apiFetchJson<{ agents: Agent[] }>('/api/agents');
       setAgents(data.agents || []);
-    } catch (err) {}
+    } catch {
+      // Agents list is optional.
+    }
   };
 
   const fetchMessages = async (phone: string) => {
-    setLoading(true);
+    setLoadingMessages(true);
     try {
-      const res = await fetch(`/api/messages/${phone}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const data = await res.json();
+      const data = await apiFetchJson<{ messages: Message[] }>(`/api/messages/${phone}`);
       setMessages((data.messages || []).reverse());
       setTimeout(scrollToBottom, 100);
-    } catch (err) {} finally {
-      setLoading(false);
+    } catch {
+      // Preserve previous thread on network error.
+    } finally {
+      setLoadingMessages(false);
     }
   };
 
   useEffect(() => {
     fetchChats();
     fetchAgents();
-  }, [token]);
+  }, []);
 
   useEffect(() => {
-    if (activeChat) {
-      fetchMessages(activeChat.phone);
-      // Mark as read when opening
-      fetch(`/api/messages/${activeChat.phone}/read`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
-      }).then(() => {
-        window.dispatchEvent(new CustomEvent('boti:fetch-unread'));
-        // Local update to clear badge
-        setChats(prev => prev.map(c => c.phone === activeChat.phone ? { ...c, unreadCount: 0 } : c));
-      });
-    }
+    if (!activeChat) return;
+    fetchMessages(activeChat.phone);
+    apiFetch(`/api/messages/${activeChat.phone}/read`, { method: 'POST' }).then(() => {
+      window.dispatchEvent(new CustomEvent('boti:fetch-unread'));
+      setChats((prev) =>
+        prev.map((c) => (c.phone === activeChat.phone ? { ...c, unreadCount: 0 } : c)),
+      );
+    }).catch(() => {});
   }, [activeChat?.id]);
 
-  // Listen for GLOBAL WS Events from App.tsx
   useEffect(() => {
-    const handleWSEvent = (e: any) => {
-      const { event, data, payload } = e.detail;
-      const body = data || payload || e.detail;
-      
-      if (event === 'message:new' || event === 'message:status' || event === 'operator:notification') {
+    const handleWSEvent = (event: Event) => {
+      const detail = (event as CustomEvent<{ event: string; data?: Record<string, unknown>; payload?: Record<string, unknown> }>).detail;
+      if (!detail) return;
+      const body = (detail.data || detail.payload || {}) as Record<string, unknown>;
+
+      if (
+        detail.event === 'message:new' ||
+        detail.event === 'message:status' ||
+        detail.event === 'operator:notification'
+      ) {
         fetchChats();
-        
-        let phone = body.fromPhone || body.clientPhone || body.remoteJid || body.to;
+
+        let phone = (body.fromPhone || body.clientPhone || body.remoteJid || body.to) as
+          | string
+          | undefined;
         if (phone && typeof phone === 'string') {
           phone = phone.split('@')[0].split(':')[0];
           if (activeChat && phone === activeChat.phone) {
-            // Append message locally if it's new
-            if (event === 'message:new') {
-              const incomingMsg: Message = {
-                id: body.id || Date.now().toString(),
-                content: body.content,
-                direction: body.direction || (body.fromPhone ? 'INBOUND' : 'OUTBOUND'),
-                type: body.type || 'TEXT',
-                createdAt: body.createdAt || new Date().toISOString()
-              };
-              setMessages(prev => {
-                if (prev.some(m => m.id === incomingMsg.id)) return prev;
-                return [...prev, incomingMsg];
-              });
-              setTimeout(scrollToBottom, 100);
-              
-              // Mark as read immediately
-              fetch(`/api/messages/${activeChat.phone}/read`, {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}` }
-              }).then(() => window.dispatchEvent(new CustomEvent('boti:fetch-unread')));
-            } else {
-              fetchMessages(activeChat.phone);
+            fetchMessages(activeChat.phone);
+            if (detail.event === 'message:new') {
+              apiFetch(`/api/messages/${activeChat.phone}/read`, { method: 'POST' })
+                .then(() => window.dispatchEvent(new CustomEvent('boti:fetch-unread')))
+                .catch(() => {});
             }
           }
         }
@@ -144,218 +144,353 @@ const MessageCenter = () => {
 
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !activeChat) return;
+    if (!activeChat.lineId) return;
     try {
-      const res = await fetch('/api/messages/send', {
+      await apiFetch('/api/messages/send', {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          lineId: 'prueba',
+          lineId: activeChat.lineId,
           to: activeChat.phone,
           content: newMessage,
-          type: 'TEXT'
-        })
+          type: 'TEXT',
+        }),
       });
-      if (res.ok) {
-        setNewMessage('');
-        fetchMessages(activeChat.phone);
-      }
-    } catch (err) {}
+      setNewMessage('');
+      fetchMessages(activeChat.phone);
+    } catch {
+      // Compose state preserved for retry.
+    }
   };
 
   const handlePauseAI = async (hours: number) => {
     if (!activeChat) return;
     try {
-      const res = await fetch(`/api/clients/${activeChat.phone}/pause`, {
+      const data = await apiFetchJson<{ pausedUntil: string }>(`/api/clients/${activeChat.phone}/pause`, {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ hours })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hours }),
       });
-      if (res.ok) {
-        const data = await res.json();
-        setActiveChat({ ...activeChat, aiPausedUntil: data.pausedUntil });
-      }
-    } catch (err) {}
+      setActiveChat({ ...activeChat, aiPausedUntil: data.pausedUntil });
+    } catch {
+      // UI falls back to previous state.
+    }
   };
 
   const handleAssignAgent = async (agentId: string | null) => {
     if (!activeChat) return;
     try {
-      const res = await fetch(`/api/clients/${activeChat.phone}/assign`, {
+      await apiFetch(`/api/clients/${activeChat.phone}/assign`, {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ agentId })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ agentId }),
       });
-      if (res.ok) {
-        fetchChats();
-        const agent = agents.find(a => a.id === agentId);
-        setActiveChat({ 
-          ...activeChat, 
-          assignedTo: agent ? { id: agent.id, name: agent.name, email: '' } : undefined 
-        });
-      }
-    } catch (err) {}
+      fetchChats();
+      const agent = agents.find((a) => a.id === agentId);
+      setActiveChat({
+        ...activeChat,
+        assignedTo: agent ? { id: agent.id, name: agent.name, email: '' } : undefined,
+      });
+    } catch {
+      // Assignment retained optimistically on error.
+    }
   };
 
-  const isAiCurrentlyPaused = activeChat?.aiPausedUntil && new Date(activeChat.aiPausedUntil) > new Date();
+  const isAiCurrentlyPaused =
+    !!activeChat?.aiPausedUntil && new Date(activeChat.aiPausedUntil) > new Date();
+
+  const filteredChats = searchTerm
+    ? chats.filter(
+        (chat) =>
+          chat.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          chat.phone.includes(searchTerm),
+      )
+    : chats;
 
   return (
-    <div className="flex h-[calc(100vh-48px)] -m-container-padding overflow-hidden bg-[#F8F9FD]">
-      <div className="w-80 border-r border-slate-200 flex flex-col bg-white">
-        <div className="p-4 border-b border-slate-100">
-          <div className="relative">
-            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg">search</span>
-            <input type="text" placeholder="Buscar..." className="w-full pl-10 pr-4 py-2 bg-slate-50 rounded-xl border-none focus:ring-2 focus:ring-primary/10 text-xs font-medium" />
-          </div>
+    <div className="flex h-[calc(100vh-6rem)] -mx-4 md:-mx-6 overflow-hidden bg-surface-container-lowest rounded-2xl border border-outline-variant/40 shadow-glass-sm">
+      <aside
+        aria-label="Lista de conversaciones"
+        className="w-80 border-r border-outline-variant/40 flex flex-col bg-white"
+      >
+        <div className="p-3 border-b border-outline-variant/30">
+          <FormInput
+            aria-label="Buscar conversaciones"
+            placeholder="Buscar conversaciones..."
+            leadingIcon="search"
+            value={searchTerm}
+            onChange={(event) => setSearchTerm(event.target.value)}
+          />
         </div>
         <div className="flex-1 overflow-y-auto">
-          {chats.map((chat) => (
-            <button
-              key={chat.id}
-              onClick={() => setActiveChat(chat)}
-              className={`w-full p-4 flex gap-3 hover:bg-slate-50 transition-all border-b border-slate-50 text-left ${activeChat?.id === chat.id ? 'bg-blue-50/50 border-l-4 border-l-primary' : ''}`}
-            >
-              <div className="w-11 h-11 rounded-full bg-slate-100 flex-shrink-0 flex items-center justify-center text-slate-600 font-bold text-sm border-2 border-white shadow-sm">
-                {chat.name.charAt(0)}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex justify-between items-baseline mb-0.5">
-                  <p className="text-[13px] font-bold text-slate-800 truncate">{chat.name}</p>
-                  <span className="text-[10px] text-slate-400 font-medium">
-                    {new Date(chat.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </span>
-                </div>
-                <p className="text-[11px] text-slate-500 truncate font-medium">{chat.lastMsg}</p>
-                {chat.assignedTo && (
-                  <div className="mt-1 flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-primary/40"></span>
-                    <span className="text-[9px] font-black text-primary/60 uppercase">{chat.assignedTo.name}</span>
-                  </div>
-                )}
-              </div>
-              {((chat.unreadCount || 0) > 0) && (
-                <div className="flex flex-col items-end justify-center">
-                  <div className="w-5 h-5 bg-primary text-white text-[10px] font-black rounded-full flex items-center justify-center shadow-lg shadow-primary/20 animate-pulse">
-                    {chat.unreadCount}
+          {loadingChats ? (
+            <div className="p-3 space-y-2">
+              {Array.from({ length: 5 }).map((_, index) => (
+                <div
+                  key={index}
+                  className="flex gap-3 p-3 rounded-xl bg-surface-container-low/60"
+                >
+                  <Skeleton width={40} height={40} rounded="full" />
+                  <div className="flex-1">
+                    <Skeleton height={12} width="70%" />
+                    <Skeleton height={10} width="50%" className="mt-2" />
                   </div>
                 </div>
-              )}
-            </button>
-          ))}
+              ))}
+            </div>
+          ) : filteredChats.length === 0 ? (
+            <EmptyState
+              icon="chat"
+              title="Sin conversaciones"
+              description="Aún no hay clientes que coincidan con tu búsqueda."
+            />
+          ) : (
+            <ul className="py-1">
+              {filteredChats.map((chat, index) => {
+                const isActive = activeChat?.id === chat.id;
+                const unread = chat.unreadCount || 0;
+                return (
+                  <li
+                    key={chat.id}
+                    className="animate-fade-in-up"
+                    style={{ animationDelay: `${Math.min(index, 10) * 30}ms` }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setActiveChat(chat)}
+                      aria-current={isActive ? 'true' : undefined}
+                      className={cn(
+                        'w-full px-3 py-3 flex gap-3 items-center text-left transition-colors duration-250 ease-premium focus-ring border-l-2',
+                        isActive
+                          ? 'bg-primary/5 border-l-primary'
+                          : 'border-l-transparent hover:bg-surface-container-low',
+                      )}
+                    >
+                      <div className="w-10 h-10 rounded-full bg-surface-container-high flex-shrink-0 flex items-center justify-center text-on-surface-variant font-semibold text-body-sm border border-outline-variant/40">
+                        {chat.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-baseline gap-2">
+                          <p className="text-body-sm font-semibold text-on-surface truncate">
+                            {chat.name}
+                          </p>
+                          <span className="text-overline text-on-surface-variant flex-shrink-0">
+                            {new Date(chat.time).toLocaleTimeString([], {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </span>
+                        </div>
+                        <p className="text-caption text-on-surface-variant truncate">
+                          {chat.lastMsg}
+                        </p>
+                        {chat.assignedTo && (
+                          <div className="mt-1 flex items-center gap-1">
+                            <Badge variant="primary" size="sm">
+                              <Icon name="person" size="xs" />
+                              {chat.assignedTo.name}
+                            </Badge>
+                          </div>
+                        )}
+                      </div>
+                      {unread > 0 && (
+                        <span
+                          aria-label={`${unread} sin leer`}
+                          className="min-w-[20px] h-5 px-1.5 rounded-full bg-primary text-on-primary text-overline flex items-center justify-center animate-pulse-soft"
+                        >
+                          {unread}
+                        </span>
+                      )}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </div>
-      </div>
+      </aside>
 
-      <div className="flex-1 flex flex-col relative">
+      <section className="flex-1 flex flex-col relative min-w-0">
         {activeChat ? (
           <>
-            <header className="px-6 py-4 bg-white/80 backdrop-blur-md border-b border-slate-200 flex justify-between items-center z-10">
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-primary to-blue-400 flex items-center justify-center text-white font-bold shadow-md">
-                  {activeChat.name.charAt(0)}
+            <header className="px-4 md:px-6 py-3 bg-white/80 backdrop-blur-xl border-b border-outline-variant/40 flex justify-between items-center gap-3 z-sticky">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-primary to-secondary flex items-center justify-center text-on-primary font-semibold shadow-glass-sm flex-shrink-0">
+                  {activeChat.name.charAt(0).toUpperCase()}
                 </div>
-                <div>
-                  <p className="text-sm font-bold text-slate-800 leading-tight">{activeChat.name}</p>
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-green-500"></span>
-                    <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Activo • {activeChat.phone}</p>
+                <div className="min-w-0">
+                  <p className="text-body-sm font-semibold text-on-surface truncate">
+                    {activeChat.name}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="success" dot />
+                    <span className="text-overline text-on-surface-variant uppercase truncate">
+                      Activo · {activeChat.phone}
+                    </span>
                   </div>
                 </div>
               </div>
               <div className="flex gap-2 items-center">
-                <select 
-                  value={activeChat.assignedTo?.id || ''} 
-                  onChange={(e) => handleAssignAgent(e.target.value || null)}
-                  className="bg-surface-container border-none text-[10px] font-black uppercase tracking-wider rounded-lg focus:ring-0 text-primary cursor-pointer hover:bg-primary/5 transition-colors"
+                <FormSelect
+                  aria-label="Asignar agente"
+                  value={activeChat.assignedTo?.id || ''}
+                  onChange={(event) => handleAssignAgent(event.target.value || null)}
+                  containerClassName="w-36"
                 >
-                  <option value="">Sin Asignar</option>
-                  {agents.map(a => (
-                    <option key={a.id} value={a.id}>{a.name}</option>
+                  <option value="">Sin asignar</option>
+                  {agents.map((agent) => (
+                    <option key={agent.id} value={agent.id}>
+                      {agent.name}
+                    </option>
                   ))}
-                </select>
+                </FormSelect>
 
-                <button 
+                <Button
+                  variant={isAiCurrentlyPaused ? 'primary' : 'secondary'}
+                  size="sm"
+                  leadingIcon={isAiCurrentlyPaused ? 'play_circle' : 'pause_circle'}
                   onClick={() => handlePauseAI(1)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[11px] font-bold transition-all shadow-sm border ${isAiCurrentlyPaused ? 'bg-orange-500 text-white border-orange-500' : 'bg-white hover:bg-slate-50 text-slate-600 border-slate-200'}`}
+                  className={cn(
+                    isAiCurrentlyPaused &&
+                      'bg-warning text-on-warning shadow-glass-sm hover:bg-warning/90',
+                  )}
                 >
-                  <span className="material-symbols-outlined text-sm">{isAiCurrentlyPaused ? 'play_circle' : 'pause_circle'}</span>
-                  {isAiCurrentlyPaused ? 'REANUDAR IA' : 'PAUSAR IA 1H'}
-                </button>
+                  {isAiCurrentlyPaused ? 'Reanudar IA' : 'Pausar IA 1H'}
+                </Button>
               </div>
             </header>
 
             {isAiCurrentlyPaused && (
-              <div className="bg-orange-50/80 backdrop-blur-sm border-b border-orange-100 px-6 py-2 flex items-center justify-between">
-                <p className="text-[11px] text-orange-800 font-semibold flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[14px]">warning</span>
-                  Chatbot pausado para atención manual hasta {new Date(activeChat.aiPausedUntil!).toLocaleTimeString()}
-                </p>
-              </div>
+              <Card
+                variant="solid"
+                padding="sm"
+                className="mx-4 md:mx-6 mt-3 bg-warning-container border-warning/20 text-on-warning-container"
+              >
+                <div className="flex items-center gap-2">
+                  <Icon name="warning" size="sm" />
+                  <p className="text-body-sm">
+                    Chatbot pausado para atención manual hasta{' '}
+                    {new Date(activeChat.aiPausedUntil!).toLocaleTimeString()}
+                  </p>
+                </div>
+              </Card>
             )}
 
-            <div className="flex-1 overflow-y-auto p-8 space-y-6 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] bg-fixed">
-              {messages.map((msg) => (
-                <MessageBubble 
-                  key={msg.id}
-                  type={msg.direction === 'INBOUND' ? 'received' : 'sent'} 
-                  text={msg.content} 
-                  time={new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  isAi={msg.direction === 'OUTBOUND'}
-                />
-              ))}
+            <div
+              role="log"
+              aria-live="polite"
+              aria-relevant="additions"
+              aria-label={`Conversación con ${activeChat.name}`}
+              className="flex-1 overflow-y-auto px-4 md:px-8 py-6 space-y-4 bg-surface-container-lowest"
+            >
+              {loadingMessages ? (
+                <div className="space-y-4">
+                  <SkeletonText lines={2} />
+                  <SkeletonText lines={3} className="ml-auto max-w-[60%]" />
+                  <SkeletonText lines={2} />
+                </div>
+              ) : (
+                messages.map((message, index) => (
+                  <MessageBubble
+                    key={message.id}
+                    sent={message.direction === 'OUTBOUND'}
+                    text={message.content}
+                    time={new Date(message.createdAt).toLocaleTimeString([], {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                    isAi={message.direction === 'OUTBOUND'}
+                    delay={Math.min(index, 10) * 30}
+                  />
+                ))
+              )}
               <div ref={messagesEndRef} />
             </div>
 
-            <footer className="p-6 bg-white border-t border-slate-200">
-              <div className="max-w-4xl mx-auto flex items-center gap-3 bg-slate-50 rounded-2xl p-2 pl-5 pr-2 border border-slate-200 shadow-inner">
+            <footer className="p-4 md:p-5 bg-white border-t border-outline-variant/40">
+              <div className="max-w-4xl mx-auto flex items-center gap-2 bg-surface-container-low rounded-2xl px-4 py-2 border border-outline-variant/40">
                 <input
                   type="text"
                   value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-                  placeholder="Escribe un mensaje aquí..."
-                  className="flex-1 bg-transparent border-none focus:ring-0 text-[13px] py-2 placeholder:text-slate-400 font-medium"
+                  onChange={(event) => setNewMessage(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' && !event.shiftKey) {
+                      event.preventDefault();
+                      handleSendMessage();
+                    }
+                  }}
+                  placeholder="Escribe un mensaje..."
+                  aria-label="Escribe un mensaje"
+                  className="flex-1 bg-transparent border-none focus:outline-none focus:ring-0 text-body text-on-surface placeholder:text-on-surface-variant/70 py-1"
                 />
-                <button onClick={handleSendMessage} className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-white shadow-lg shadow-primary/30 hover:scale-105 active:scale-95 transition-all">
-                  <span className="material-symbols-outlined text-lg">send</span>
-                </button>
+                <Button
+                  variant="primary"
+                  size="md"
+                  aria-label="Enviar mensaje"
+                  onClick={handleSendMessage}
+                  disabled={!newMessage.trim()}
+                  leadingIcon="send"
+                >
+                  Enviar
+                </Button>
               </div>
             </footer>
           </>
+        ) : loadingChats ? (
+          <div className="flex-1 flex items-center justify-center p-6">
+            <SkeletonCard className="max-w-md w-full" />
+          </div>
         ) : (
-          <div className="flex-1 flex flex-col items-center justify-center text-slate-300">
-            <div className="w-20 h-20 bg-slate-100 rounded-3xl flex items-center justify-center mb-4">
-              <span className="material-symbols-outlined text-4xl">chat_bubble</span>
-            </div>
-            <p className="text-sm font-semibold text-slate-400">Selecciona una conversación</p>
+          <div className="flex-1 flex items-center justify-center">
+            <EmptyState
+              icon="chat_bubble"
+              title="Selecciona una conversación"
+              description="Elegí un cliente del listado para empezar a conversar."
+            />
           </div>
         )}
-      </div>
+      </section>
     </div>
   );
 };
 
-const MessageBubble = ({ type, text, time, isAi }: any) => (
-  <div className={`flex ${type === 'sent' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2 duration-300`}>
-    <div className="max-w-[80%] relative group">
-      <div className={`px-4 py-3 rounded-2xl shadow-sm border ${type === 'sent' ? 'bg-primary border-primary text-white rounded-tr-none' : 'bg-white border-slate-200 text-slate-800 rounded-tl-none'}`}>
+interface MessageBubbleProps {
+  sent: boolean;
+  text: string;
+  time: string;
+  isAi: boolean;
+  delay: number;
+}
+
+const MessageBubble = ({ sent, text, time, isAi, delay }: MessageBubbleProps) => (
+  <div
+    className={cn('flex animate-fade-in-up', sent ? 'justify-end' : 'justify-start')}
+    style={{ animationDelay: `${delay}ms` }}
+  >
+    <div className="max-w-[80%]">
+      <div
+        className={cn(
+          'px-4 py-3 rounded-2xl shadow-glass-sm border',
+          sent
+            ? 'bg-primary text-on-primary border-primary rounded-tr-sm'
+            : 'bg-white text-on-surface border-outline-variant/40 rounded-tl-sm',
+        )}
+      >
         {isAi && (
           <div className="flex items-center gap-1.5 mb-1.5 opacity-80">
-            <span className="material-symbols-outlined text-[12px]">auto_awesome</span>
-            <span className="text-[9px] font-black uppercase tracking-widest">Inteligencia Artificial</span>
+            <Icon name="auto_awesome" size="xs" />
+            <span className="text-overline uppercase">Inteligencia Artificial</span>
           </div>
         )}
-        <p className="text-[13px] leading-relaxed font-medium whitespace-pre-wrap">{text}</p>
-        <div className={`text-[9px] mt-2 flex items-center justify-end gap-1 font-bold ${type === 'sent' ? 'text-white/60' : 'text-slate-400'}`}>
+        <p className="text-body leading-relaxed whitespace-pre-wrap">{text}</p>
+        <div
+          className={cn(
+            'text-overline mt-2 flex items-center justify-end gap-1',
+            sent ? 'text-on-primary/70' : 'text-on-surface-variant',
+          )}
+        >
           {time}
-          {type === 'sent' && <span className="material-symbols-outlined text-[10px]">done_all</span>}
+          {sent && <Icon name="done_all" size="xs" />}
         </div>
       </div>
     </div>
