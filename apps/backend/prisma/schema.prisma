@@ -1,0 +1,85 @@
+// Prisma DB Schema for Boti
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Client {
+  id          String    @id @default(uuid())
+  phone       String    @unique
+  name        String
+  isBlocked   Boolean   @default(false)
+  blockedUntil DateTime?
+  aiPausedUntil DateTime? // New field for temporary AI pause
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  messages    Message[]
+}
+
+model Message {
+  id          String    @id @default(uuid())
+  lineId      String
+  clientPhone String
+  content     String
+  type        String    // TEXT | IMAGE | PDF | LINK
+  direction   String    // INBOUND | OUTBOUND
+  status      String    // PENDING | SUCCESS | FAILED
+  sentAt      DateTime?
+  createdAt   DateTime  @default(now())
+  client      Client    @relation(fields: [clientPhone], references: [phone])
+  line        WhatsAppLine @relation(fields: [lineId], references: [id])
+}
+
+model WhatsAppLine {
+  id                String    @id @default(uuid())
+  name              String
+  phone             String?
+  status            String    @default("DISCONNECTED")
+  systemPrompt      String?
+  assignedAiProvider String?
+  aiApiKey          String?     // New field for per-line AI keys
+  aiModel           String?     // New field for specifying the model name
+  contextUrl        String?
+  contextHeaders    Json?
+  businessContext   Json?     // New field for DB-stored context
+  maxMessages       Int       @default(10)
+  createdAt         DateTime  @default(now())
+  messages          Message[]
+}
+
+model ConversationContext {
+  id          String   @id @default(uuid())
+  lineId      String
+  clientPhone String
+  clientName  String
+  summary     String   @default("")
+  messages    Json     @default("[]")
+  updatedAt   DateTime @updatedAt
+
+  @@unique([lineId, clientPhone])
+}
+
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  passwordHash String
+  name         String
+  role         String    @default("OPERATOR") // ADMIN | OPERATOR
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  action    String
+  details   Json
+  ipAddress String?
+  createdAt DateTime @default(now())
+}

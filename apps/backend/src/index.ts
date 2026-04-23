@@ -1,0 +1,185 @@
+// Boti Backend — Entry Point
+// Wires together all adapters following Hexagonal Architecture
+
+import 'dotenv/config';
+import http from 'http';
+import express from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import Redis from 'ioredis';
+
+import { logger } from './lib/logger.js';
+import { WebSocketManager } from './lib/WebSocketManager.js';
+
+import { AuthService } from './lib/AuthService.js';
+import { BaileysWhatsAppAdapter } from './adapters/whatsapp/BaileysAdapter.js';
+import { BullMQAdapter } from './adapters/queue/BullMQAdapter.js';
+import { SpamFilterAdapter } from './adapters/security/SpamFilterAdapter.js';
+import { createAIService } from './adapters/ai/AIServiceAdapter.js';
+import { ContextFetcherAdapter } from './adapters/context/ContextFetcherAdapter.js';
+import { WinstonAuditAdapter } from './adapters/audit/WinstonAuditAdapter.js';
+import {
+  PrismaClientRepository,
+  PrismaMessageRepository,
+  PrismaContextRepository,
+  prisma,
+} from './adapters/db/PrismaRepositories.js';
+
+import { HandleInboundMessage, SendMessage, BlockClient } from '@boti/core';
+import { createRouter } from './http/router.js';
+
+const PORT = parseInt(process.env.PORT ?? '3001', 10);
+const MAX_MESSAGES = parseInt(process.env.CONTEXT_MAX_MESSAGES ?? '10', 10);
+const SPAM_THRESHOLD = parseInt(process.env.SPAM_THRESHOLD ?? '50', 10);
+const REDIS_URL = process.env.REDIS_URL ?? 'redis://localhost:6379';
+
+async function bootstrap() {
+  // ─── Infrastructure ──────────────────────────────────────────────────
+  const app = express();
+  app.use(cors());
+  app.use(helmet());
+  app.use(express.json());
+
+  const server = http.createServer(app);
+  const wsManager = new WebSocketManager(server);
+
+  const redis = new Redis(REDIS_URL);
+  const redisConn = { host: redis.options.host ?? 'localhost', port: redis.options.port ?? 6379 };
+
+  // ─── Repositories ────────────────────────────────────────────────────
+  const clientRepo = new PrismaClientRepository();
+  const messageRepo = new PrismaMessageRepository();
+  const contextRepo = new PrismaContextRepository();
+
+  // ─── Audit Logger ────────────────────────────────────────────────────
+  const auditLogger = new WinstonAuditAdapter(async (entry) => {
+    await prisma.auditLog.create({ data: { action: entry.action, details: entry.details as any, userId: entry.userId } });
+  });
+
+  // --- AI Service ------------------------------------------------------
+  const aiService = createAIService(prisma);
+  const authService = new AuthService(prisma);
+
+  // --- Seed Admin User ---
+  const adminEmail = 'admin@boti.com';
+  const existingAdmin = await prisma.user.findUnique({ where: { email: adminEmail } });
+  if (!existingAdmin) {
+    const hashedPassword = await authService.hashPassword('admin123');
+    await prisma.user.create({
+      data: {
+        email: adminEmail,
+        passwordHash: hashedPassword,
+        name: 'Boti Admin',
+        role: 'ADMIN',
+        isActive: true
+      }
+    });
+    logger.info('Default admin user created: admin@boti.com / admin123');
+  }
+
+  // ─── Context Fetcher ─────────────────────────────────────────────────
+  const contextFetcher = new ContextFetcherAdapter(prisma);
+
+  // ─── WhatsApp Adapter ────────────────────────────────────────────────
+  const whatsApp = new BaileysWhatsAppAdapter(redis, (lineId, status, qrCode) => {
+    wsManager.broadcast('line:status', { lineId, status, qrCode });
+    logger.info({ lineId, status }, 'WhatsApp line status changed');
+  });
+
+  // ─── Use Cases ───────────────────────────────────────────────────────
+  const blockClientUseCase = new BlockClient(clientRepo, auditLogger);
+
+  const notifier = {
+    async notifyOperators(lineId: string, event: string, details: any) {
+      wsManager.broadcast('operator:notification', { lineId, event, details });
+    },
+  };
+
+  const handleInbound = new HandleInboundMessage({
+    clientRepo,
+    messageRepo,
+    contextRepo,
+    queue: null as any, // filled after queue init below
+    aiService,
+    contextFetcher,
+    auditLogger,
+    notifier,
+    maxMessages: MAX_MESSAGES,
+    spamThreshold: SPAM_THRESHOLD,
+  });
+
+  const sendMessageUseCase = new SendMessage(null as any, auditLogger);
+
+  // ─── Queue ───────────────────────────────────────────────────────────
+  const queue = new BullMQAdapter(
+    redisConn,
+    whatsApp,
+    messageRepo,
+    (event, data) => wsManager.broadcast(event, data),
+  );
+  // Patch use cases with real queue
+  (handleInbound as any).deps.queue = queue;
+  (sendMessageUseCase as any).queue = queue;
+
+  queue.startWorker();
+
+  // ─── Spam Filter ─────────────────────────────────────────────────────
+  const spamFilter = new SpamFilterAdapter(redis, blockClientUseCase);
+
+  // ─── Incoming Message Handler ─────────────────────────────────────────
+  whatsApp.setOnMessage(async (lineId, fromPhone, fromName, content, type) => {
+    const isSpam = await spamFilter.check(fromPhone);
+    if (isSpam) {
+      wsManager.broadcast('operator:notification', { lineId, event: 'SPAM_DETECTED', details: { phone: fromPhone } });
+      return;
+    }
+    await handleInbound.execute({ lineId, fromPhone, fromName, content, type });
+    wsManager.broadcast('message:new', { lineId, fromPhone, fromName, content, type });
+  });
+
+  // Root Health Check
+  app.get('/', (req, res) => {
+    res.json({ status: 'Boti Backend is running', timestamp: new Date() });
+  });
+
+  // ─── HTTP Routes ─────────────────────────────────────────────────────
+  app.use('/api', createRouter(whatsApp, sendMessageUseCase, blockClientUseCase, prisma));
+
+  // ─── Autostart Lines ────────────────────────────────────────────────
+  try {
+    const activeLines = await prisma.whatsAppLine.findMany();
+    logger.info({ count: activeLines.length }, 'Autostarting WhatsApp lines...');
+    for (const line of activeLines) {
+      whatsApp.connectLine(line.id).catch(err => {
+        logger.error({ lineId: line.id, err: err.message }, 'Failed to autostart line');
+      });
+    }
+  } catch (err) {
+    logger.error({ err }, 'Error during autostart');
+  }
+
+  // ─── Start ────────────────────────────────────────────────────────────
+  server.listen(PORT, () => {
+    logger.info({ port: PORT }, '🚀 Boti backend running');
+  });
+
+  // ─── Graceful Shutdown ────────────────────────────────────────────────
+  const shutdown = async (signal: string) => {
+    logger.info({ signal }, 'Graceful shutdown initiated...');
+    await queue.shutdown();
+    await prisma.$disconnect();
+    redis.disconnect();
+    server.close(() => {
+      logger.info('Server closed. Goodbye.');
+      process.exit(0);
+    });
+  };
+
+  process.on('SIGINT', () => shutdown('SIGINT'));
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+}
+
+bootstrap().catch((err) => {
+  logger.error({ err }, 'Fatal error during bootstrap');
+  process.exit(1);
+});

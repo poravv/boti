@@ -1,0 +1,69 @@
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: boti-postgres
+    environment:
+      POSTGRES_USER: boti_user
+      POSTGRES_PASSWORD: boti_password
+      POSTGRES_DB: boti_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - boti-network
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: boti-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - boti-network
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+    container_name: boti-backend
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      DATABASE_URL: "postgresql://boti_user:boti_password@postgres:5432/boti_db?schema=public"
+      REDIS_URL: "redis://redis:6379"
+      PORT: 3001
+      NODE_ENV: development
+    ports:
+      - "3001:3001"
+    volumes:
+      - .baileys-auth:/app/apps/backend/.baileys-auth
+    networks:
+      - boti-network
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: apps/frontend/Dockerfile
+    container_name: boti-frontend
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+    networks:
+      - boti-network
+    restart: unless-stopped
+
+networks:
+  boti-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:

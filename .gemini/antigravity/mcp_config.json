@@ -1,0 +1,25 @@
+{
+  "mcpServers": {
+    "engram": {
+      "command": "/usr/local/bin/engram",
+      "args": [
+        "mcp",
+        "--project",
+        "boti"
+      ],
+      "env": {
+        "ENGRAM_DATA_DIR": "/Users/andresvera/.engram"
+      }
+    },
+    "StitchMCP": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "https://stitch.googleapis.com/mcp",
+        "--header",
+        "X-Goog-Api-Key: REDACTED"
+      ]
+    }
+  }
+}

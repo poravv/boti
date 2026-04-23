@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Boti - WhatsApp Connection Management</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "tertiary-fixed-dim": "#ffb95f",
+                      "on-tertiary-container": "#de8e00",
+                      "inverse-on-surface": "#eaf1ff",
+                      "inverse-surface": "#213145",
+                      "outline": "#71787c",
+                      "on-secondary-fixed-variant": "#005048",
+                      "on-primary-fixed": "#001f2a",
+                      "on-secondary-fixed": "#00201c",
+                      "on-primary": "#ffffff",
+                      "secondary": "#006b5f",
+                      "on-error": "#ffffff",
+                      "secondary-fixed-dim": "#4fdbc8",
+                      "on-tertiary-fixed": "#2a1700",
+                      "surface-bright": "#f8f9ff",
+                      "background": "#f8f9ff",
+                      "surface-container": "#e5eeff",
+                      "primary-container": "#0d3b4c",
+                      "error-container": "#ffdad6",
+                      "surface-variant": "#d3e4fe",
+                      "surface-dim": "#cbdbf5",
+                      "inverse-primary": "#a4cce1",
+                      "on-tertiary-fixed-variant": "#653e00",
+                      "tertiary": "#321d00",
+                      "on-secondary": "#ffffff",
+                      "primary-fixed": "#bfe9fe",
+                      "secondary-fixed": "#71f8e4",
+                      "surface-tint": "#3c6376",
+                      "surface": "#f8f9ff",
+                      "on-tertiary": "#ffffff",
+                      "tertiary-container": "#4f3000",
+                      "on-background": "#0b1c30",
+                      "primary": "#002532",
+                      "outline-variant": "#c1c7cc",
+                      "on-surface-variant": "#41484c",
+                      "primary-fixed-dim": "#a4cce1",
+                      "tertiary-fixed": "#ffddb8",
+                      "surface-container-lowest": "#ffffff",
+                      "error": "#ba1a1a",
+                      "surface-container-low": "#eff4ff",
+                      "surface-container-high": "#dce9ff",
+                      "on-primary-container": "#7da5b9",
+                      "on-error-container": "#93000a",
+                      "on-primary-fixed-variant": "#224c5d",
+                      "surface-container-highest": "#d3e4fe",
+                      "secondary-container": "#6df5e1",
+                      "on-surface": "#0b1c30",
+                      "on-secondary-container": "#006f64"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.125rem",
+                      "lg": "0.25rem",
+                      "xl": "0.5rem",
+                      "full": "0.75rem"
+              },
+              "spacing": {
+                      "sidebar-width": "260px",
+                      "gutter": "16px",
+                      "sidebar-collapsed": "72px",
+                      "stack-tight": "8px",
+                      "stack-loose": "20px",
+                      "container-padding": "24px",
+                      "base": "4px"
+              },
+              "fontFamily": {
+                      "mono-data": ["monospace"],
+                      "body-sm": ["Inter"],
+                      "h1": ["Inter"],
+                      "body-md": ["Inter"],
+                      "h2": ["Inter"],
+                      "label-caps": ["Inter"]
+              },
+              "fontSize": {
+                      "mono-data": ["12px", {"lineHeight": "1", "letterSpacing": "0.05em", "fontWeight": "500"}],
+                      "body-sm": ["13px", {"lineHeight": "1.4", "letterSpacing": "0", "fontWeight": "400"}],
+                      "h1": ["32px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                      "body-md": ["14px", {"lineHeight": "1.5", "letterSpacing": "0", "fontWeight": "400"}],
+                      "h2": ["24px", {"lineHeight": "1.3", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                      "label-caps": ["11px", {"lineHeight": "1", "letterSpacing": "0.08em", "fontWeight": "700"}]
+              }
+            },
+          },
+        }
+    </script>
+<style>
+        .glass-card {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid #E2E8F0;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="bg-background font-body-md text-on-surface">
+<!-- TopNavBar Shell -->
+<header class="fixed top-0 left-0 right-0 h-16 flex justify-between items-center px-6 bg-white/70 backdrop-blur-xl dark:bg-slate-900/70 border-b border-slate-200/50 dark:border-slate-800/50 shadow-sm z-50">
+<div class="flex items-center gap-4">
+<span class="text-2xl font-black tracking-tighter text-teal-600 dark:text-teal-400">Boti</span>
+<div class="hidden md:flex ml-8 gap-6 h-full items-center">
+<span class="text-teal-600 dark:text-teal-400 font-semibold font-sans font-medium">Connections</span>
+<span class="text-slate-500 dark:text-slate-400 font-sans font-medium">Analytics</span>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 rounded-full hover:bg-slate-100/50 transition-colors">
+<span class="material-symbols-outlined text-slate-500">notifications</span>
+</button>
+<button class="p-2 rounded-full hover:bg-slate-100/50 transition-colors">
+<span class="material-symbols-outlined text-slate-500">help</span>
+</button>
+<img alt="User Profile Avatar" class="w-8 h-8 rounded-full border border-slate-200" data-alt="professional minimalist user avatar icon in soft teal geometric style" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCqJ9Fn9gJd4lkAbI8-IofPR3jr81mDxGQiK0IgVLUsIhSmTPLyr_VTQhxwuZK89zzEnua7Xccbmk7tpc8UjcphvBNKjr1997XliBK3jomt0YhbAGUdxkhYMe6C1t683WvufbjNogNXTbTVh3ZluuPa-RlBvKrs8FQCXFuPNy_uPGgp1HrWqhHf0ioYj61o942CRAIYi65RvjLyn2ZgxcFMqpdmTqXoNQ2of-c2gvXlwbyvShGa_3SgMRdDAgfC_bi9U3QLYHJQa8o"/>
+</div>
+</header>
+<!-- SideNavBar Shell -->
+<aside class="fixed left-0 top-0 bottom-0 flex flex-col pt-20 pb-6 bg-white/80 backdrop-blur-lg dark:bg-slate-900/80 border-r border-slate-200/50 dark:border-slate-800/50 w-64 hidden md:flex">
+<div class="px-6 mb-8">
+<h2 class="text-xl font-bold text-teal-600 dark:text-teal-400 font-sans tracking-wide">Boti</h2>
+<p class="text-xs font-semibold text-slate-400 uppercase tracking-widest mt-1">Mission Control</p>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="flex items-center gap-3 text-slate-500 dark:text-slate-400 py-3 px-4 ml-1 hover:bg-slate-100/50 transition-all font-sans text-sm font-semibold tracking-wide" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+                Dashboard
+            </a>
+<a class="flex items-center gap-3 bg-teal-50/50 dark:bg-teal-900/20 text-teal-600 dark:text-teal-400 border-l-4 border-teal-500 py-3 px-4 font-sans text-sm font-semibold tracking-wide" href="#">
+<span class="material-symbols-outlined">link</span>
+                Connections
+            </a>
+<a class="flex items-center gap-3 text-slate-500 dark:text-slate-400 py-3 px-4 ml-1 hover:bg-slate-100/50 transition-all font-sans text-sm font-semibold tracking-wide" href="#">
+<span class="material-symbols-outlined">forum</span>
+                Message Center
+            </a>
+<a class="flex items-center gap-3 text-slate-500 dark:text-slate-400 py-3 px-4 ml-1 hover:bg-slate-100/50 transition-all font-sans text-sm font-semibold tracking-wide" href="#">
+<span class="material-symbols-outlined">psychology</span>
+                AI Configuration
+            </a>
+</nav>
+<div class="border-t border-slate-200/50 pt-4 space-y-1">
+<a class="flex items-center gap-3 text-slate-500 dark:text-slate-400 py-3 px-4 ml-1 hover:bg-slate-100/50 transition-all font-sans text-sm font-semibold tracking-wide" href="#">
+<span class="material-symbols-outlined">settings</span>
+                Settings
+            </a>
+<a class="flex items-center gap-3 text-slate-500 dark:text-slate-400 py-3 px-4 ml-1 hover:bg-slate-100/50 transition-all font-sans text-sm font-semibold tracking-wide" href="#">
+<span class="material-symbols-outlined">logout</span>
+                Logout
+            </a>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="md:ml-64 pt-24 px-gutter pb-24 md:pb-8 min-h-screen">
+<div class="max-w-5xl mx-auto space-y-8">
+<!-- Page Header -->
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-4">
+<div>
+<h1 class="font-h1 text-h1 text-primary">Connection Management</h1>
+<p class="text-on-surface-variant font-body-md mt-2">Manage your WhatsApp bot instances and link new numbers via QR code.</p>
+</div>
+<div class="flex gap-3">
+<div class="flex items-center px-4 py-2 bg-surface-container-high rounded-full border border-outline-variant">
+<span class="material-symbols-outlined text-sm mr-2 text-secondary">wifi</span>
+<span class="font-label-caps text-on-surface">API Status: Online</span>
+</div>
+</div>
+</div>
+<!-- Bento Grid Section -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+<!-- Main QR Card (Central Component) -->
+<div class="lg:col-span-8 glass-card rounded-xl p-8 flex flex-col md:flex-row gap-8 shadow-sm">
+<div class="flex-1 space-y-6">
+<div>
+<h2 class="font-h2 text-h2 text-primary">Add New Connection</h2>
+<p class="text-on-surface-variant font-body-md mt-2">Scan the QR code with your WhatsApp mobile app to authorize Boti as a linked device.</p>
+</div>
+<div class="space-y-4">
+<div class="flex items-start gap-3">
+<div class="w-6 h-6 bg-secondary/10 rounded-full flex items-center justify-center flex-shrink-0">
+<span class="text-secondary font-bold text-xs">1</span>
+</div>
+<p class="text-body-sm text-on-surface-variant">Open WhatsApp on your phone</p>
+</div>
+<div class="flex items-start gap-3">
+<div class="w-6 h-6 bg-secondary/10 rounded-full flex items-center justify-center flex-shrink-0">
+<span class="text-secondary font-bold text-xs">2</span>
+</div>
+<p class="text-body-sm text-on-surface-variant">Tap Menu or Settings and select Linked Devices</p>
+</div>
+<div class="flex items-start gap-3">
+<div class="w-6 h-6 bg-secondary/10 rounded-full flex items-center justify-center flex-shrink-0">
+<span class="text-secondary font-bold text-xs">3</span>
+</div>
+<p class="text-body-sm text-on-surface-variant">Point your phone to this screen and capture the code</p>
+</div>
+</div>
+<div class="pt-4">
+<button class="bg-secondary text-on-primary px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg hover:shadow-secondary/20 transition-all">
+<span class="material-symbols-outlined">refresh</span>
+                                Refresh QR Code
+                            </button>
+</div>
+</div>
+<!-- Baileys QR Placeholder -->
+<div class="w-full md:w-64 aspect-square glass-card rounded-xl border-2 border-dashed border-teal-500/30 flex items-center justify-center relative group p-4">
+<div class="absolute inset-0 flex items-center justify-center bg-white/40 backdrop-blur-[2px] z-10 rounded-xl">
+<div class="text-center p-4">
+<span class="material-symbols-outlined text-4xl text-teal-600 mb-2">qr_code_2</span>
+<p class="text-xs font-bold text-teal-800 uppercase tracking-widest">Generating Code</p>
+</div>
+</div>
+<!-- Placeholder for the actual QR image -->
+<img alt="Baileys QR code placeholder" class="w-full h-full object-contain opacity-50 grayscale" data-alt="abstract high-tech QR code pattern clean minimalist teal accents on white background pixelated geometric art" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDvoOR5mbtnz9xJS3HXkZyiIz9i07l8me817tZUVvKMaNkYxsQ0Qj3VB_ziVhvqfXZ-br9KUah8UDf7onXgRkbbWJ-pcFUtERuRyth1jmYm6r35rUaNximNemGOdFfH9U-aPWGQSeq2fl2wXweYHmVadhrJYTIbPpTS2dO0XveouNs8I09Rm714WZ-5EdvxC71SNtJv2mGxQW6etIJBhziQJuIn1S8zwA3021VihB7de54LC8DhbCV-_sWLsvBB5AhEEQ64T_EYC7g"/>
+</div>
+</div>
+<!-- Stats/Info Card (Bento Side) -->
+<div class="lg:col-span-4 flex flex-col gap-6">
+<div class="glass-card rounded-xl p-6 flex-1 shadow-sm border-l-4 border-teal-500">
+<span class="font-label-caps text-on-tertiary-container mb-2 block">System Pulse</span>
+<div class="flex items-center justify-between mb-4">
+<span class="text-h2 font-bold text-primary">02</span>
+<span class="material-symbols-outlined text-teal-500 text-3xl">hub</span>
+</div>
+<p class="text-body-sm text-on-surface-variant">Active instances managing customer interactions currently.</p>
+</div>
+<div class="glass-card rounded-xl p-6 flex-1 shadow-sm">
+<span class="font-label-caps text-on-surface-variant mb-2 block">Messaging Volume</span>
+<div class="h-16 w-full flex items-end gap-1 mt-4">
+<div class="flex-1 bg-teal-100 h-[40%] rounded-t-sm"></div>
+<div class="flex-1 bg-teal-200 h-[60%] rounded-t-sm"></div>
+<div class="flex-1 bg-teal-300 h-[80%] rounded-t-sm"></div>
+<div class="flex-1 bg-teal-500 h-[100%] rounded-t-sm"></div>
+<div class="flex-1 bg-teal-400 h-[70%] rounded-t-sm"></div>
+<div class="flex-1 bg-teal-200 h-[45%] rounded-t-sm"></div>
+</div>
+<p class="text-[11px] font-mono-data text-on-surface-variant mt-2 uppercase">24h Traffic: +12.4%</p>
+</div>
+</div>
+<!-- Connected Numbers List Section -->
+<div class="lg:col-span-12 space-y-4">
+<div class="flex items-center justify-between">
+<h3 class="font-h2 text-h2 text-primary">Connected Numbers</h3>
+<span class="font-label-caps text-on-surface-variant">Active Subscriptions: 2/5</span>
+</div>
+<div class="space-y-3">
+<!-- List Item 1 -->
+<div class="glass-card rounded-xl px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm border-l-4 border-emerald-500">
+<div class="flex items-center gap-4 flex-1">
+<div class="w-12 h-12 rounded-full bg-surface-container-highest flex items-center justify-center">
+<span class="material-symbols-outlined text-teal-600">smartphone</span>
+</div>
+<div>
+<h4 class="font-body-md font-bold text-on-surface">+1 (555) 012-3456</h4>
+<p class="text-xs text-on-surface-variant">Main Support Line • Active since Oct 12</p>
+</div>
+</div>
+<div class="flex items-center gap-8">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+<span class="font-label-caps text-emerald-600">Online</span>
+</div>
+<div class="hidden md:block">
+<p class="text-[10px] font-mono-data text-on-surface-variant uppercase">Uptime</p>
+<p class="text-body-sm font-bold">99.9%</p>
+</div>
+<button class="px-4 py-2 border border-error text-error font-label-caps rounded-lg hover:bg-error/5 transition-colors">
+                                    Disconnect
+                                </button>
+</div>
+</div>
+<!-- List Item 2 -->
+<div class="glass-card rounded-xl px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm border-l-4 border-slate-300">
+<div class="flex items-center gap-4 flex-1">
+<div class="w-12 h-12 rounded-full bg-surface-container-highest flex items-center justify-center opacity-60">
+<span class="material-symbols-outlined text-slate-500">smartphone</span>
+</div>
+<div>
+<h4 class="font-body-md font-bold text-slate-500">+1 (555) 987-6543</h4>
+<p class="text-xs text-on-surface-variant">Marketing Bot • Last seen 2h ago</p>
+</div>
+</div>
+<div class="flex items-center gap-8">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-slate-400"></div>
+<span class="font-label-caps text-slate-500">Offline</span>
+</div>
+<div class="hidden md:block">
+<p class="text-[10px] font-mono-data text-on-surface-variant uppercase">Uptime</p>
+<p class="text-body-sm font-bold text-slate-400">84.2%</p>
+</div>
+<button class="px-4 py-2 border border-secondary text-secondary font-label-caps rounded-lg hover:bg-secondary/5 transition-colors">
+                                    Reconnect
+                                </button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar Shell (Mobile Only) -->
+<nav class="fixed bottom-0 left-0 w-full h-16 flex justify-around items-center px-4 bg-white/90 backdrop-blur-md dark:bg-slate-950/90 border-t border-slate-200 dark:border-slate-800 shadow-[0_-4px_12px_rgba(0,0,0,0.05)] rounded-t-2xl z-50 md:hidden">
+<div class="flex flex-col items-center justify-center text-slate-400 dark:text-slate-600">
+<span class="material-symbols-outlined">home</span>
+<span class="text-[10px] font-bold uppercase tracking-widest">Home</span>
+</div>
+<div class="flex flex-col items-center justify-center text-teal-600 dark:text-teal-400 scale-110">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">qr_code_2</span>
+<span class="text-[10px] font-bold uppercase tracking-widest">Link</span>
+</div>
+<div class="flex flex-col items-center justify-center text-slate-400 dark:text-slate-600">
+<span class="material-symbols-outlined">chat</span>
+<span class="text-[10px] font-bold uppercase tracking-widest">Chats</span>
+</div>
+<div class="flex flex-col items-center justify-center text-slate-400 dark:text-slate-600">
+<span class="material-symbols-outlined">smart_toy</span>
+<span class="text-[10px] font-bold uppercase tracking-widest">AI</span>
+</div>
+</nav>
+</body></html>

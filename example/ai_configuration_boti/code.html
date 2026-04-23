@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "tertiary-fixed-dim": "#ffb95f",
+                      "on-tertiary-container": "#de8e00",
+                      "inverse-on-surface": "#eaf1ff",
+                      "inverse-surface": "#213145",
+                      "outline": "#71787c",
+                      "on-secondary-fixed-variant": "#005048",
+                      "on-primary-fixed": "#001f2a",
+                      "on-secondary-fixed": "#00201c",
+                      "on-primary": "#ffffff",
+                      "secondary": "#006b5f",
+                      "on-error": "#ffffff",
+                      "secondary-fixed-dim": "#4fdbc8",
+                      "on-tertiary-fixed": "#2a1700",
+                      "surface-bright": "#f8f9ff",
+                      "background": "#f8f9ff",
+                      "surface-container": "#e5eeff",
+                      "primary-container": "#0d3b4c",
+                      "error-container": "#ffdad6",
+                      "surface-variant": "#d3e4fe",
+                      "surface-dim": "#cbdbf5",
+                      "inverse-primary": "#a4cce1",
+                      "on-tertiary-fixed-variant": "#653e00",
+                      "tertiary": "#321d00",
+                      "on-secondary": "#ffffff",
+                      "primary-fixed": "#bfe9fe",
+                      "secondary-fixed": "#71f8e4",
+                      "surface-tint": "#3c6376",
+                      "surface": "#f8f9ff",
+                      "on-tertiary": "#ffffff",
+                      "tertiary-container": "#4f3000",
+                      "on-background": "#0b1c30",
+                      "primary": "#002532",
+                      "outline-variant": "#c1c7cc",
+                      "on-surface-variant": "#41484c",
+                      "primary-fixed-dim": "#a4cce1",
+                      "tertiary-fixed": "#ffddb8",
+                      "surface-container-lowest": "#ffffff",
+                      "error": "#ba1a1a",
+                      "surface-container-low": "#eff4ff",
+                      "surface-container-high": "#dce9ff",
+                      "on-primary-container": "#7da5b9",
+                      "on-error-container": "#93000a",
+                      "on-primary-fixed-variant": "#224c5d",
+                      "surface-container-highest": "#d3e4fe",
+                      "secondary-container": "#6df5e1",
+                      "on-surface": "#0b1c30",
+                      "on-secondary-container": "#006f64"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.125rem",
+                      "lg": "0.25rem",
+                      "xl": "0.5rem",
+                      "full": "0.75rem"
+              },
+              "spacing": {
+                      "sidebar-width": "260px",
+                      "gutter": "16px",
+                      "sidebar-collapsed": "72px",
+                      "stack-tight": "8px",
+                      "stack-loose": "20px",
+                      "container-padding": "24px",
+                      "base": "4px"
+              },
+              "fontFamily": {
+                      "mono-data": ["monospace"],
+                      "body-sm": ["Inter"],
+                      "h1": ["Inter"],
+                      "body-md": ["Inter"],
+                      "h2": ["Inter"],
+                      "label-caps": ["Inter"]
+              },
+              "fontSize": {
+                      "mono-data": ["12px", {"lineHeight": "1", "letterSpacing": "0.05em", "fontWeight": "500"}],
+                      "body-sm": ["13px", {"lineHeight": "1.4", "letterSpacing": "0", "fontWeight": "400"}],
+                      "h1": ["32px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                      "body-md": ["14px", {"lineHeight": "1.5", "letterSpacing": "0", "fontWeight": "400"}],
+                      "h2": ["24px", {"lineHeight": "1.3", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                      "label-caps": ["11px", {"lineHeight": "1", "letterSpacing": "0.08em", "fontWeight": "700"}]
+              }
+            },
+          },
+        }
+    </script>
+</head>
+<body class="bg-background text-on-surface font-body-md overflow-x-hidden">
+<aside class="fixed left-0 top-0 bottom-0 flex flex-col pt-20 pb-6 bg-white/80 backdrop-blur-lg dark:bg-slate-900/80 border-r border-slate-200/50 dark:border-slate-800/50 shadow-none w-sidebar-width z-40">
+<div class="px-6 mb-10">
+<h1 class="text-xl font-bold text-teal-600 dark:text-teal-400 font-h2">Boti</h1>
+<p class="text-[10px] font-bold uppercase tracking-widest text-slate-400">Mission Control</p>
+</div>
+<nav class="flex-grow space-y-1">
+<a class="flex items-center gap-3 text-slate-500 dark:text-slate-400 py-3 px-4 ml-1 hover:bg-slate-100/50 dark:hover:bg-slate-800/50 transition-all font-sans text-sm font-semibold tracking-wide" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+                Dashboard
+            </a>
+<a class="flex items-center gap-3 text-slate-500 dark:text-slate-400 py-3 px-4 ml-1 hover:bg-slate-100/50 dark:hover:bg-slate-800/50 transition-all font-sans text-sm font-semibold tracking-wide" href="#">
+<span class="material-symbols-outlined" data-icon="link">link</span>
+                Connections
+            </a>
+<a class="flex items-center gap-3 text-slate-500 dark:text-slate-400 py-3 px-4 ml-1 hover:bg-slate-100/50 dark:hover:bg-slate-800/50 transition-all font-sans text-sm font-semibold tracking-wide" href="#">
+<span class="material-symbols-outlined" data-icon="forum">forum</span>
+                Message Center
+            </a>
+<a class="flex items-center gap-3 bg-teal-50/50 dark:bg-teal-900/20 text-teal-600 dark:text-teal-400 border-l-4 border-teal-500 py-3 px-4 font-sans text-sm font-semibold tracking-wide" href="#">
+<span class="material-symbols-outlined" data-icon="psychology" style="font-variation-settings: 'FILL' 1;">psychology</span>
+                AI Configuration
+            </a>
+</nav>
+<div class="mt-auto space-y-1">
+<a class="flex items-center gap-3 text-slate-500 dark:text-slate-400 py-3 px-4 ml-1 hover:bg-slate-100/50 dark:hover:bg-slate-800/50 transition-all font-sans text-sm font-semibold tracking-wide" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+                Settings
+            </a>
+<a class="flex items-center gap-3 text-slate-500 dark:text-slate-400 py-3 px-4 ml-1 hover:bg-slate-100/50 dark:hover:bg-slate-800/50 transition-all font-sans text-sm font-semibold tracking-wide" href="#">
+<span class="material-symbols-outlined" data-icon="logout">logout</span>
+                Logout
+            </a>
+</div>
+</aside>
+<header class="fixed top-0 left-0 right-0 h-16 flex justify-between items-center px-6 bg-white/70 backdrop-blur-xl dark:bg-slate-900/70 border-b border-slate-200/50 dark:border-slate-800/50 shadow-sm z-50 ml-sidebar-width">
+<div class="flex items-center gap-4">
+<span class="text-teal-600 dark:text-teal-400 font-sans font-medium text-slate-700 dark:text-slate-200">AI Configuration</span>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 text-slate-500 hover:bg-slate-100/50 rounded-full transition-colors">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="p-2 text-slate-500 hover:bg-slate-100/50 rounded-full transition-colors">
+<span class="material-symbols-outlined" data-icon="help">help</span>
+</button>
+<div class="w-8 h-8 rounded-full bg-surface-container overflow-hidden border border-outline-variant">
+<img alt="User Profile Avatar" data-alt="professional corporate headshot of a smiling executive in a modern office environment with soft natural lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA18_1iv8WeSuxnTkVuBQ4vVLnJC0F5wP8GzblopsU1LTZS5wfVUW4-T8IXMyrlz1TOkvtRAfZXHR3bZVlDS8FN8Hsciz5Zdklcoh8y7hX56h5XlbdkAUNJyXghwKuJkPg54hyNEDKgAvicOk16sun645P29oaFxFykvw3cpySFH_m4NuJtJO2DWH-LJyD9aelQbZcQ_zcaBd9ub9x6FYuH8XwvPIVfUkj_8nhP_D2aKB9tUQ41d55mrVcjbK7Hkllljkszgq7EAhM"/>
+</div>
+</div>
+</header>
+<main class="ml-sidebar-width pt-24 px-gutter pb-12 min-h-screen">
+<div class="max-w-6xl mx-auto space-y-stack-loose">
+<div class="flex flex-col gap-2">
+<h2 class="font-h1 text-h1 text-on-surface">Engine Tuning</h2>
+<p class="font-body-md text-on-surface-variant max-w-2xl">Define the core intelligence parameters and behavioral context for Boti's conversational engine.</p>
+</div>
+<div class="grid grid-cols-12 gap-gutter items-start">
+<div class="col-span-12 lg:col-span-8 space-y-gutter">
+<section class="glass-card p-6 rounded-xl border border-outline-variant/30 shadow-sm">
+<div class="flex items-center gap-2 mb-6 text-secondary">
+<span class="material-symbols-outlined" data-icon="key">key</span>
+<h3 class="font-h2 text-body-md font-bold uppercase tracking-wider">Authentication &amp; Model</h3>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-stack-loose">
+<div class="flex flex-col gap-2">
+<label class="font-label-caps text-label-caps text-on-surface-variant">OpenAI API Key</label>
+<div class="relative">
+<input class="w-full bg-white dark:bg-slate-950 border-outline-variant rounded-lg p-3 text-body-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-all" placeholder="sk-••••••••••••••••••••••••" type="password"/>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 cursor-pointer" data-icon="visibility">visibility</span>
+</div>
+</div>
+<div class="flex flex-col gap-2">
+<label class="font-label-caps text-label-caps text-on-surface-variant">Provider Model</label>
+<select class="w-full bg-white dark:bg-slate-950 border-outline-variant rounded-lg p-3 text-body-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none">
+<option>GPT-4o (Most Capable)</option>
+<option>GPT-4 Turbo</option>
+<option>GPT-3.5 Turbo (Fast)</option>
+<option>Custom Engine Deployment</option>
+</select>
+</div>
+</div>
+</section>
+<section class="glass-card p-6 rounded-xl border border-outline-variant/30 shadow-sm">
+<div class="flex items-center gap-2 mb-6 text-secondary">
+<span class="material-symbols-outlined" data-icon="psychology_alt">psychology_alt</span>
+<h3 class="font-h2 text-body-md font-bold uppercase tracking-wider">Personality &amp; System Context</h3>
+</div>
+<div class="flex flex-col gap-2">
+<div class="flex justify-between items-center mb-1">
+<label class="font-label-caps text-label-caps text-on-surface-variant">System Prompt</label>
+<span class="font-mono-data text-mono-data text-slate-400">248/4096 tokens</span>
+</div>
+<textarea class="w-full bg-white dark:bg-slate-950 border-outline-variant rounded-lg p-4 text-body-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-all resize-none" placeholder="You are Boti, a helpful corporate AI assistant..." rows="8">You are Boti, a sophisticated and helpful AI assistant designed for corporate communications. Your tone should be authoritative yet empathetic. Always prioritize clarity and efficiency in your responses. If you are unsure about a specific company policy, guide the user to the internal HR portal. Maintain a professional demeanor at all times, using neutral language and avoiding slang or excessive emojis.</textarea>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-stack-loose mt-8 pt-8 border-t border-outline-variant/20">
+<div class="flex flex-col gap-4">
+<div class="flex justify-between items-center">
+<label class="font-label-caps text-label-caps text-on-surface-variant">Temperature</label>
+<span class="font-mono-data text-mono-data text-secondary">0.7</span>
+</div>
+<input class="w-full accent-secondary" max="1" min="0" step="0.1" type="range" value="0.7"/>
+<p class="text-[11px] text-on-surface-variant italic">Controls randomness: Lower is focused, higher is creative.</p>
+</div>
+<div class="flex flex-col gap-4">
+<div class="flex justify-between items-center">
+<label class="font-label-caps text-label-caps text-on-surface-variant">Response Length</label>
+<span class="font-mono-data text-mono-data text-secondary">512</span>
+</div>
+<input class="w-full accent-secondary" max="2048" min="64" step="64" type="range" value="512"/>
+<p class="text-[11px] text-on-surface-variant italic">Maximum tokens allowed per completion.</p>
+</div>
+</div>
+</section>
+</div>
+<div class="col-span-12 lg:col-span-4 space-y-gutter">
+<section class="glass-card overflow-hidden rounded-xl border border-outline-variant/30 shadow-sm flex flex-col h-[600px]">
+<div class="p-4 border-b border-outline-variant/20 bg-slate-50/50 flex justify-between items-center">
+<div class="flex items-center gap-2 text-on-surface">
+<span class="material-symbols-outlined text-teal-600" data-icon="lab_panel">lab_panel</span>
+<h3 class="font-h2 text-body-sm font-bold uppercase tracking-wider">Test Context</h3>
+</div>
+<button class="text-secondary text-xs font-bold hover:underline">Clear</button>
+</div>
+<div class="flex-grow p-4 overflow-y-auto space-y-4 bg-white/30">
+<div class="flex flex-col items-center justify-center h-full text-center space-y-3 opacity-40">
+<span class="material-symbols-outlined text-4xl" data-icon="chat_bubble">chat_bubble</span>
+<p class="text-body-sm">Send a message to see how the current configuration affects Boti's response style.</p>
+</div>
+</div>
+<div class="p-4 border-t border-outline-variant/20 bg-white">
+<div class="relative">
+<input class="w-full border-outline-variant rounded-full py-3 px-5 pr-12 text-body-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none" placeholder="Type a test message..." type="text"/>
+<button class="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center bg-secondary text-white rounded-full hover:opacity-90 transition-opacity">
+<span class="material-symbols-outlined text-sm" data-icon="send">send</span>
+</button>
+</div>
+</div>
+</section>
+<div class="bg-primary-container p-6 rounded-xl border border-primary-container shadow-lg flex flex-col gap-4">
+<div class="flex items-center gap-3 text-on-primary-container">
+<span class="material-symbols-outlined" data-icon="auto_awesome">auto_awesome</span>
+<span class="font-h2 text-body-md font-bold">Optimization Tips</span>
+</div>
+<p class="text-body-sm text-on-primary-container/80">Try keeping the temperature below 0.5 for purely data-driven tasks to ensure Boti remains accurate and concise.</p>
+<button class="w-full py-3 bg-secondary text-white font-bold rounded-lg shadow-sm hover:scale-[1.02] active:scale-[0.98] transition-all">
+                            Save Configuration
+                        </button>
+</div>
+</div>
+</div>
+</div>
+</main>
+<nav class="fixed bottom-0 left-0 w-full h-16 flex justify-around items-center px-4 md:hidden bg-white/90 backdrop-blur-md dark:bg-slate-950/90 border-t border-slate-200 dark:border-slate-800 shadow-[0_-4px_12px_rgba(0,0,0,0.05)] z-50 rounded-t-2xl">
+<div class="flex flex-col items-center justify-center text-slate-400 dark:text-slate-600 font-bold uppercase tracking-widest text-[10px]">
+<span class="material-symbols-outlined" data-icon="home">home</span>
+            Home
+        </div>
+<div class="flex flex-col items-center justify-center text-slate-400 dark:text-slate-600 font-bold uppercase tracking-widest text-[10px]">
+<span class="material-symbols-outlined" data-icon="qr_code_2">qr_code_2</span>
+            Link
+        </div>
+<div class="flex flex-col items-center justify-center text-slate-400 dark:text-slate-600 font-bold uppercase tracking-widest text-[10px]">
+<span class="material-symbols-outlined" data-icon="chat">chat</span>
+            Chats
+        </div>
+<div class="flex flex-col items-center justify-center text-teal-600 dark:text-teal-400 scale-110 font-bold uppercase tracking-widest text-[10px]">
+<span class="material-symbols-outlined" data-icon="smart_toy" style="font-variation-settings: 'FILL' 1;">smart_toy</span>
+            AI
+        </div>
+</nav>
+</body></html>

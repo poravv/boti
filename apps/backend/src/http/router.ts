@@ -1,0 +1,290 @@
+// Express Router — REST API routes
+
+import { Router, type Request, type Response } from 'express';
+import type {
+  IWhatsAppProvider,
+  SendMessage,
+  BlockClient,
+} from '@boti/core';
+import { PrismaClient } from '@prisma/client';
+import { PrismaMessageRepository, PrismaClientRepository } from '../adapters/db/PrismaRepositories.js';
+import { AuthService } from '../lib/AuthService.js';
+
+const messageRepo = new PrismaMessageRepository();
+const clientRepo = new PrismaClientRepository();
+
+export function createRouter(
+  whatsApp: IWhatsAppProvider,
+  sendMessage: SendMessage,
+  blockClient: BlockClient,
+  prisma: PrismaClient,
+): Router {
+  const router = Router();
+  const authService = new AuthService(prisma);
+
+  // --- Auth Middleware ---
+  const authMiddleware = (req: Request, res: Response, next: () => void) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) return res.status(401).json({ error: 'No token provided' });
+    
+    const token = authHeader.split(' ')[1];
+    const decoded = authService.verifyToken(token);
+    if (!decoded) return res.status(401).json({ error: 'Invalid token' });
+    
+    (req as any).user = decoded;
+    next();
+  };
+
+  // --- Auth Endpoints ---
+  router.post('/auth/login', async (req, res) => {
+    const { email, password } = req.body;
+    try {
+      const user = await prisma.user.findUnique({ where: { email } });
+      if (!user || !user.isActive) return res.status(401).json({ error: 'Invalid credentials' });
+
+      const isValid = await authService.comparePassword(password, user.passwordHash);
+      if (!isValid) return res.status(401).json({ error: 'Invalid credentials' });
+
+      const token = authService.generateToken({ userId: user.id, email: user.email, role: user.role });
+      res.json({ token, user: { id: user.id, email: user.email, name: user.name, role: user.role } });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  router.get('/auth/me', authMiddleware, (req, res) => {
+    res.json((req as any).user);
+  });
+
+  // Health
+  router.get('/health', (_req: Request, res: Response) => {
+    res.json({ status: 'ok', ts: new Date().toISOString() });
+  });
+
+  // Stats
+  router.get('/stats', authMiddleware, async (_req, res) => {
+    try {
+      const totalMessages = await prisma.message.count();
+      const activeLinesCount = await prisma.whatsAppLine.count({ where: { status: 'CONNECTED' } });
+      const totalLeads = await prisma.client.count();
+      const messagesToday = await prisma.message.count({
+        where: {
+          createdAt: {
+            gte: new Date(new Date().setHours(0, 0, 0, 0))
+          }
+        }
+      });
+
+      const hourlyTraffic = await Promise.all(
+        Array.from({ length: 15 }).map(async (_, i) => {
+          const start = new Date();
+          start.setHours(start.getHours() - (14 - i), 0, 0, 0);
+          const end = new Date(start);
+          end.setHours(end.getHours() + 1);
+          
+          return prisma.message.count({
+            where: {
+              createdAt: { gte: start, lt: end }
+            }
+          });
+        })
+      );
+
+      res.json({
+        totalMessages,
+        activeLines: activeLinesCount,
+        totalLeads,
+        messagesToday,
+        hourlyTraffic,
+        leadsTrend: '+5%',
+        performance: '99%'
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Lines
+  router.get('/lines', authMiddleware, async (_req, res) => {
+    try {
+      const dbLines = await prisma.whatsAppLine.findMany();
+      const lines = await Promise.all(dbLines.map(async (line) => ({
+        id: line.id,
+        name: line.name, // Use actual name
+        phone: line.id, // Actually the phone is usually the ID in this setup or we get it from baileys
+        status: await whatsApp.getLineStatus(line.id),
+        qrCode: await whatsApp.getQrCode(line.id),
+      })));
+      res.json({ lines });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  router.post('/lines/:lineId/connect', authMiddleware, async (req, res) => {
+    try {
+      const { lineId } = req.params;
+      console.log(`[Router] Connection request for line: ${lineId}`);
+      
+      // Ensure line exists in DB
+      await prisma.whatsAppLine.upsert({
+        where: { id: lineId },
+        update: {},
+        create: { 
+          id: lineId,
+          name: lineId, // Added missing required field
+          systemPrompt: 'Eres un asistente útil.',
+          businessContext: {},
+          assignedAiProvider: 'gemini'
+        }
+      });
+
+      const qrCode = await whatsApp.connectLine(lineId);
+      console.log(`[Router] QR for ${lineId}: ${qrCode ? 'Generated' : 'Pending'}`);
+      res.json({ status: 'connecting', qrCode });
+    } catch (err: any) {
+      console.error(`[Router] Error connecting ${req.params.lineId}:`, err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // AI Configuration Endpoints
+  router.get('/lines/:lineId/config', authMiddleware, async (req, res) => {
+    try {
+      const { lineId } = req.params;
+      const line = await prisma.whatsAppLine.findUnique({
+        where: { id: lineId }
+      });
+
+      if (!line) {
+        return res.status(404).json({ error: 'Line not found' });
+      }
+
+      res.json({
+        systemPrompt: line.systemPrompt,
+        businessContext: line.businessContext,
+        assignedAiProvider: line.assignedAiProvider,
+        aiApiKey: line.aiApiKey,
+        aiModel: line.aiModel
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  router.put('/lines/:lineId/config', authMiddleware, async (req, res) => {
+    try {
+      const { lineId } = req.params;
+      const { systemPrompt, businessContext, assignedAiProvider, aiApiKey, aiModel } = req.body;
+
+      const updated = await prisma.whatsAppLine.upsert({
+        where: { id: lineId },
+        create: {
+          id: lineId,
+          name: lineId,
+          systemPrompt,
+          businessContext,
+          assignedAiProvider,
+          aiApiKey,
+          aiModel
+        },
+        update: {
+          systemPrompt,
+          businessContext,
+          assignedAiProvider,
+          aiApiKey,
+          aiModel
+        }
+      });
+
+      res.json(updated);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  router.post('/lines/:lineId/disconnect', authMiddleware, async (req, res) => {
+    try {
+      await whatsApp.disconnectLine(req.params.lineId);
+      res.json({ status: 'disconnected' });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  router.get('/lines/:lineId/status', authMiddleware, async (req, res) => {
+    const status = await whatsApp.getLineStatus(req.params.lineId);
+    const qrCode = await whatsApp.getQrCode(req.params.lineId);
+    res.json({ status, qrCode });
+  });
+
+  // Messages
+  router.post('/messages/send', authMiddleware, async (req, res) => {
+    const { lineId, to, content, type, mediaPath } = req.body;
+    try {
+      await sendMessage.execute({ lineId, to, content, type, mediaPath });
+      res.json({ status: 'queued' });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  router.get('/chats', authMiddleware, async (_req, res) => {
+    try {
+      const clients = await prisma.client.findMany({
+        include: {
+          messages: {
+            orderBy: { createdAt: 'desc' },
+            take: 1
+          }
+        },
+        orderBy: { updatedAt: 'desc' }
+      });
+
+      const chats = clients.map(c => ({
+        id: c.id,
+        name: c.name,
+        phone: c.phone,
+        lastMsg: c.messages[0]?.content || '',
+        time: c.messages[0]?.createdAt || c.updatedAt,
+        status: 'ACTIVE' // Could be dynamic later
+      }));
+
+      res.json({ chats });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  router.get('/messages/:phone', authMiddleware, async (req, res) => {
+    const messages = await messageRepo.findByClientPhone(req.params.phone);
+    res.json({ messages });
+  });
+
+  // Clients
+  router.post('/clients/:phone/pause', authMiddleware, async (req, res) => {
+    try {
+      const { phone } = req.params;
+      const { hours } = req.body;
+      
+      const pausedUntil = new Date(Date.now() + (hours * 60 * 60 * 1000));
+      
+      await prisma.client.update({
+        where: { phone },
+        data: { aiPausedUntil: pausedUntil }
+      });
+      
+      res.json({ status: 'paused', pausedUntil });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  router.post('/clients/:phone/block', async (req, res) => {
+    const { reason, operatorId } = req.body;
+    await blockClient.execute(req.params.phone, reason ?? 'Manual block', operatorId);
+    res.json({ status: 'blocked' });
+  });
+
+  return router;
+}
