@@ -57,8 +57,9 @@ export class BullMQAdapter implements IMessageQueue {
           // Update status in DB
           await this.messageRepo.updateStatus(saved.id, 'SUCCESS', new Date());
 
-          // Notify frontend: SUCCESS
+          // Notify frontend: SUCCESS & NEW MESSAGE
           this.wsNotify('message:status', { id: clientMessageId ?? saved.id, status: 'SUCCESS', outboundId: msgId });
+          this.wsNotify('message:new', { lineId, fromPhone: to, content, type, direction: 'OUTBOUND' });
 
           logger.info({ lineId, to, type, msgId }, 'Message sent successfully');
         } catch (err: any) {

@@ -77,11 +77,50 @@ const Sidebar = ({ user, onLogout }: { user: any; onLogout: () => void }) => {
   );
 };
 
+const NotificationItem = ({ title, desc, time, icon, color }: any) => (
+  <div className="flex gap-3 p-3 rounded-2xl bg-surface-container border border-outline-variant hover:border-primary/20 transition-all group animate-in slide-in-from-right-4 duration-300">
+    <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+      color === 'primary' ? 'bg-primary/10 text-primary' : 'bg-orange-100 text-orange-600'
+    }`}>
+      <span className="material-symbols-outlined text-sm">{icon}</span>
+    </div>
+    <div className="min-w-0 flex-1">
+      <div className="flex justify-between items-center mb-0.5">
+        <p className="text-[10px] font-black text-primary uppercase truncate">{title}</p>
+        <span className="text-[8px] font-bold opacity-40 uppercase">{time}</span>
+      </div>
+      <p className="text-[9px] text-on-surface-variant leading-tight line-clamp-2">{desc}</p>
+    </div>
+  </div>
+);
+
 const Header = ({ user }: { user: any }) => {
   const location = useLocation();
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]);
   
+  useEffect(() => {
+    const handleWSEvent = (e: any) => {
+      const { event, data, payload } = e.detail;
+      const body = data || payload || e.detail;
+
+      if (event === 'message:new' || event === 'operator:notification') {
+        const newNotif = {
+          id: Date.now(),
+          title: event === 'message:new' ? 'Nuevo Mensaje' : 'Alerta de Sistema',
+          desc: body.content || body.event || 'Nueva actividad detectada',
+          time: 'Ahora',
+          icon: event === 'message:new' ? 'forum' : 'warning',
+          color: event === 'message:new' ? 'primary' : 'orange'
+        };
+        setNotifications(prev => [newNotif, ...prev].slice(0, 5));
+      }
+    };
+
+    window.addEventListener('boti:ws-event', handleWSEvent);
+    return () => window.removeEventListener('boti:ws-event', handleWSEvent);
+  }, []);
+
   const getTitle = () => {
     switch(location.pathname) {
       case '/': return 'System Overview';
@@ -109,21 +148,24 @@ const Header = ({ user }: { user: any }) => {
           >
             <span className="material-symbols-outlined">notifications</span>
             {notifications.length > 0 && (
-              <span className="absolute top-2 right-2 w-2 h-2 bg-secondary rounded-full border-2 border-white"></span>
+              <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>
             )}
           </button>
           
           {showNotifications && (
             <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-2xl border border-outline-variant p-4 animate-in fade-in zoom-in duration-200">
-              <h4 className="text-xs font-black text-primary uppercase tracking-widest mb-4">Alerts & Notifications</h4>
-              <div className="space-y-3">
+              <div className="flex items-center justify-between mb-4">
+                <h4 className="text-[10px] font-black text-primary uppercase tracking-widest">Alerts & Notifications</h4>
+                {notifications.length > 0 && (
+                  <button onClick={() => setNotifications([])} className="text-[9px] font-black text-primary/40 hover:text-primary uppercase">Clear</button>
+                )}
+              </div>
+              <div className="space-y-2">
                 {notifications.length === 0 ? (
                   <p className="text-[10px] text-on-surface-variant text-center py-4 font-bold uppercase tracking-tighter italic">No pending alerts</p>
                 ) : (
-                  notifications.map((n, i) => (
-                    <div key={i} className="p-3 bg-surface-container rounded-xl text-[10px] font-bold">
-                      {n.text}
-                    </div>
+                  notifications.map((n) => (
+                    <NotificationItem key={n.id} {...n} />
                   ))
                 )}
               </div>
@@ -293,6 +335,34 @@ const App = () => {
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+
+  // Global WebSocket
+  useEffect(() => {
+    if (!token) return;
+
+    const socketUrl = process.env.NODE_ENV === 'production' 
+      ? `wss://${window.location.host}/ws` 
+      : `ws://localhost:3001/ws`;
+      
+    const ws = new WebSocket(socketUrl);
+    
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        console.log('Global WS Event:', data.event);
+        window.dispatchEvent(new CustomEvent('boti:ws-event', { detail: data }));
+      } catch (e) {}
+    };
+
+    const heartbeat = setInterval(() => {
+      if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ event: 'ping' }));
+    }, 30000);
+
+    return () => {
+      clearInterval(heartbeat);
+      ws.close();
+    };
+  }, [token]);
 
   useEffect(() => {
     const checkAuth = async () => {

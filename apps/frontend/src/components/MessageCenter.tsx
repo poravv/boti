@@ -31,55 +31,18 @@ const MessageCenter = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  useEffect(() => {
-    const fetchChats = async () => {
-      try {
-        const res = await fetch('/api/chats', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        const data = await res.json();
-        setChats(data.chats || []);
-        if (data.chats?.length > 0 && !activeChat) {
-          setActiveChat(data.chats[0]);
-        }
-      } catch (err) {
-        console.error('Error fetching chats:', err);
+  const fetchChats = async () => {
+    try {
+      const res = await fetch('/api/chats', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      setChats(data.chats || []);
+      if (data.chats?.length > 0 && !activeChat) {
+        setActiveChat(data.chats[0]);
       }
-    };
-    fetchChats();
-
-    // WS Integration for new messages
-    const socketUrl = process.env.NODE_ENV === 'production' 
-      ? `wss://${window.location.host}/ws` 
-      : `ws://localhost:3001/ws`;
-      
-    const ws = new WebSocket(socketUrl);
-    
-    ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (data.event === 'message:new' || data.event === 'operator:notification') {
-          // Notify list update
-          fetchChats();
-          
-          // If message is for the current active chat, refresh messages
-          const payload = data.data || data.payload;
-          const fromPhone = payload?.fromPhone || payload?.clientPhone;
-          
-          if (fromPhone && activeChat && fromPhone === activeChat.phone) {
-            fetchMessages(activeChat.phone);
-          } else if (data.event === 'message:new') {
-            // Global browser notification or sound could go here
-            console.log('New message from another chat:', fromPhone);
-          }
-        }
-      } catch (e) {
-        console.error('WS Error:', e);
-      }
-    };
-
-    return () => ws.close();
-  }, [token, activeChat?.phone]);
+    } catch (err) {}
+  };
 
   const fetchMessages = async (phone: string) => {
     setLoading(true);
@@ -88,16 +51,16 @@ const MessageCenter = () => {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
-      // Reverse messages because backend sends newest first for limit, 
-      // but UI needs oldest to newest for chronological flow.
       setMessages((data.messages || []).reverse());
       setTimeout(scrollToBottom, 100);
-    } catch (err) {
-      console.error('Error fetching messages:', err);
-    } finally {
+    } catch (err) {} finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchChats();
+  }, [token]);
 
   useEffect(() => {
     if (activeChat) {
@@ -105,9 +68,31 @@ const MessageCenter = () => {
     }
   }, [activeChat?.id]);
 
+  // Listen for GLOBAL WS Events from App.tsx
+  useEffect(() => {
+    const handleWSEvent = (e: any) => {
+      const { event, data, payload } = e.detail;
+      const body = data || payload || e.detail;
+      
+      if (event === 'message:new' || event === 'message:status' || event === 'operator:notification') {
+        fetchChats();
+        
+        let phone = body.fromPhone || body.clientPhone || body.remoteJid || body.to;
+        if (phone && typeof phone === 'string') {
+          phone = phone.split('@')[0].split(':')[0];
+          if (activeChat && phone === activeChat.phone) {
+            fetchMessages(activeChat.phone);
+          }
+        }
+      }
+    };
+
+    window.addEventListener('boti:ws-event', handleWSEvent);
+    return () => window.removeEventListener('boti:ws-event', handleWSEvent);
+  }, [activeChat?.phone]);
+
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !activeChat) return;
-
     try {
       const res = await fetch('/api/messages/send', {
         method: 'POST',
@@ -122,14 +107,11 @@ const MessageCenter = () => {
           type: 'TEXT'
         })
       });
-
       if (res.ok) {
         setNewMessage('');
         fetchMessages(activeChat.phone);
       }
-    } catch (err) {
-      console.error('Error sending message:', err);
-    }
+    } catch (err) {}
   };
 
   const handlePauseAI = async (hours: number) => {
@@ -147,25 +129,18 @@ const MessageCenter = () => {
         const data = await res.json();
         setActiveChat({ ...activeChat, aiPausedUntil: data.pausedUntil });
       }
-    } catch (err) {
-      console.error('Error pausing AI:', err);
-    }
+    } catch (err) {}
   };
 
   const isAiCurrentlyPaused = activeChat?.aiPausedUntil && new Date(activeChat.aiPausedUntil) > new Date();
 
   return (
     <div className="flex h-[calc(100vh-48px)] -m-container-padding overflow-hidden bg-[#F8F9FD]">
-      {/* Chats List */}
       <div className="w-80 border-r border-slate-200 flex flex-col bg-white">
         <div className="p-4 border-b border-slate-100">
           <div className="relative">
             <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg">search</span>
-            <input
-              type="text"
-              placeholder="Buscar..."
-              className="w-full pl-10 pr-4 py-2 bg-slate-50 rounded-xl border-none focus:ring-2 focus:ring-primary/10 text-xs font-medium"
-            />
+            <input type="text" placeholder="Buscar..." className="w-full pl-10 pr-4 py-2 bg-slate-50 rounded-xl border-none focus:ring-2 focus:ring-primary/10 text-xs font-medium" />
           </div>
         </div>
         <div className="flex-1 overflow-y-auto">
@@ -173,9 +148,7 @@ const MessageCenter = () => {
             <button
               key={chat.id}
               onClick={() => setActiveChat(chat)}
-              className={`w-full p-4 flex gap-3 hover:bg-slate-50 transition-all border-b border-slate-50 text-left ${
-                activeChat?.id === chat.id ? 'bg-blue-50/50 border-l-4 border-l-primary' : ''
-              }`}
+              className={`w-full p-4 flex gap-3 hover:bg-slate-50 transition-all border-b border-slate-50 text-left ${activeChat?.id === chat.id ? 'bg-blue-50/50 border-l-4 border-l-primary' : ''}`}
             >
               <div className="w-11 h-11 rounded-full bg-slate-100 flex-shrink-0 flex items-center justify-center text-slate-600 font-bold text-sm border-2 border-white shadow-sm">
                 {chat.name.charAt(0)}
@@ -194,7 +167,6 @@ const MessageCenter = () => {
         </div>
       </div>
 
-      {/* Chat View */}
       <div className="flex-1 flex flex-col relative">
         {activeChat ? (
           <>
@@ -214,9 +186,7 @@ const MessageCenter = () => {
               <div className="flex gap-2">
                 <button 
                   onClick={() => handlePauseAI(1)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[11px] font-bold transition-all shadow-sm border ${
-                    isAiCurrentlyPaused ? 'bg-orange-500 text-white border-orange-500' : 'bg-white hover:bg-slate-50 text-slate-600 border-slate-200'
-                  }`}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[11px] font-bold transition-all shadow-sm border ${isAiCurrentlyPaused ? 'bg-orange-500 text-white border-orange-500' : 'bg-white hover:bg-slate-50 text-slate-600 border-slate-200'}`}
                 >
                   <span className="material-symbols-outlined text-sm">{isAiCurrentlyPaused ? 'play_circle' : 'pause_circle'}</span>
                   {isAiCurrentlyPaused ? 'REANUDAR IA' : 'PAUSAR IA 1H'}
@@ -256,10 +226,7 @@ const MessageCenter = () => {
                   placeholder="Escribe un mensaje aquí..."
                   className="flex-1 bg-transparent border-none focus:ring-0 text-[13px] py-2 placeholder:text-slate-400 font-medium"
                 />
-                <button 
-                  onClick={handleSendMessage}
-                  className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-white shadow-lg shadow-primary/30 hover:scale-105 active:scale-95 transition-all"
-                >
+                <button onClick={handleSendMessage} className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-white shadow-lg shadow-primary/30 hover:scale-105 active:scale-95 transition-all">
                   <span className="material-symbols-outlined text-lg">send</span>
                 </button>
               </div>
@@ -280,12 +247,8 @@ const MessageCenter = () => {
 
 const MessageBubble = ({ type, text, time, isAi }: any) => (
   <div className={`flex ${type === 'sent' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2 duration-300`}>
-    <div className={`max-w-[80%] relative group`}>
-      <div className={`px-4 py-3 rounded-2xl shadow-sm border ${
-        type === 'sent' 
-          ? 'bg-primary border-primary text-white rounded-tr-none' 
-          : 'bg-white border-slate-200 text-slate-800 rounded-tl-none'
-      }`}>
+    <div className="max-w-[80%] relative group">
+      <div className={`px-4 py-3 rounded-2xl shadow-sm border ${type === 'sent' ? 'bg-primary border-primary text-white rounded-tr-none' : 'bg-white border-slate-200 text-slate-800 rounded-tl-none'}`}>
         {isAi && (
           <div className="flex items-center gap-1.5 mb-1.5 opacity-80">
             <span className="material-symbols-outlined text-[12px]">auto_awesome</span>
@@ -293,9 +256,7 @@ const MessageBubble = ({ type, text, time, isAi }: any) => (
           </div>
         )}
         <p className="text-[13px] leading-relaxed font-medium whitespace-pre-wrap">{text}</p>
-        <div className={`text-[9px] mt-2 flex items-center justify-end gap-1 font-bold ${
-          type === 'sent' ? 'text-white/60' : 'text-slate-400'
-        }`}>
+        <div className={`text-[9px] mt-2 flex items-center justify-end gap-1 font-bold ${type === 'sent' ? 'text-white/60' : 'text-slate-400'}`}>
           {time}
           {type === 'sent' && <span className="material-symbols-outlined text-[10px]">done_all</span>}
         </div>
