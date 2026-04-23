@@ -15,185 +15,296 @@ env:
   NAMESPACE: boti
 
 jobs:
-  build-and-deploy:
+  # ─────────────────────────────────────────────
+  # 1. Detectar qué cambió
+  # ─────────────────────────────────────────────
+  detect-changes:
     runs-on: self-hosted
-    name: Build, Push & Deploy
-
+    name: Detect changes
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'apps/backend/**'
+              - 'packages/**'
+              - 'k8s/backend-deployment.yaml'
+              - 'k8s/configmap.yaml'
+              - 'k8s/keda-scaledobject.yaml'
+              - 'k8s/pdb.yaml'
+            frontend:
+              - 'apps/frontend/**'
+              - 'k8s/frontend-deployment.yaml'
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
+  # ─────────────────────────────────────────────
+  # 2. Build backend (solo si cambió)
+  # ─────────────────────────────────────────────
+  build-backend:
+    runs-on: self-hosted
+    name: Build backend image
+    needs: detect-changes
+    if: needs.detect-changes.outputs.backend == 'true'
+    steps:
+      - uses: actions/checkout@v4
 
-    - name: Log in to GHCR
-      uses: docker/login-action@v3
-      with:
-        registry: ${{ env.REGISTRY }}
-        username: ${{ github.actor }}
-        password: ${{ secrets.GHCR_PAT }}
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-    - name: Get short SHA
-      run: echo "SHORT_SHA=$(echo $GITHUB_SHA | cut -c1-7)" >> $GITHUB_ENV
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GHCR_PAT }}
 
-    - name: Build and push backend image
-      uses: docker/build-push-action@v5
-      with:
-        context: .
-        file: ./apps/backend/Dockerfile
-        push: true
-        tags: |
-          ${{ env.BACKEND_IMAGE }}:sha-${{ env.SHORT_SHA }}
-          ${{ env.BACKEND_IMAGE }}:latest
-        cache-from: type=gha,scope=backend
-        cache-to: type=gha,mode=max,scope=backend
-        platforms: linux/amd64
+      - name: Get short SHA
+        run: echo "SHORT_SHA=$(echo $GITHUB_SHA | cut -c1-7)" >> $GITHUB_ENV
 
-    - name: Build and push frontend image
-      uses: docker/build-push-action@v5
-      with:
-        context: .
-        file: ./apps/frontend/Dockerfile
-        push: true
-        tags: |
-          ${{ env.FRONTEND_IMAGE }}:sha-${{ env.SHORT_SHA }}
-          ${{ env.FRONTEND_IMAGE }}:latest
-        cache-from: type=gha,scope=frontend
-        cache-to: type=gha,mode=max,scope=frontend
-        platforms: linux/amd64
+      - name: Build and push backend image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./apps/backend/Dockerfile
+          push: true
+          tags: |
+            ${{ env.BACKEND_IMAGE }}:sha-${{ env.SHORT_SHA }}
+            ${{ env.BACKEND_IMAGE }}:latest
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
+          platforms: linux/amd64
 
-    - name: Ensure namespace exists
-      run: kubectl apply -f k8s/namespace.yaml
+  # ─────────────────────────────────────────────
+  # 3. Build frontend (solo si cambió)
+  # ─────────────────────────────────────────────
+  build-frontend:
+    runs-on: self-hosted
+    name: Build frontend image
+    needs: detect-changes
+    if: needs.detect-changes.outputs.frontend == 'true'
+    steps:
+      - uses: actions/checkout@v4
 
-    - name: Create/Update image pull secret
-      run: |
-        kubectl create secret docker-registry ghcr-secret \
-          --docker-server=${{ env.REGISTRY }} \
-          --docker-username=${{ github.actor }} \
-          --docker-password=${{ secrets.GHCR_PAT }} \
-          --namespace=${{ env.NAMESPACE }} \
-          --dry-run=client -o yaml | kubectl apply -f -
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-    - name: Create/Update application secrets
-      run: |
-        kubectl create secret generic backend-env-secrets \
-          --namespace=${{ env.NAMESPACE }} \
-          --from-literal=DATABASE_URL="${{ secrets.DATABASE_URL }}" \
-          --from-literal=REDIS_URL="${{ secrets.REDIS_URL }}" \
-          --from-literal=JWT_SECRET="${{ secrets.JWT_SECRET }}" \
-          --dry-run=client -o yaml | kubectl apply -f -
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GHCR_PAT }}
 
-    - name: Create/Update PostgreSQL secrets
-      run: |
-        kubectl create secret generic postgres-secrets \
-          --namespace=${{ env.NAMESPACE }} \
-          --from-literal=POSTGRES_USER="${{ secrets.POSTGRES_USER }}" \
-          --from-literal=POSTGRES_PASSWORD="${{ secrets.POSTGRES_PASSWORD }}" \
-          --from-literal=POSTGRES_DB="${{ secrets.POSTGRES_DB }}" \
-          --dry-run=client -o yaml | kubectl apply -f -
+      - name: Get short SHA
+        run: echo "SHORT_SHA=$(echo $GITHUB_SHA | cut -c1-7)" >> $GITHUB_ENV
 
-    - name: Deploy PostgreSQL
-      run: |
-        kubectl apply -f k8s/postgres.yaml
-        kubectl wait --for=condition=available --timeout=180s deployment/postgres \
-          -n ${{ env.NAMESPACE }} || {
-          echo "⚠️ PostgreSQL not ready in time:"
-          kubectl describe deployment/postgres -n ${{ env.NAMESPACE }}
-          kubectl get pods -n ${{ env.NAMESPACE }} -l app=postgres
-        }
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./apps/frontend/Dockerfile
+          push: true
+          tags: |
+            ${{ env.FRONTEND_IMAGE }}:sha-${{ env.SHORT_SHA }}
+            ${{ env.FRONTEND_IMAGE }}:latest
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
+          platforms: linux/amd64
 
-    - name: Deploy Redis
-      run: |
-        kubectl apply -f k8s/redis.yaml
-        kubectl wait --for=condition=available --timeout=120s deployment/redis \
-          -n ${{ env.NAMESPACE }} || {
-          echo "⚠️ Redis not ready in time:"
-          kubectl get pods -n ${{ env.NAMESPACE }} -l app=redis
-        }
+  # ─────────────────────────────────────────────
+  # 4. Infraestructura base (siempre — idempotente)
+  # ─────────────────────────────────────────────
+  deploy-infra:
+    runs-on: self-hosted
+    name: Deploy infra (secrets, postgres, redis)
+    needs: [build-backend, build-frontend]
+    if: |
+      always() &&
+      !contains(needs.*.result, 'failure') &&
+      !contains(needs.*.result, 'cancelled')
+    steps:
+      - uses: actions/checkout@v4
 
-    - name: Apply ConfigMap
-      run: kubectl apply -f k8s/configmap.yaml
+      - name: Ensure namespace exists
+        run: kubectl apply -f k8s/namespace.yaml
 
-    - name: Deploy backend
-      run: |
-        kubectl delete hpa boti-backend-hpa -n ${{ env.NAMESPACE }} --ignore-not-found=true
+      - name: Create/Update image pull secret
+        run: |
+          kubectl create secret docker-registry ghcr-secret \
+            --docker-server=${{ env.REGISTRY }} \
+            --docker-username=${{ github.actor }} \
+            --docker-password=${{ secrets.GHCR_PAT }} \
+            --namespace=${{ env.NAMESPACE }} \
+            --dry-run=client -o yaml | kubectl apply -f -
 
-        kubectl patch scaledobject boti-backend-scaledobject -n ${{ env.NAMESPACE }} \
-          --type=merge -p '{"metadata":{"annotations":{"autoscaling.keda.sh/paused":"true"}}}' || true
+      - name: Create/Update application secrets
+        run: |
+          kubectl create secret generic backend-env-secrets \
+            --namespace=${{ env.NAMESPACE }} \
+            --from-literal=DATABASE_URL="${{ secrets.DATABASE_URL }}" \
+            --from-literal=REDIS_URL="${{ secrets.REDIS_URL }}" \
+            --from-literal=JWT_SECRET="${{ secrets.JWT_SECRET }}" \
+            --dry-run=client -o yaml | kubectl apply -f -
 
-        kubectl scale deployment/boti-backend -n ${{ env.NAMESPACE }} --replicas=1 || true
+      - name: Create/Update PostgreSQL secrets
+        run: |
+          kubectl create secret generic postgres-secrets \
+            --namespace=${{ env.NAMESPACE }} \
+            --from-literal=POSTGRES_USER="${{ secrets.POSTGRES_USER }}" \
+            --from-literal=POSTGRES_PASSWORD="${{ secrets.POSTGRES_PASSWORD }}" \
+            --from-literal=POSTGRES_DB="${{ secrets.POSTGRES_DB }}" \
+            --dry-run=client -o yaml | kubectl apply -f -
 
-        kubectl apply -f k8s/backend-deployment.yaml
-        kubectl apply -f k8s/pdb.yaml
+      - name: Deploy PostgreSQL
+        run: |
+          kubectl apply -f k8s/postgres.yaml
+          kubectl wait --for=condition=available --timeout=180s deployment/postgres \
+            -n ${{ env.NAMESPACE }} || {
+            echo "⚠️ PostgreSQL not ready in time:"
+            kubectl describe deployment/postgres -n ${{ env.NAMESPACE }}
+            kubectl get pods -n ${{ env.NAMESPACE }} -l app=postgres
+          }
 
-        kubectl set image deployment/boti-backend \
-          boti-backend=${{ env.BACKEND_IMAGE }}:sha-${{ env.SHORT_SHA }} \
-          -n ${{ env.NAMESPACE }}
+      - name: Deploy Redis
+        run: |
+          kubectl apply -f k8s/redis.yaml
+          kubectl wait --for=condition=available --timeout=120s deployment/redis \
+            -n ${{ env.NAMESPACE }} || {
+            echo "⚠️ Redis not ready in time:"
+            kubectl get pods -n ${{ env.NAMESPACE }} -l app=redis
+          }
 
-        kubectl rollout status deployment/boti-backend -n ${{ env.NAMESPACE }} --timeout=600s
+      - name: Apply ConfigMap
+        run: kubectl apply -f k8s/configmap.yaml
 
-        kubectl apply -f k8s/keda-scaledobject.yaml
-        kubectl patch scaledobject boti-backend-scaledobject -n ${{ env.NAMESPACE }} \
-          --type=merge -p '{"metadata":{"annotations":{"autoscaling.keda.sh/paused":"false"}}}' || true
+  # ─────────────────────────────────────────────
+  # 5. Deploy backend (solo si cambió)
+  # ─────────────────────────────────────────────
+  deploy-backend:
+    runs-on: self-hosted
+    name: Deploy backend
+    needs: [detect-changes, build-backend, deploy-infra]
+    if: |
+      always() &&
+      needs.detect-changes.outputs.backend == 'true' &&
+      needs.build-backend.result == 'success' &&
+      needs.deploy-infra.result == 'success'
+    steps:
+      - uses: actions/checkout@v4
 
-    - name: Deploy frontend
-      run: |
-        kubectl apply -f k8s/frontend-deployment.yaml
-        kubectl set image deployment/boti-frontend \
-          boti-frontend=${{ env.FRONTEND_IMAGE }}:sha-${{ env.SHORT_SHA }} \
-          -n ${{ env.NAMESPACE }}
-        kubectl rollout status deployment/boti-frontend -n ${{ env.NAMESPACE }} --timeout=300s
+      - name: Get short SHA
+        run: echo "SHORT_SHA=$(echo $GITHUB_SHA | cut -c1-7)" >> $GITHUB_ENV
 
-    - name: Apply Ingress
-      run: |
-        kubectl delete ingress boti-ingress -n ${{ env.NAMESPACE }} --ignore-not-found=true || true
-        kubectl apply -f k8s/ingress.yaml
+      - name: Deploy backend
+        run: |
+          kubectl delete hpa boti-backend-hpa -n ${{ env.NAMESPACE }} --ignore-not-found=true
 
-    - name: Backend health check
-      run: |
-        sleep 20
-        BACKEND_IP=$(kubectl get service boti-backend-service -n ${{ env.NAMESPACE }} \
-          -o jsonpath='{.spec.clusterIP}')
-        for i in {1..10}; do
-          if curl -sf http://$BACKEND_IP:80/api/health > /dev/null 2>&1; then
-            echo "✅ Backend health check passed"
-            break
-          fi
-          echo "Attempt $i/10 — retrying in 10s..."
-          sleep 10
-          if [ $i -eq 10 ]; then
-            echo "❌ Health check failed"
-            kubectl logs deployment/boti-backend -n ${{ env.NAMESPACE }} --tail=50
-            exit 1
-          fi
-        done
+          kubectl patch scaledobject boti-backend-scaledobject -n ${{ env.NAMESPACE }} \
+            --type=merge -p '{"metadata":{"annotations":{"autoscaling.keda.sh/paused":"true"}}}' || true
 
-    - name: Debug rollout failure
-      if: failure()
-      run: |
-        echo "=== Pods ==="
-        kubectl get pods -n ${{ env.NAMESPACE }} -o wide || true
-        echo "=== Backend deployment ==="
-        kubectl describe deployment/boti-backend -n ${{ env.NAMESPACE }} | tail -30 || true
-        NEWPOD=$(kubectl get pods -n ${{ env.NAMESPACE }} -l app=boti-backend \
-          --sort-by=.metadata.creationTimestamp -o jsonpath='{.items[-1:].metadata.name}')
-        echo "=== Newest pod logs: $NEWPOD ==="
-        kubectl logs "$NEWPOD" -n ${{ env.NAMESPACE }} --tail=100 || true
-        kubectl patch scaledobject boti-backend-scaledobject -n ${{ env.NAMESPACE }} \
-          --type=merge -p '{"metadata":{"annotations":{"autoscaling.keda.sh/paused":"false"}}}' || true
+          kubectl scale deployment/boti-backend -n ${{ env.NAMESPACE }} --replicas=1 || true
 
-    - name: Deployment summary
-      if: always()
-      run: |
-        echo "=============================="
-        echo " Boti Deployment Summary"
-        echo "=============================="
-        echo "Status: ${{ job.status }}"
-        echo "Image: ${{ env.BACKEND_IMAGE }}:sha-${{ env.SHORT_SHA }}"
-        echo "Host:   https://boti.mindtechpy.net"
-        echo ""
-        kubectl get pods -n ${{ env.NAMESPACE }} || true
-        echo ""
-        kubectl get services -n ${{ env.NAMESPACE }} || true
-        echo ""
-        kubectl get ingress -n ${{ env.NAMESPACE }} || true
+          kubectl apply -f k8s/backend-deployment.yaml
+          kubectl apply -f k8s/pdb.yaml
+
+          kubectl set image deployment/boti-backend \
+            boti-backend=${{ env.BACKEND_IMAGE }}:sha-${{ env.SHORT_SHA }} \
+            -n ${{ env.NAMESPACE }}
+
+          kubectl rollout status deployment/boti-backend -n ${{ env.NAMESPACE }} --timeout=600s
+
+          kubectl apply -f k8s/keda-scaledobject.yaml
+          kubectl patch scaledobject boti-backend-scaledobject -n ${{ env.NAMESPACE }} \
+            --type=merge -p '{"metadata":{"annotations":{"autoscaling.keda.sh/paused":"false"}}}' || true
+
+      - name: Backend health check
+        run: |
+          sleep 20
+          BACKEND_IP=$(kubectl get service boti-backend-service -n ${{ env.NAMESPACE }} \
+            -o jsonpath='{.spec.clusterIP}')
+          for i in {1..10}; do
+            if curl -sf http://$BACKEND_IP:80/api/health > /dev/null 2>&1; then
+              echo "✅ Backend health check passed"
+              break
+            fi
+            echo "Attempt $i/10 — retrying in 10s..."
+            sleep 10
+            if [ $i -eq 10 ]; then
+              echo "❌ Health check failed"
+              kubectl logs deployment/boti-backend -n ${{ env.NAMESPACE }} --tail=50
+              exit 1
+            fi
+          done
+
+      - name: Debug rollout failure
+        if: failure()
+        run: |
+          echo "=== Pods ==="
+          kubectl get pods -n ${{ env.NAMESPACE }} -o wide || true
+          echo "=== Backend deployment ==="
+          kubectl describe deployment/boti-backend -n ${{ env.NAMESPACE }} | tail -30 || true
+          NEWPOD=$(kubectl get pods -n ${{ env.NAMESPACE }} -l app=boti-backend \
+            --sort-by=.metadata.creationTimestamp -o jsonpath='{.items[-1:].metadata.name}')
+          echo "=== Newest pod logs: $NEWPOD ==="
+          kubectl logs "$NEWPOD" -n ${{ env.NAMESPACE }} --tail=100 || true
+          kubectl patch scaledobject boti-backend-scaledobject -n ${{ env.NAMESPACE }} \
+            --type=merge -p '{"metadata":{"annotations":{"autoscaling.keda.sh/paused":"false"}}}' || true
+
+  # ─────────────────────────────────────────────
+  # 6. Deploy frontend (solo si cambió)
+  # ─────────────────────────────────────────────
+  deploy-frontend:
+    runs-on: self-hosted
+    name: Deploy frontend
+    needs: [detect-changes, build-frontend, deploy-infra]
+    if: |
+      always() &&
+      needs.detect-changes.outputs.frontend == 'true' &&
+      needs.build-frontend.result == 'success' &&
+      needs.deploy-infra.result == 'success'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get short SHA
+        run: echo "SHORT_SHA=$(echo $GITHUB_SHA | cut -c1-7)" >> $GITHUB_ENV
+
+      - name: Deploy frontend
+        run: |
+          kubectl apply -f k8s/frontend-deployment.yaml
+          kubectl set image deployment/boti-frontend \
+            boti-frontend=${{ env.FRONTEND_IMAGE }}:sha-${{ env.SHORT_SHA }} \
+            -n ${{ env.NAMESPACE }}
+          kubectl rollout status deployment/boti-frontend -n ${{ env.NAMESPACE }} --timeout=300s
+
+      - name: Apply Ingress
+        run: |
+          kubectl delete ingress boti-ingress -n ${{ env.NAMESPACE }} --ignore-not-found=true || true
+          kubectl apply -f k8s/ingress.yaml
+
+  # ─────────────────────────────────────────────
+  # 7. Resumen final
+  # ─────────────────────────────────────────────
+  summary:
+    runs-on: self-hosted
+    name: Deployment summary
+    needs: [deploy-backend, deploy-frontend]
+    if: always()
+    steps:
+      - name: Summary
+        run: |
+          echo "=============================="
+          echo " Boti Deployment Summary"
+          echo "=============================="
+          echo "Backend deployed: ${{ needs.deploy-backend.result }}"
+          echo "Frontend deployed: ${{ needs.deploy-frontend.result }}"
+          echo "Host: https://boti.mindtechpy.net"
+          echo ""
+          kubectl get pods -n ${{ env.NAMESPACE }} || true
+          echo ""
+          kubectl get services -n ${{ env.NAMESPACE }} || true
+          echo ""
+          kubectl get ingress -n ${{ env.NAMESPACE }} || true
