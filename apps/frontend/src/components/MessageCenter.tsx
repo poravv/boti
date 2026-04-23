@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiFetch, apiFetchJson } from '../lib/apiClient';
 import {
   Badge,
@@ -51,16 +51,20 @@ const MessageCenter = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [agents, setAgents] = useState<Agent[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  // Ref kept in sync so WS handler always reads latest activeChat without re-registering.
+  const activeChatRef = useRef<Chat | null>(null);
+  useEffect(() => { activeChatRef.current = activeChat; }, [activeChat]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const fetchChats = async () => {
+  const fetchChats = useCallback(async () => {
     try {
       const data = await apiFetchJson<{ chats: Chat[] }>('/api/chats');
       setChats(data.chats || []);
-      if (data.chats?.length > 0 && !activeChat) {
+      // Use ref so this callback stays stable but still reads the latest value.
+      if (data.chats?.length > 0 && !activeChatRef.current) {
         setActiveChat(data.chats[0]);
       }
     } catch {
@@ -68,18 +72,18 @@ const MessageCenter = () => {
     } finally {
       setLoadingChats(false);
     }
-  };
+  }, []);
 
-  const fetchAgents = async () => {
+  const fetchAgents = useCallback(async () => {
     try {
       const data = await apiFetchJson<{ agents: Agent[] }>('/api/agents');
       setAgents(data.agents || []);
     } catch {
       // Agents list is optional.
     }
-  };
+  }, []);
 
-  const fetchMessages = async (phone: string) => {
+  const fetchMessages = useCallback(async (phone: string) => {
     setLoadingMessages(true);
     try {
       const data = await apiFetchJson<{ messages: Message[] }>(`/api/messages/${phone}`);
@@ -90,12 +94,12 @@ const MessageCenter = () => {
     } finally {
       setLoadingMessages(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchChats();
     fetchAgents();
-  }, []);
+  }, [fetchChats, fetchAgents]);
 
   useEffect(() => {
     if (!activeChat) return;
@@ -106,7 +110,7 @@ const MessageCenter = () => {
         prev.map((c) => (c.phone === activeChat.phone ? { ...c, unreadCount: 0 } : c)),
       );
     }).catch(() => {});
-  }, [activeChat?.id]);
+  }, [activeChat?.id, fetchMessages]);
 
   useEffect(() => {
     const handleWSEvent = (event: Event) => {
@@ -126,10 +130,11 @@ const MessageCenter = () => {
           | undefined;
         if (phone && typeof phone === 'string') {
           phone = phone.split('@')[0].split(':')[0];
-          if (activeChat && phone === activeChat.phone) {
-            fetchMessages(activeChat.phone);
+          const current = activeChatRef.current;
+          if (current && phone === current.phone) {
+            fetchMessages(current.phone);
             if (detail.event === 'message:new') {
-              apiFetch(`/api/messages/${activeChat.phone}/read`, { method: 'POST' })
+              apiFetch(`/api/messages/${current.phone}/read`, { method: 'POST' })
                 .then(() => window.dispatchEvent(new CustomEvent('boti:fetch-unread')))
                 .catch(() => {});
             }
@@ -138,9 +143,10 @@ const MessageCenter = () => {
       }
     };
 
+    // Registered once — activeChatRef ensures always-fresh activeChat without re-registration.
     window.addEventListener('boti:ws-event', handleWSEvent);
     return () => window.removeEventListener('boti:ws-event', handleWSEvent);
-  }, [activeChat?.phone]);
+  }, [fetchChats, fetchMessages]);
 
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !activeChat) return;
@@ -157,7 +163,9 @@ const MessageCenter = () => {
         }),
       });
       setNewMessage('');
+      // Fetch immediately (optimistic) and again after BullMQ processes the job.
       fetchMessages(activeChat.phone);
+      setTimeout(() => fetchMessages(activeChat.phone), 1500);
     } catch {
       // Compose state preserved for retry.
     }
