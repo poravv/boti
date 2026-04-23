@@ -170,7 +170,7 @@ export class BaileysWhatsAppAdapter implements IWhatsAppProvider {
         if (jid === 'status@broadcast') continue;
         if (jid.endsWith('@g.us')) continue;
 
-        let fromPhone = jid.split('@')[0];
+        let fromPhone = jid.split('@')[0].split(':')[0];
         
         if (jid.endsWith('@lid')) {
           try {

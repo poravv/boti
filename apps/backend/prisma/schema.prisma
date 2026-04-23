@@ -17,9 +17,11 @@ model Client {
   isBlocked   Boolean   @default(false)
   blockedUntil DateTime?
   aiPausedUntil DateTime? // New field for temporary AI pause
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  messages    Message[]
+  assignedToUserId String?
+  assignedTo      User?     @relation(fields: [assignedToUserId], references: [id])
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  messages        Message[]
 }
 
 model Message {
@@ -72,6 +74,7 @@ model User {
   name         String
   role         String    @default("OPERATOR") // ADMIN | OPERATOR
   isActive     Boolean   @default(true)
+  assignedClients Client[]
   createdAt    DateTime  @default(now())
 }
 

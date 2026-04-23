@@ -134,7 +134,7 @@ async function bootstrap() {
       return;
     }
     await handleInbound.execute({ lineId, fromPhone, fromName, content, type });
-    wsManager.broadcast('message:new', { lineId, fromPhone, fromName, content, type });
+    wsManager.broadcast('message:new', { lineId, fromPhone, clientPhone: fromPhone, fromName, content, type });
   });
 
   // Root Health Check

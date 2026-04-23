@@ -8,6 +8,13 @@ interface Chat {
   time: string;
   status: string;
   aiPausedUntil?: string;
+  assignedTo?: { id: string; name: string; email: string };
+}
+
+interface Agent {
+  id: string;
+  name: string;
+  role: string;
 }
 
 interface Message {
@@ -24,6 +31,7 @@ const MessageCenter = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [agents, setAgents] = useState<Agent[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const token = localStorage.getItem('token');
 
@@ -44,6 +52,16 @@ const MessageCenter = () => {
     } catch (err) {}
   };
 
+  const fetchAgents = async () => {
+    try {
+      const res = await fetch('/api/agents', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      setAgents(data.agents || []);
+    } catch (err) {}
+  };
+
   const fetchMessages = async (phone: string) => {
     setLoading(true);
     try {
@@ -60,6 +78,7 @@ const MessageCenter = () => {
 
   useEffect(() => {
     fetchChats();
+    fetchAgents();
   }, [token]);
 
   useEffect(() => {
@@ -132,6 +151,28 @@ const MessageCenter = () => {
     } catch (err) {}
   };
 
+  const handleAssignAgent = async (agentId: string | null) => {
+    if (!activeChat) return;
+    try {
+      const res = await fetch(`/api/clients/${activeChat.phone}/assign`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ agentId })
+      });
+      if (res.ok) {
+        fetchChats();
+        const agent = agents.find(a => a.id === agentId);
+        setActiveChat({ 
+          ...activeChat, 
+          assignedTo: agent ? { id: agent.id, name: agent.name, email: '' } : undefined 
+        });
+      }
+    } catch (err) {}
+  };
+
   const isAiCurrentlyPaused = activeChat?.aiPausedUntil && new Date(activeChat.aiPausedUntil) > new Date();
 
   return (
@@ -161,6 +202,12 @@ const MessageCenter = () => {
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-500 truncate font-medium">{chat.lastMsg}</p>
+                {chat.assignedTo && (
+                  <div className="mt-1 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-primary/40"></span>
+                    <span className="text-[9px] font-black text-primary/60 uppercase">{chat.assignedTo.name}</span>
+                  </div>
+                )}
               </div>
             </button>
           ))}
@@ -183,7 +230,18 @@ const MessageCenter = () => {
                   </div>
                 </div>
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 items-center">
+                <select 
+                  value={activeChat.assignedTo?.id || ''} 
+                  onChange={(e) => handleAssignAgent(e.target.value || null)}
+                  className="bg-surface-container border-none text-[10px] font-black uppercase tracking-wider rounded-lg focus:ring-0 text-primary cursor-pointer hover:bg-primary/5 transition-colors"
+                >
+                  <option value="">Sin Asignar</option>
+                  {agents.map(a => (
+                    <option key={a.id} value={a.id}>{a.name}</option>
+                  ))}
+                </select>
+
                 <button 
                   onClick={() => handlePauseAI(1)}
                   className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[11px] font-bold transition-all shadow-sm border ${isAiCurrentlyPaused ? 'bg-orange-500 text-white border-orange-500' : 'bg-white hover:bg-slate-50 text-slate-600 border-slate-200'}`}

@@ -340,9 +340,14 @@ const App = () => {
   useEffect(() => {
     if (!token) return;
 
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const host = window.location.host;
+    
+    // In production (Docker), we use the relative /ws path through Nginx
+    // In dev, we might need to point directly to 3001 if not using the proxy
     const socketUrl = process.env.NODE_ENV === 'production' 
-      ? `wss://${window.location.host}/ws` 
-      : `ws://localhost:3001/ws`;
+      ? `${protocol}//${host}/ws` 
+      : `${protocol}//localhost:3001/ws`;
       
     const ws = new WebSocket(socketUrl);
     

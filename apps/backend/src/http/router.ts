@@ -249,6 +249,9 @@ export function createRouter(
           messages: {
             orderBy: { createdAt: 'desc' },
             take: 1
+          },
+          assignedTo: {
+            select: { id: true, name: true, email: true }
           }
         },
         orderBy: { updatedAt: 'desc' }
@@ -260,7 +263,9 @@ export function createRouter(
         phone: c.phone,
         lastMsg: c.messages[0]?.content || '',
         time: c.messages[0]?.createdAt || c.updatedAt,
-        status: 'ACTIVE' // Could be dynamic later
+        status: 'ACTIVE',
+        assignedTo: c.assignedTo,
+        aiPausedUntil: c.aiPausedUntil
       }));
 
       res.json({ chats });
@@ -293,10 +298,32 @@ export function createRouter(
     }
   });
 
-  router.post('/clients/:phone/block', async (req, res) => {
-    const { reason, operatorId } = req.body;
-    await blockClient.execute(req.params.phone, reason ?? 'Manual block', operatorId);
-    res.json({ status: 'blocked' });
+  router.post('/clients/:phone/assign', authMiddleware, async (req, res) => {
+    try {
+      const { phone } = req.params;
+      const { agentId } = req.body; // Can be null to unassign
+
+      const updated = await prisma.client.update({
+        where: { phone },
+        data: { assignedToUserId: agentId }
+      });
+
+      res.json({ status: 'assigned', client: updated });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  router.get('/agents', authMiddleware, async (_req, res) => {
+    try {
+      const agents = await prisma.user.findMany({
+        where: { isActive: true },
+        select: { id: true, name: true, role: true }
+      });
+      res.json({ agents });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
   });
 
   return router;
