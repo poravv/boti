@@ -110,7 +110,29 @@ const MessageCenter = () => {
         if (phone && typeof phone === 'string') {
           phone = phone.split('@')[0].split(':')[0];
           if (activeChat && phone === activeChat.phone) {
-            fetchMessages(activeChat.phone);
+            // Append message locally if it's new
+            if (event === 'message:new') {
+              const incomingMsg: Message = {
+                id: body.id || Date.now().toString(),
+                content: body.content,
+                direction: body.direction || (body.fromPhone ? 'INBOUND' : 'OUTBOUND'),
+                type: body.type || 'TEXT',
+                createdAt: body.createdAt || new Date().toISOString()
+              };
+              setMessages(prev => {
+                if (prev.some(m => m.id === incomingMsg.id)) return prev;
+                return [...prev, incomingMsg];
+              });
+              setTimeout(scrollToBottom, 100);
+              
+              // Mark as read immediately
+              fetch(`/api/messages/${activeChat.phone}/read`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` }
+              }).then(() => window.dispatchEvent(new CustomEvent('boti:fetch-unread')));
+            } else {
+              fetchMessages(activeChat.phone);
+            }
           }
         }
       }

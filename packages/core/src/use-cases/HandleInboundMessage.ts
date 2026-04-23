@@ -75,15 +75,7 @@ export class HandleInboundMessage implements HandleInboundMessageUseCase {
       };
     }
 
-    // 5. Add message to context, keep only last N
-    ctx.lastMessages.push(inboundMessage);
-    if (ctx.lastMessages.length > maxMessages) {
-      ctx.lastMessages = ctx.lastMessages.slice(-maxMessages);
-    }
-    ctx.updatedAt = new Date();
-    await contextRepo.save(ctx);
-
-    // 6. Build the AI prompt with business context + conversation history
+    // 5. Build the AI prompt with business context + conversation history
     const businessContext = await contextFetcher.fetchContextForBusiness(lineId);
 
     const SAFETY_WRAPPER = `
@@ -105,7 +97,7 @@ DIRECTIVAS DEL NEGOCIO (Prioridad):
       { role: 'user' as const, content }, // Incluir el mensaje actual
     ];
 
-    // 7. Generate AI reply
+    // 6. Generate AI reply
     if (isAiPaused) {
       await notifier.notifyOperators(lineId, 'MANUAL_INTERVENTION_NEEDED', { clientPhone: fromPhone, content });
       return;
@@ -126,18 +118,17 @@ DIRECTIVAS DEL NEGOCIO (Prioridad):
       replyText = 'En este momento no puedo responderte. Un operador te atenderá pronto.';
     }
 
-    // 8. Enqueue outbound reply
+    // 7. Enqueue outbound reply
     await queue.enqueue(lineId, { to: fromPhone, content: replyText, type: 'TEXT', clientMessageId: inboundMessage.id });
 
-    // 9. Persist conversation history to DB (THE BRAIN)
-    // We cast to any to avoid missing fields like ID/Status which aren't needed for AI context
+    // 8. Update and Persist conversation history to Context Repo
     const inboundHistory = { direction: 'INBOUND', content, type: 'TEXT', createdAt: new Date() } as any;
     const outboundHistory = { direction: 'OUTBOUND', content: replyText, type: 'TEXT', createdAt: new Date() } as any;
     
     ctx.lastMessages.push(inboundHistory);
     ctx.lastMessages.push(outboundHistory);
     
-    // Limit to last 10 messages to keep context clean but relevant
+    // Limit to last N messages to keep context clean but relevant
     if (ctx.lastMessages.length > 10) {
       ctx.lastMessages = ctx.lastMessages.slice(-10);
     }
