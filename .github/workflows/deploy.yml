@@ -81,10 +81,6 @@ jobs:
           --from-literal=DATABASE_URL="${{ secrets.DATABASE_URL }}" \
           --from-literal=REDIS_URL="${{ secrets.REDIS_URL }}" \
           --from-literal=JWT_SECRET="${{ secrets.JWT_SECRET }}" \
-          --from-literal=GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}" \
-          --from-literal=OPENAI_API_KEY="${{ secrets.OPENAI_API_KEY }}" \
-          --from-literal=CLAUDE_API_KEY="${{ secrets.CLAUDE_API_KEY }}" \
-          --from-literal=GROK_API_KEY="${{ secrets.GROK_API_KEY }}" \
           --dry-run=client -o yaml | kubectl apply -f -
 
     - name: Create/Update PostgreSQL secrets

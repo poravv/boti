@@ -18,8 +18,8 @@ spec:
   scaleTargetRef:
     name: boti-backend
   minReplicaCount: 1
-  maxReplicaCount: 3
-  cooldownPeriod: 300
+  maxReplicaCount: 2
+  cooldownPeriod: 600
   pollingInterval: 30
   triggers:
   # Scale on BullMQ outbound queue activity
