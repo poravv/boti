@@ -1,0 +1,10 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: boti-backend-pdb
+  namespace: boti
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: boti-backend

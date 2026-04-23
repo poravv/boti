@@ -1,0 +1,85 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: boti-backend
+  namespace: boti
+  labels:
+    app: boti-backend
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: boti-backend
+  template:
+    metadata:
+      labels:
+        app: boti-backend
+    spec:
+      terminationGracePeriodSeconds: 90
+      containers:
+      - name: boti-backend
+        image: ghcr.io/elporavv/boti-backend:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 3001
+          name: http
+        env:
+        - name: NODE_OPTIONS
+          value: "--max_old_space_size=384"
+        envFrom:
+        - configMapRef:
+            name: backend-config
+        - secretRef:
+            name: backend-env-secrets
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+            ephemeral-storage: "512Mi"
+          limits:
+            memory: "512Mi"
+            cpu: "400m"
+            ephemeral-storage: "1Gi"
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: 3001
+          initialDelaySeconds: 40
+          periodSeconds: 15
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: 3001
+          initialDelaySeconds: 20
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        lifecycle:
+          preStop:
+            exec:
+              command: ["/bin/sh", "-c", "sleep 10"]
+      imagePullSecrets:
+      - name: ghcr-secret
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: boti-backend-service
+  namespace: boti
+  labels:
+    app: boti-backend
+spec:
+  type: ClusterIP
+  selector:
+    app: boti-backend
+  ports:
+  - port: 80
+    targetPort: 3001
+    name: http

@@ -1,0 +1,36 @@
+apiVersion: keda.sh/v1alpha1
+kind: TriggerAuthentication
+metadata:
+  name: redis-trigger-auth
+  namespace: boti
+spec:
+  secretTargetRef:
+  - parameter: address
+    name: backend-env-secrets
+    key: REDIS_URL
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: boti-backend-scaledobject
+  namespace: boti
+spec:
+  scaleTargetRef:
+    name: boti-backend
+  minReplicaCount: 1
+  maxReplicaCount: 3
+  cooldownPeriod: 300
+  pollingInterval: 30
+  triggers:
+  # Scale on BullMQ outbound queue activity
+  - type: redis-streams
+    metadata:
+      address: redis:6379
+      stream: bull:boti-outbound:events
+      pendingEntriesCount: "1"
+      consumerGroup: boti-workers
+  # Scale on CPU load
+  - type: cpu
+    metricType: Utilization
+    metadata:
+      value: "70"

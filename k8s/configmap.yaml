@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+  namespace: boti
+data:
+  NODE_ENV: "production"
+  PORT: "3001"
+  LOG_LEVEL: "info"
+  JWT_EXPIRES_IN: "7d"
+  DEFAULT_AI_PROVIDER: "gemini"
+  SPAM_THRESHOLD: "50"
+  SPAM_BLOCK_DURATION_MS: "86400000"
+  CONTEXT_MAX_MESSAGES: "10"
