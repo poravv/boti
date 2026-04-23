@@ -1,54 +1,225 @@
--Boti sera un chatbot con bayleis la version mas estable posible.
--Se podra integrar con uno o mas numeros de linea para responder a los clientes o derivar a operadores 
--Se debe poder integrar con gemini, openai claude grok por x-api-key para poder entrenarse con la informacion del sistema y el stock disponible y debe poder refrescar su base de conocimientos periodicamente o a pedido por ejemplo consultar stock 
--Se debe poder integrar a cualquier sistema por medio de x-api-key, jwt, usuario password, access key y secret key y los curls para recuperar la data relativamente organizada y detallada y con su json de response de ejemplo especialmente de productos y stock disponible
--Debe recibir un prompt para entender el contexto del negocio y que este optimizado para no perder el contexto de la conversacion con el cliente y asi poder resolver sus dudas o inquietudes de forma precisa y coherente.
--Debe poder manejar conversaciones concurrentes y tener una base de datos en tiempo real de los clientes y sus consultas.
--Debe poder manejar conversations concurrentes pero sin usar exageradamente el contexto largo sino el nombre del cliente y un resumen de la conversacion (ideal del total bien resumido) o los ultimos 10 mensajes (parametrizable desde la app) para mantener el contexto de la conversacion pero optimizando costos
--El diseño debe ser moderno y minimalista pero muy intuitivo y facil de usar por personas no tecnicas. 
--Debe poder enviar pdf, imagenes, links 
--En caso de tener demasiados mensajes debe tener una cola de mensajeria para no sobrecargar la memoria ram.
--Debe tener filtro contra ataques y spam, debe bloquear por 24hs al usuario si detecta mas de 50 mensajes en un minuto.
--Debe poder enviar mensajes en tiempo real a los clientes con un indicador de envio exitoso, fallido o pendiente.
--debe tener un sistema de auditoria para registrar todos los eventos relevantes del sistema y guardar los logs en base de datos y en archivos de texto.
--debe tener un sistema de notificaciones para notificar a los operadores de nuevos mensajes o eventos relevantes.
--debe tener un sistema de permisos y roles para gestionar el acceso al sistema.
--En caso de no tener un sistema debe poder recibir un json de contexto por default con todo el contexto y basarse en ello en caso de no tener un sistema externo donde recuperar la informacion.
+# Boti — WhatsApp Business Automation Platform
 
+Boti es una plataforma de gestión y automatización de WhatsApp orientada a negocios. Permite conectar múltiples líneas de WhatsApp, responder a clientes con inteligencia artificial configurable por línea, y gestionar conversaciones desde una interfaz web en tiempo real.
 
-El sistema debe estar compuesto por:
--Frontend
--Backend
--Base de datos
--Inteligencia artificial
+---
 
-Y sera un monorepo
-Para probar se debe usar docker y docker compose para levantar el entorno completo localmente
+## Arquitectura
 
+- **Monorepo** con `apps/backend`, `apps/frontend` y `packages/core`
+- **Backend:** Node.js + Express, Hexagonal Architecture (Domain → Application → Infrastructure)
+- **Frontend:** React 18 + TypeScript + Vite + Tailwind CSS
+- **Base de datos:** PostgreSQL (Prisma ORM)
+- **Cola de mensajes:** Redis + BullMQ
+- **WhatsApp:** Baileys (`@whiskeysockets/baileys`)
+- **Despliegue:** Kubernetes (KEDA autoscaling) + GitHub Actions CI/CD
 
-MCP de stich del disenho :
-REDACTED
-## Stitch Instructions
+---
 
-Get the images and code for the following Stitch project's screens:
-## Project
-Title: Boti AI WhatsApp Manager
-ID: 2833983067247269474
+## Capacidades Funcionales
 
-## Screens:
-1. Design System
-    ID: asset-stub-assets-3571e250600c4160900ba7d2f17cd2d7-1776948077858
+### 1. Gestión de Líneas WhatsApp
 
-2. Dashboard - Boti
-    ID: e12eb71f7bf6466aab31288ce1065288
+- Conexión de múltiples números simultáneamente (sin límite de líneas)
+- Vinculación por código QR generado en tiempo real y mostrado en la UI
+- Reconexión automática ante caídas de sesión
+- Persistencia de sesión en Redis (sobrevive reinicios del servidor)
+- Estados de línea en tiempo real: `CONNECTED`, `DISCONNECTED`, `CONNECTING`, `QR_PENDING`
+- Desconexión y desvinculación de líneas desde la UI
 
-3. Message Center - Boti
-    ID: c0664aa2e7044c4ca27cf1204bbd1ded
+### 2. Motor de IA por Línea
 
-4. WhatsApp Connections - Boti
-    ID: d6d298df8f7a40c7b2e9d3ad8a606cb2
+- Soporte para múltiples proveedores de IA en la misma instalación:
+  - **Google Gemini** (1.5 Flash / 1.5 Pro)
+  - **OpenAI** (GPT-4o / GPT-4o-mini)
+  - **Anthropic Claude** (integración lista para activar)
+  - **Grok** (integración lista para activar)
+- Configuración independiente por línea: proveedor, modelo y API key
+- Prompt de sistema personalizable por línea (personalidad del bot)
+- Contexto de negocio inyectable en formato JSON (FAQs, precios, horarios, catálogo)
+- Contexto externo via URL: el sistema puede fetchear datos actualizados desde cualquier API antes de responder
+- Historial de conversación configurable (por defecto: últimos 10 mensajes)
+- La IA responde automáticamente a mensajes entrantes; los operadores pueden pausarla en cualquier momento
 
-5. AI Configuration - Boti
-    ID: ea58323ca0e14776a4abb36dd1be1ccd
+### 3. Centro de Mensajes (Inbox)
 
-Use a utility like `curl -L` to download the hosted URLs.
+- Lista de conversaciones con búsqueda por nombre o teléfono
+- Vista de hilo por contacto con mensajes ordenados cronológicamente
+- Diferenciación visual entre mensajes entrantes (cliente) y salientes (bot/operador)
+- Envío manual de mensajes desde la web hacia cualquier contacto
+- Indicadores de estado de entrega: Pendiente → Enviado → Fallido
+- Conteo de mensajes no leídos por conversación y contador global
+- Marcado automático de mensajes como leídos al abrir la conversación
+- Actualización en tiempo real sin necesidad de recargar la página (WebSocket)
+- Latencia de entrega: mensaje procesado en ~1-2 segundos vía BullMQ
+
+### 4. Gestión de Contactos (Clientes)
+
+- Registro automático del contacto al recibir el primer mensaje
+- Asignación de conversación a un operador específico desde el inbox
+- Modo pausa de IA por contacto (ej. "pausar 1 hora" para atención manual)
+- Bloqueo de contactos (permanente o temporal)
+- Visualización del agente asignado en la lista de chats
+
+### 5. Anti-Spam y Protección
+
+- Rate limiting por número de teléfono: máximo 50 mensajes por minuto (configurable)
+- Bloqueo automático de 24 horas al superar el umbral
+- Notificación en tiempo real al operador cuando se detecta spam
+- El bloqueo se gestiona en Redis (sin impacto en la base de datos principal)
+
+### 6. Notificaciones en Tiempo Real
+
+- Canal WebSocket en `/ws` para todos los clientes conectados
+- Eventos emitidos por el servidor:
+
+| Evento | Cuándo se emite |
+|--------|----------------|
+| `message:new` | Llega un mensaje entrante o se envía uno saliente |
+| `message:status` | Cambia el estado de entrega de un mensaje |
+| `line:status` | Una línea cambia de estado (conectada, QR, desconectada) |
+| `operator:notification` | Eventos del sistema (spam detectado, errores de envío) |
+
+- Sonido de notificación al recibir mensajes nuevos
+- Centro de notificaciones en la UI con historial de eventos
+
+### 7. Dashboard y Métricas
+
+- Mensajes totales y mensajes del día con indicador de tendencia
+- Líneas activas en tiempo real
+- Total de leads (contactos registrados)
+- Tráfico por hora: gráfico de barras de las últimas 15 horas
+- Porcentaje de rendimiento del sistema
+- Registro de actividad reciente (últimas 5 entradas de auditoría)
+- Actualización automática cada 10 segundos
+
+### 8. Auditoría
+
+- Registro persistente en base de datos de todos los eventos relevantes:
+  - Mensajes enviados y recibidos
+  - Bloqueos de spam
+  - Errores de la IA
+  - Acciones de usuarios
+- Cada entrada incluye: usuario, acción, detalles JSON, IP y timestamp
+- Acceso desde el Dashboard con modal de log completo
+
+### 9. Autenticación y Control de Acceso
+
+- Autenticación JWT con expiración de 7 días
+- Roles: `ADMIN` y `OPERATOR`
+- Admin creado automáticamente al iniciar si no existe
+- Logout automático ante token expirado o inválido (evento `auth:unauthorized`)
+- Todas las rutas protegidas excepto `/api/health` y `/api/auth/login`
+
+### 10. Cola de Mensajes Salientes
+
+- BullMQ sobre Redis para procesamiento asíncrono de mensajes salientes
+- 20 workers concurrentes
+- Reintentos automáticos: 3 intentos con backoff exponencial (2s → 4s → 8s)
+- KEDA escala los pods del backend según carga de la cola
+- Los mensajes nunca se pierden aunque el bot esté bajo carga
+
+---
+
+## Modelo de Datos
+
+### WhatsAppLine
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `id` | UUID | Identificador único de la línea |
+| `name` | String | Nombre amigable (ej. "Soporte", "Ventas") |
+| `phone` | String? | Número telefónico (se llena al conectar) |
+| `status` | Enum | Estado de conexión actual |
+| `systemPrompt` | String? | Personalidad/instrucciones del bot |
+| `assignedAiProvider` | String? | Proveedor de IA (gemini, openai, anthropic) |
+| `aiApiKey` | String? | API key por línea (override del global) |
+| `aiModel` | String? | Modelo específico (ej. gpt-4o, gemini-1.5-pro) |
+| `businessContext` | JSON? | Contexto del negocio en JSON |
+| `contextUrl` | String? | URL externa para fetchear contexto dinámico |
+| `maxMessages` | Int | Máximo de mensajes de historial (default: 10) |
+
+### Client
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `phone` | String | Número (clave única) |
+| `name` | String | Nombre del contacto |
+| `isBlocked` | Bool | Si está bloqueado |
+| `blockedUntil` | DateTime? | Expiración del bloqueo temporal |
+| `aiPausedUntil` | DateTime? | IA pausada hasta esta fecha |
+| `assignedToUserId` | UUID? | Operador asignado |
+
+### Message
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `lineId` | UUID | Línea que envió/recibió |
+| `clientPhone` | String | Teléfono del contacto |
+| `content` | String | Texto del mensaje |
+| `type` | Enum | TEXT, IMAGE, PDF, LINK |
+| `direction` | Enum | INBOUND, OUTBOUND |
+| `status` | Enum | PENDING, SUCCESS, FAILED |
+| `isRead` | Bool | Si fue leído por el operador |
+
+---
+
+## Flujos Principales
+
+### Mensaje entrante (cliente → bot)
+1. Baileys recibe el mensaje de WhatsApp
+2. Filtro anti-spam: si supera el umbral, bloquea y notifica
+3. Se guarda el mensaje en la base de datos
+4. Se verifica si la IA está pausada para ese contacto
+5. Se obtiene el contexto del negocio y el historial de conversación
+6. Se llama a la IA con system prompt + contexto + historial
+7. La respuesta se encola en BullMQ
+8. BullMQ worker envía el mensaje vía Baileys
+9. Se emite `message:new` por WebSocket → la UI se actualiza en tiempo real
+
+### Conexión de nueva línea
+1. Admin abre `/connections` y hace clic en "Nueva Conexión"
+2. Ingresa nombre amigable → POST `/api/lines/{id}/connect`
+3. Baileys genera código QR
+4. Se emite `line:status: QR_PENDING` → la UI muestra el QR
+5. El admin escanea con su teléfono
+6. WhatsApp confirma → `line:status: CONNECTED`
+7. La línea aparece disponible en AI Configuration
+
+---
+
+## Endpoints HTTP
+
+| Método | Ruta | Función |
+|--------|------|---------|
+| POST | `/api/auth/login` | Autenticación, retorna JWT |
+| GET | `/api/auth/me` | Perfil del usuario actual |
+| GET | `/api/lines` | Listar líneas con estado y QR |
+| POST | `/api/lines/:id/connect` | Iniciar conexión / generar QR |
+| POST | `/api/lines/:id/disconnect` | Desconectar línea |
+| GET | `/api/lines/:id/status` | Estado actual + QR |
+| GET | `/api/lines/:id/config` | Config de IA (proveedor, modelo) |
+| PUT | `/api/lines/:id/config` | Actualizar config de IA |
+| GET | `/api/lines/:id/context` | Contexto del negocio + system prompt |
+| PUT | `/api/lines/:id/context` | Actualizar contexto + system prompt |
+| GET | `/api/chats` | Lista de chats con último mensaje |
+| GET | `/api/messages/:phone` | Historial con un contacto |
+| POST | `/api/messages/send` | Enviar mensaje manual |
+| POST | `/api/messages/:phone/read` | Marcar mensajes como leídos |
+| GET | `/api/messages/unread-count` | Contador global de no leídos |
+| POST | `/api/clients/:phone/pause` | Pausar IA para un contacto |
+| POST | `/api/clients/:phone/assign` | Asignar contacto a operador |
+| GET | `/api/agents` | Listar operadores activos |
+| GET | `/api/stats` | Métricas del dashboard |
+| GET | `/api/audit-logs` | Últimas 50 entradas de auditoría |
+| GET | `/api/health` | Health check (sin auth) |
+
+---
+
+## Infraestructura de Producción
+
+- **Kubernetes** con namespace dedicado `boti`
+- **PostgreSQL** con PVC persistente (Longhorn)
+- **Redis** con PVC persistente (Longhorn)
+- **KEDA** autoscaling: escala el backend de 1 a 2 réplicas según carga de la cola y CPU
+- **cert-manager** con Let's Encrypt para TLS automático
+- **nginx Ingress** con soporte WebSocket nativo en `/ws`
+- **GitHub Actions** con runner self-hosted: build → push a GHCR → deploy en K8s
+- **Health checks** automáticos en el pipeline; rollback manual en caso de falla
