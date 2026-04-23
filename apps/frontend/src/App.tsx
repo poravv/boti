@@ -139,7 +139,7 @@ const Header = ({ user }: { user: any }) => {
 };
 
 const Dashboard = () => {
-  const [stats, setStats] = useState({ activeLines: 0, totalMessages: 0, totalLeads: 0, messagesToday: 0, leadsTrend: '0%', performance: '0%' });
+  const [stats, setStats] = useState<any>({ activeLines: 0, totalMessages: 0, totalLeads: 0, messagesToday: 0, leadsTrend: '0%', performance: '0%', hourlyTraffic: [] });
   const token = localStorage.getItem('token');
 
   useEffect(() => {
@@ -157,6 +157,8 @@ const Dashboard = () => {
     return () => clearInterval(interval);
   }, [token]);
 
+  const maxTraffic = Math.max(...(stats.hourlyTraffic || [1]), 10);
+
   return (
     <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -170,12 +172,20 @@ const Dashboard = () => {
            <div className="flex items-center justify-between mb-8">
              <div>
                <h3 className="text-xl font-black text-primary tracking-tight">Real-time Traffic</h3>
-               <p className="text-xs text-on-surface-variant font-medium">Processing volume in the last 60 minutes</p>
+               <p className="text-xs text-on-surface-variant font-medium">Messages processed in the last 15 hours</p>
              </div>
            </div>
            <div className="h-64 flex items-end gap-1.5 w-full relative">
-              {[40, 55, 35, 70, 45, 85, 50, 30, 75, 95, 40, 25, 65, 55, 80].map((h, i) => (
-                <div key={i} className="flex-1 bg-primary/10 rounded-t-lg transition-all hover:bg-primary hover:scale-y-110" style={{ height: `${h}%` }}></div>
+              {(stats.hourlyTraffic || [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]).map((count: number, i: number) => (
+                <div 
+                  key={i} 
+                  className="flex-1 bg-primary/10 rounded-t-lg transition-all hover:bg-primary group relative" 
+                  style={{ height: `${(count / maxTraffic) * 100}%`, minHeight: '4px' }}
+                >
+                  <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-primary text-white text-[9px] font-bold px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                    {count} msg
+                  </div>
+                </div>
               ))}
            </div>
         </div>
