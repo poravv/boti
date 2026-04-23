@@ -162,21 +162,25 @@ jobs:
       - name: Deploy PostgreSQL
         run: |
           kubectl apply -f k8s/postgres.yaml
-          kubectl wait --for=condition=available --timeout=180s deployment/postgres \
-            -n ${{ env.NAMESPACE }} || {
+          if ! kubectl wait --for=condition=available --timeout=180s deployment/postgres \
+            -n ${{ env.NAMESPACE }}; then
             echo "⚠️ PostgreSQL not ready in time:"
-            kubectl describe deployment/postgres -n ${{ env.NAMESPACE }}
-            kubectl get pods -n ${{ env.NAMESPACE }} -l app=postgres
-          }
+            kubectl describe deployment/postgres -n ${{ env.NAMESPACE }} || true
+            kubectl get pods -n ${{ env.NAMESPACE }} -l app=postgres || true
+            kubectl get events -n ${{ env.NAMESPACE }} --sort-by=.lastTimestamp | tail -10 || true
+            exit 1
+          fi
 
       - name: Deploy Redis
         run: |
           kubectl apply -f k8s/redis.yaml
-          kubectl wait --for=condition=available --timeout=120s deployment/redis \
-            -n ${{ env.NAMESPACE }} || {
+          if ! kubectl wait --for=condition=available --timeout=120s deployment/redis \
+            -n ${{ env.NAMESPACE }}; then
             echo "⚠️ Redis not ready in time:"
-            kubectl get pods -n ${{ env.NAMESPACE }} -l app=redis
-          }
+            kubectl get pods -n ${{ env.NAMESPACE }} -l app=redis || true
+            kubectl get events -n ${{ env.NAMESPACE }} --sort-by=.lastTimestamp | tail -10 || true
+            exit 1
+          fi
 
       - name: Apply ConfigMap
         run: kubectl apply -f k8s/configmap.yaml
