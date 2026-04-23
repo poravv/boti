@@ -1,6 +1,6 @@
 {
   "name": "@boti/backend",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
