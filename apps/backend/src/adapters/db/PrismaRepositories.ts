@@ -46,6 +46,13 @@ export class PrismaMessageRepository implements IMessageRepository {
       take: limit,
     }) as any;
   }
+
+  async markAsRead(phone: string): Promise<void> {
+    await prisma.message.updateMany({
+      where: { clientPhone: phone, direction: 'INBOUND', isRead: false },
+      data: { isRead: true },
+    });
+  }
 }
 
 // ─── Context Repository ───────────────────────────────────────────────────────

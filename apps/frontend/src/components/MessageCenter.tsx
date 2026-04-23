@@ -9,6 +9,7 @@ interface Chat {
   status: string;
   aiPausedUntil?: string;
   assignedTo?: { id: string; name: string; email: string };
+  unreadCount?: number;
 }
 
 interface Agent {
@@ -84,6 +85,15 @@ const MessageCenter = () => {
   useEffect(() => {
     if (activeChat) {
       fetchMessages(activeChat.phone);
+      // Mark as read when opening
+      fetch(`/api/messages/${activeChat.phone}/read`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      }).then(() => {
+        window.dispatchEvent(new CustomEvent('boti:fetch-unread'));
+        // Local update to clear badge
+        setChats(prev => prev.map(c => c.phone === activeChat.phone ? { ...c, unreadCount: 0 } : c));
+      });
     }
   }, [activeChat?.id]);
 
@@ -209,6 +219,13 @@ const MessageCenter = () => {
                   </div>
                 )}
               </div>
+              {((chat.unreadCount || 0) > 0) && (
+                <div className="flex flex-col items-end justify-center">
+                  <div className="w-5 h-5 bg-primary text-white text-[10px] font-black rounded-full flex items-center justify-center shadow-lg shadow-primary/20 animate-pulse">
+                    {chat.unreadCount}
+                  </div>
+                </div>
+              )}
             </button>
           ))}
         </div>

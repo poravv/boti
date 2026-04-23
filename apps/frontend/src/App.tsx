@@ -9,7 +9,7 @@ const Sidebar = ({ user, onLogout }: { user: any; onLogout: () => void }) => {
   const navItems = [
     { name: 'Dashboard', path: '/', icon: 'dashboard' },
     { name: 'Connections', path: '/connections', icon: 'link' },
-    { name: 'Messages', path: '/messages', icon: 'forum' },
+    { name: 'Messages', path: '/messages', icon: 'forum', badge: user?.unreadTotal },
     { name: 'AI Config', path: '/ai-config', icon: 'psychology' },
   ];
 
@@ -49,6 +49,11 @@ const Sidebar = ({ user, onLogout }: { user: any; onLogout: () => void }) => {
                   {item.icon}
                 </span>
                 {item.name}
+                {((item.badge || 0) > 0) && (
+                  <span className="ml-auto w-5 h-5 bg-primary text-white text-[10px] font-black rounded-full flex items-center justify-center shadow-lg shadow-primary/20 animate-in zoom-in duration-300">
+                    {item.badge}
+                  </span>
+                )}
               </>
             )}
           </NavLink>
@@ -100,11 +105,20 @@ const Header = ({ user }: { user: any }) => {
   const [notifications, setNotifications] = useState<any[]>([]);
   
   useEffect(() => {
+    const playNotificationSound = () => {
+      try {
+        const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+        audio.volume = 0.5;
+        audio.play().catch(() => {}); // Catch prevents errors if user hasn't interacted with DOM yet
+      } catch (err) {}
+    };
+
     const handleWSEvent = (e: any) => {
       const { event, data, payload } = e.detail;
       const body = data || payload || e.detail;
 
       if (event === 'message:new' || event === 'operator:notification') {
+        playNotificationSound();
         const newNotif = {
           id: Date.now(),
           title: event === 'message:new' ? 'Nuevo Mensaje' : 'Alerta de Sistema',
@@ -334,7 +348,19 @@ const App = () => {
   const [user, setUser] = useState<any>(null);
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
   const [loading, setLoading] = useState(true);
+  const [unreadTotal, setUnreadTotal] = useState(0);
   const navigate = useNavigate();
+
+  const fetchUnreadCount = async () => {
+    if (!token) return;
+    try {
+      const res = await fetch('/api/messages/unread-count', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      setUnreadTotal(data.count || 0);
+    } catch (err) {}
+  };
 
   // Global WebSocket
   useEffect(() => {
@@ -355,6 +381,7 @@ const App = () => {
       try {
         const data = JSON.parse(event.data);
         console.log('Global WS Event:', data.event);
+        if (data.event === 'message:new') fetchUnreadCount();
         window.dispatchEvent(new CustomEvent('boti:ws-event', { detail: data }));
       } catch (e) {}
     };
@@ -367,6 +394,12 @@ const App = () => {
       clearInterval(heartbeat);
       ws.close();
     };
+  }, [token]);
+
+  useEffect(() => {
+    fetchUnreadCount();
+    window.addEventListener('boti:fetch-unread', fetchUnreadCount);
+    return () => window.removeEventListener('boti:fetch-unread', fetchUnreadCount);
   }, [token]);
 
   useEffect(() => {
@@ -427,7 +460,7 @@ const App = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Sidebar user={user} onLogout={handleLogout} />
+      <Sidebar user={{ ...user, unreadTotal }} onLogout={handleLogout} />
       <Header user={user} />
       <main className="md:ml-64 pt-24 px-6 pb-12">
         <div className="max-w-7xl mx-auto">

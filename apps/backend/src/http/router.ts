@@ -252,6 +252,13 @@ export function createRouter(
           },
           assignedTo: {
             select: { id: true, name: true, email: true }
+          },
+          _count: {
+            select: {
+              messages: {
+                where: { direction: 'INBOUND', isRead: false }
+              }
+            }
           }
         },
         orderBy: { updatedAt: 'desc' }
@@ -265,7 +272,8 @@ export function createRouter(
         time: c.messages[0]?.createdAt || c.updatedAt,
         status: 'ACTIVE',
         assignedTo: c.assignedTo,
-        aiPausedUntil: c.aiPausedUntil
+        aiPausedUntil: c.aiPausedUntil,
+        unreadCount: (c as any)._count.messages
       }));
 
       res.json({ chats });
@@ -274,9 +282,29 @@ export function createRouter(
     }
   });
 
+  router.get('/messages/unread-count', authMiddleware, async (_req, res) => {
+    try {
+      const count = await prisma.message.count({
+        where: { direction: 'INBOUND', isRead: false }
+      });
+      res.json({ count });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   router.get('/messages/:phone', authMiddleware, async (req, res) => {
     const messages = await messageRepo.findByClientPhone(req.params.phone);
     res.json({ messages });
+  });
+
+  router.post('/messages/:phone/read', authMiddleware, async (req, res) => {
+    try {
+      await messageRepo.markAsRead(req.params.phone);
+      res.json({ status: 'ok' });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
   });
 
   // Clients

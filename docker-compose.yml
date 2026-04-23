@@ -34,11 +34,7 @@ services:
     depends_on:
       - postgres
       - redis
-    environment:
-      DATABASE_URL: "postgresql://boti_user:boti_password@postgres:5432/boti_db?schema=public"
-      REDIS_URL: "redis://redis:6379"
-      PORT: 3001
-      NODE_ENV: development
+    env_file: .env
     ports:
       - "3001:3001"
     volumes:

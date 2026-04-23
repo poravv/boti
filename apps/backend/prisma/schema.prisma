@@ -33,6 +33,7 @@ model Message {
   direction   String    // INBOUND | OUTBOUND
   status      String    // PENDING | SUCCESS | FAILED
   sentAt      DateTime?
+  isRead      Boolean   @default(false)
   createdAt   DateTime  @default(now())
   client      Client    @relation(fields: [clientPhone], references: [phone])
   line        WhatsAppLine @relation(fields: [lineId], references: [id])
