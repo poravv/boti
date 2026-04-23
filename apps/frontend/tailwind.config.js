@@ -38,7 +38,8 @@ export default {
         'on-background': '#0b1c30',
         'primary': '#002532',
         'outline-variant': '#c1c7cc',
-        'on-surface-variant': '#41484c',
+        // Darkened one step to reach WCAG AA on surface-container backgrounds (>=4.5:1).
+        'on-surface-variant': '#2f3539',
         'primary-fixed-dim': '#a4cce1',
         'tertiary-fixed': '#ffddb8',
         'surface-container-lowest': '#ffffff',
@@ -52,6 +53,19 @@ export default {
         'secondary-container': '#6df5e1',
         'on-surface': '#0b1c30',
         'on-secondary-container': '#006f64',
+        // Semantic tokens for status UIs so pages stop reaching for raw Tailwind colors.
+        'success': '#16A34A',
+        'on-success': '#ffffff',
+        'success-container': '#dcfce7',
+        'on-success-container': '#14532d',
+        'warning': '#D97706',
+        'on-warning': '#ffffff',
+        'warning-container': '#fef3c7',
+        'on-warning-container': '#78350f',
+        'info': '#2563EB',
+        'on-info': '#ffffff',
+        'info-container': '#dbeafe',
+        'on-info-container': '#1e3a8a',
       },
       borderRadius: {
         DEFAULT: '0.125rem',
@@ -71,6 +85,93 @@ export default {
       fontFamily: {
         sans: ['Inter', 'sans-serif'],
         mono: ['monospace'],
+      },
+      // Typography scale adapted to dashboard density. Values in rem; letter-spacing matches MD3 type scale.
+      fontSize: {
+        'display-lg': ['3rem', { lineHeight: '3.5rem', letterSpacing: '-0.02em', fontWeight: '700' }],
+        'display-md': ['2.25rem', { lineHeight: '2.75rem', letterSpacing: '-0.01em', fontWeight: '700' }],
+        'display-sm': ['1.875rem', { lineHeight: '2.25rem', letterSpacing: '-0.01em', fontWeight: '700' }],
+        'heading-lg': ['1.75rem', { lineHeight: '2.25rem', letterSpacing: '-0.005em', fontWeight: '600' }],
+        'heading-md': ['1.375rem', { lineHeight: '1.875rem', letterSpacing: '0', fontWeight: '600' }],
+        'heading-sm': ['1.125rem', { lineHeight: '1.625rem', letterSpacing: '0', fontWeight: '600' }],
+        'title': ['1rem', { lineHeight: '1.5rem', letterSpacing: '0.005em', fontWeight: '600' }],
+        'body-lg': ['1rem', { lineHeight: '1.5rem', letterSpacing: '0.005em', fontWeight: '400' }],
+        'body': ['0.875rem', { lineHeight: '1.25rem', letterSpacing: '0.01em', fontWeight: '400' }],
+        'body-sm': ['0.8125rem', { lineHeight: '1.125rem', letterSpacing: '0.015em', fontWeight: '400' }],
+        'caption': ['0.75rem', { lineHeight: '1rem', letterSpacing: '0.02em', fontWeight: '500' }],
+        'overline': ['0.6875rem', { lineHeight: '1rem', letterSpacing: '0.08em', fontWeight: '600' }],
+      },
+      // Multi-layered shadows with primary tint + inset highlight for glass depth.
+      boxShadow: {
+        'glass-sm': '0 1px 2px rgba(2, 37, 50, 0.04), 0 2px 6px -2px rgba(2, 37, 50, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.55)',
+        'glass': '0 1px 2px rgba(2, 37, 50, 0.04), 0 8px 24px -8px rgba(2, 37, 50, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.6)',
+        'glass-lg': '0 2px 4px rgba(2, 37, 50, 0.05), 0 16px 40px -12px rgba(2, 37, 50, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.7)',
+        'glass-xl': '0 4px 8px rgba(2, 37, 50, 0.06), 0 32px 64px -16px rgba(2, 37, 50, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.75)',
+      },
+      transitionTimingFunction: {
+        'premium': 'cubic-bezier(0.22, 1, 0.36, 1)',
+        'bounce': 'cubic-bezier(0.34, 1.56, 0.64, 1)',
+        'smooth': 'cubic-bezier(0.4, 0, 0.2, 1)',
+      },
+      transitionDuration: {
+        '250': '250ms',
+        '350': '350ms',
+        '500': '500ms',
+        '700': '700ms',
+      },
+      // Layered z-index scale to eliminate ad-hoc z-values across modals, toasts, tooltips.
+      zIndex: {
+        'base': '0',
+        'dropdown': '40',
+        'sticky': '50',
+        'overlay': '60',
+        'modal': '70',
+        'popover': '80',
+        'toast': '90',
+        'tooltip': '100',
+      },
+      backdropBlur: {
+        '4xl': '72px',
+      },
+      keyframes: {
+        'fade-in-up': {
+          '0%': { opacity: '0', transform: 'translateY(8px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        'fade-in-down': {
+          '0%': { opacity: '0', transform: 'translateY(-8px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        'scale-in': {
+          '0%': { opacity: '0', transform: 'scale(0.96)' },
+          '100%': { opacity: '1', transform: 'scale(1)' },
+        },
+        'slide-in-right': {
+          '0%': { opacity: '0', transform: 'translateX(16px)' },
+          '100%': { opacity: '1', transform: 'translateX(0)' },
+        },
+        'shimmer': {
+          '0%': { backgroundPosition: '-200% 0' },
+          '100%': { backgroundPosition: '200% 0' },
+        },
+        'pulse-soft': {
+          '0%, 100%': { opacity: '1' },
+          '50%': { opacity: '0.6' },
+        },
+        'bounce-in': {
+          '0%': { opacity: '0', transform: 'scale(0.9) translateY(8px)' },
+          '60%': { opacity: '1', transform: 'scale(1.02) translateY(-2px)' },
+          '100%': { transform: 'scale(1) translateY(0)' },
+        },
+      },
+      animation: {
+        'fade-in-up': 'fade-in-up 350ms cubic-bezier(0.22, 1, 0.36, 1) both',
+        'fade-in-down': 'fade-in-down 350ms cubic-bezier(0.22, 1, 0.36, 1) both',
+        'scale-in': 'scale-in 250ms cubic-bezier(0.22, 1, 0.36, 1) both',
+        'slide-in-right': 'slide-in-right 350ms cubic-bezier(0.22, 1, 0.36, 1) both',
+        'shimmer': 'shimmer 1.6s linear infinite',
+        'pulse-soft': 'pulse-soft 2s cubic-bezier(0.4, 0, 0.2, 1) infinite',
+        'bounce-in': 'bounce-in 500ms cubic-bezier(0.34, 1.56, 0.64, 1) both',
       },
     },
   },

@@ -4,6 +4,8 @@
 
 :root {
   font-family: 'Inter', sans-serif;
+  /* Single source of truth for the fixed app header height. */
+  --app-header-h: 4rem;
 }
 
 body {
@@ -18,18 +20,39 @@ body {
     'opsz' 24;
 }
 
-.glass-card {
-  @apply bg-white/70 backdrop-blur-xl border border-slate-200/50;
-  box-shadow: 
-    0 4px 6px -1px rgba(0, 0, 0, 0.05), 
-    0 2px 4px -1px rgba(0, 0, 0, 0.03),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.5);
-}
+@layer components {
+  /* Base glass surface: gradient + blur + multi-layered shadow. */
+  .glass-card {
+    @apply bg-gradient-to-br from-white/80 to-surface-container/50 backdrop-blur-2xl border border-white/40 shadow-glass rounded-2xl;
+  }
 
-.glass-card:hover {
-  box-shadow: 
-    0 20px 25px -5px rgba(0, 0, 0, 0.05), 
-    0 10px 10px -5px rgba(0, 0, 0, 0.02);
+  .glass-elevated {
+    @apply bg-gradient-to-br from-white/90 to-surface-container/60 backdrop-blur-2xl border border-white/50 shadow-glass-lg rounded-2xl;
+  }
+
+  /* Interactive glass: adds hover lift. Pair with .glass-card or .glass-elevated. */
+  .glass-interactive {
+    @apply transition-all duration-350 ease-premium hover:-translate-y-0.5 hover:shadow-glass-lg;
+  }
+
+  /* Reusable shimmer loader. */
+  .skeleton {
+    @apply relative overflow-hidden bg-surface-container-high/60 rounded-lg;
+    background-image: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.55) 50%,
+      transparent 100%
+    );
+    background-size: 200% 100%;
+    background-repeat: no-repeat;
+    animation: shimmer 1.6s linear infinite;
+  }
+
+  /* Single source of truth for keyboard focus ring. */
+  .focus-ring {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+  }
 }
 
 /* Custom Scrollbar */
