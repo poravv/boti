@@ -140,20 +140,25 @@ const Header = ({ user }: { user: any }) => {
 
 const Dashboard = () => {
   const [stats, setStats] = useState<any>({ activeLines: 0, totalMessages: 0, totalLeads: 0, messagesToday: 0, leadsTrend: '0%', performance: '0%', hourlyTraffic: [] });
+  const [logs, setLogs] = useState<any[]>([]);
+  const [showLogModal, setShowLogModal] = useState(false);
   const token = localStorage.getItem('token');
 
   useEffect(() => {
-    const fetchStats = async () => {
+    const fetchData = async () => {
       try {
-        const res = await fetch('/api/stats', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        const data = await res.json();
-        setStats(data);
+        const [statsRes, logsRes] = await Promise.all([
+          fetch('/api/stats', { headers: { 'Authorization': `Bearer ${token}` } }),
+          fetch('/api/audit-logs', { headers: { 'Authorization': `Bearer ${token}` } })
+        ]);
+        const statsData = await statsRes.json();
+        const logsData = await logsRes.json();
+        setStats(statsData);
+        setLogs(logsData.logs || []);
       } catch (e) {}
     };
-    fetchStats();
-    const interval = setInterval(fetchStats, 10000); // Update every 10s
+    fetchData();
+    const interval = setInterval(fetchData, 10000);
     return () => clearInterval(interval);
   }, [token]);
 
@@ -193,15 +198,57 @@ const Dashboard = () => {
         <div className="glass-card rounded-2xl p-8 bg-white/70 backdrop-blur-xl flex flex-col shadow-sm">
           <h3 className="text-xl font-black text-primary tracking-tight mb-6 uppercase">Recent Activity</h3>
           <div className="space-y-6 flex-1">
-             <ActivityItem icon="sync" title="SalesBot v2.1 Update" desc="Status: Online" time="2m ago" color="teal" />
-             <ActivityItem icon="pause_circle" title="Support Line" desc="Status: Maintenance" time="45m ago" color="slate" />
-             <ActivityItem icon="error" title="Webhook Timeout" desc="Boti_Core_Main" time="1h ago" color="red" />
+             {logs.slice(0, 4).map((log, i) => (
+               <ActivityItem 
+                 key={i}
+                 icon={log.action.includes('PAUSE') ? 'pause_circle' : log.action.includes('SEND') ? 'send' : 'info'} 
+                 title={log.action} 
+                 desc={typeof log.details === 'string' ? log.details : JSON.stringify(log.details).slice(0, 40) + '...'} 
+                 time={new Date(log.createdAt).toLocaleTimeString()} 
+                 color={log.action.includes('ERROR') ? 'red' : 'teal'} 
+               />
+             ))}
+             {logs.length === 0 && <p className="text-xs text-on-surface-variant text-center opacity-50 py-10 font-bold uppercase tracking-widest">No recent events</p>}
           </div>
-          <button className="w-full mt-8 py-4 text-[10px] font-black text-primary hover:bg-primary/5 transition-colors border border-outline-variant rounded-2xl uppercase tracking-widest">
+          <button 
+            onClick={() => setShowLogModal(true)}
+            className="w-full mt-8 py-4 text-[10px] font-black text-primary hover:bg-primary/5 transition-colors border border-outline-variant rounded-2xl uppercase tracking-widest"
+          >
             View Audit Log
           </button>
         </div>
       </div>
+
+      {showLogModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-6 animate-in fade-in duration-300">
+           <div className="bg-white rounded-3xl w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
+              <header className="px-8 py-6 border-b border-outline-variant flex justify-between items-center bg-surface-container">
+                 <h3 className="text-sm font-black text-primary uppercase tracking-widest">System Audit Log</h3>
+                 <button onClick={() => setShowLogModal(false)} className="w-8 h-8 rounded-full hover:bg-black/5 flex items-center justify-center">
+                    <span className="material-symbols-outlined">close</span>
+                 </button>
+              </header>
+              <div className="flex-1 overflow-y-auto p-8">
+                 <div className="space-y-4">
+                    {logs.map((log, i) => (
+                      <div key={i} className="flex gap-4 p-4 rounded-2xl bg-surface-container border border-outline-variant items-start hover:border-primary/20 transition-colors">
+                        <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center text-primary flex-shrink-0">
+                          <span className="material-symbols-outlined text-sm">history</span>
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex justify-between items-center mb-1">
+                            <p className="text-xs font-black text-primary uppercase tracking-tighter">{log.action}</p>
+                            <span className="text-[9px] font-bold opacity-40 uppercase">{new Date(log.createdAt).toLocaleString()}</span>
+                          </div>
+                          <p className="text-[10px] font-medium text-on-surface-variant break-words">{JSON.stringify(log.details)}</p>
+                        </div>
+                      </div>
+                    ))}
+                 </div>
+              </div>
+           </div>
+        </div>
+      )}
     </div>
   );
 };

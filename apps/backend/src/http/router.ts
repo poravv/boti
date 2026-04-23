@@ -218,6 +218,19 @@ export function createRouter(
     res.json({ status, qrCode });
   });
 
+  // Audit Logs
+  router.get('/audit-logs', authMiddleware, async (_req, res) => {
+    try {
+      const logs = await prisma.auditLog.findMany({
+        take: 50,
+        orderBy: { createdAt: 'desc' }
+      });
+      res.json({ logs });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // Messages
   router.post('/messages/send', authMiddleware, async (req, res) => {
     const { lineId, to, content, type, mediaPath } = req.body;
