@@ -40,6 +40,7 @@ jobs:
             frontend:
               - 'apps/frontend/**'
               - 'k8s/frontend-deployment.yaml'
+              - 'k8s/ingress.yaml'
 
   # ─────────────────────────────────────────────
   # 2. Build backend (solo si cambió)
@@ -185,6 +186,11 @@ jobs:
       - name: Apply ConfigMap
         run: kubectl apply -f k8s/configmap.yaml
 
+      - name: Apply Ingress
+        run: |
+          kubectl delete ingress boti-ingress -n ${{ env.NAMESPACE }} --ignore-not-found=true || true
+          kubectl apply -f k8s/ingress.yaml
+
   # ─────────────────────────────────────────────
   # 5. Deploy backend (solo si cambió)
   # ─────────────────────────────────────────────
@@ -283,11 +289,6 @@ jobs:
             boti-frontend=${{ env.FRONTEND_IMAGE }}:sha-${{ env.SHORT_SHA }} \
             -n ${{ env.NAMESPACE }}
           kubectl rollout status deployment/boti-frontend -n ${{ env.NAMESPACE }} --timeout=300s
-
-      - name: Apply Ingress
-        run: |
-          kubectl delete ingress boti-ingress -n ${{ env.NAMESPACE }} --ignore-not-found=true || true
-          kubectl apply -f k8s/ingress.yaml
 
   # ─────────────────────────────────────────────
   # 7. Resumen final
