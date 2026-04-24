@@ -10,6 +10,7 @@ import {
   Modal,
   useToast,
   EmptyState,
+  cn,
 } from '../ui';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -124,8 +125,10 @@ function ApiCard({ api, onEdit, onDelete, onToggleActive }: ApiCardProps) {
             type="button"
             onClick={onToggleActive}
             aria-label={api.isActive ? 'Desactivar API' : 'Activar API'}
-            className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-250 focus-ring"
-            style={{ backgroundColor: api.isActive ? 'var(--color-primary)' : 'var(--color-outline-variant)' }}
+            className={cn(
+              'relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-250 focus-ring',
+              api.isActive ? 'bg-primary' : 'bg-outline-variant',
+            )}
           >
             <span
               className={`inline-block h-4 w-4 rounded-full bg-white shadow-sm transform transition-transform duration-250 ${api.isActive ? 'translate-x-6' : 'translate-x-1'}`}
@@ -416,8 +419,10 @@ function ApiFormPanel({ open, onClose, onSaved, lineId, editing }: ApiFormPanelP
             role="switch"
             aria-checked={form.isActive}
             onClick={() => updateForm('isActive', !form.isActive)}
-            className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-250 focus-ring"
-            style={{ backgroundColor: form.isActive ? 'var(--color-primary)' : 'var(--color-outline-variant)' }}
+            className={cn(
+              'relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-250 focus-ring',
+              form.isActive ? 'bg-primary' : 'bg-outline-variant',
+            )}
           >
             <span
               className={`inline-block h-4 w-4 rounded-full bg-white shadow-sm transform transition-transform duration-250 ${form.isActive ? 'translate-x-6' : 'translate-x-1'}`}
