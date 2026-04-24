@@ -14,7 +14,7 @@ interface AIConfig {
   systemPrompt: string;
   businessContext: Record<string, unknown>;
   assignedAiProvider: string;
-  aiApiKey?: string;
+  hasApiKey?: boolean;
   aiModel?: string;
 }
 
@@ -27,6 +27,7 @@ const AIConfiguration = () => {
     assignedAiProvider: 'gemini',
   });
   const [jsonText, setJsonText] = useState('{}');
+  const [newApiKey, setNewApiKey] = useState('');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const toast = useToast();
@@ -54,9 +55,10 @@ const AIConfiguration = () => {
       try {
         const [contextData, configData] = await Promise.all([
           apiFetchJson<{ businessContext: any; systemPrompt: string }>(`/api/lines/${selectedLineId}/context`),
-          apiFetchJson<{ assignedAiProvider: string; aiApiKey?: string; aiModel?: string }>(`/api/lines/${selectedLineId}/config`),
+          apiFetchJson<{ assignedAiProvider: string; hasApiKey?: boolean; aiModel?: string }>(`/api/lines/${selectedLineId}/config`),
         ]);
         setConfig(prev => ({ ...prev, ...contextData, ...configData }));
+        setNewApiKey('');
         setJsonText(JSON.stringify(contextData.businessContext || {}, null, 2));
       } catch (err) {
         console.error('Error fetching config:', err);
@@ -87,15 +89,21 @@ const AIConfiguration = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ businessContext: parsedContext, systemPrompt: config.systemPrompt }),
       });
+      const configPayload: Record<string, unknown> = {
+        assignedAiProvider: config.assignedAiProvider,
+        aiModel: config.aiModel,
+      };
+      if (newApiKey.trim()) configPayload.aiApiKey = newApiKey.trim();
+
       await apiFetchJson(`/api/lines/${selectedLineId}/config`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          assignedAiProvider: config.assignedAiProvider,
-          aiApiKey: config.aiApiKey,
-          aiModel: config.aiModel,
-        }),
+        body: JSON.stringify(configPayload),
       });
+      if (newApiKey.trim()) {
+        setConfig(prev => ({ ...prev, hasApiKey: true }));
+        setNewApiKey('');
+      }
 
       toast.show('Configuración guardada correctamente.', {
         variant: 'success',
@@ -186,15 +194,16 @@ const AIConfiguration = () => {
                   helperText="Si se deja vacío, se usará el modelo estándar."
                 />
 
-                <FormInput
-                  label="API Key (Opcional)"
-                  type="password"
-                  placeholder="sk-…"
-                  value={config.aiApiKey || ''}
-                  onChange={(event) => setConfig({ ...config, aiApiKey: event.target.value })}
-                  helperText="Si se deja vacío, se usará la clave por defecto."
-                  containerClassName="md:col-span-2"
-                />
+                <div className="md:col-span-2 flex flex-col gap-1">
+                  <FormInput
+                    label="API Key (Opcional)"
+                    type="password"
+                    placeholder={config.hasApiKey ? '••••••••  (clave ya configurada)' : 'sk-…'}
+                    value={newApiKey}
+                    onChange={(event) => setNewApiKey(event.target.value)}
+                    helperText={config.hasApiKey ? 'Ingresá una nueva clave para reemplazar la existente.' : 'Si se deja vacío, se usará la clave por defecto.'}
+                  />
+                </div>
               </div>
 
               <div className="flex flex-col gap-2">

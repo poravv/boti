@@ -190,7 +190,7 @@ export function createRouter(
         systemPrompt: line.systemPrompt,
         businessContext: line.businessContext,
         assignedAiProvider: line.assignedAiProvider,
-        aiApiKey: line.aiApiKey,
+        hasApiKey: !!line.aiApiKey,
         aiModel: line.aiModel
       });
     } catch (err: any) {
@@ -203,6 +203,9 @@ export function createRouter(
       const { lineId } = req.params;
       const { systemPrompt, businessContext, assignedAiProvider, aiApiKey, aiModel } = req.body;
 
+      const baseUpdate: Record<string, unknown> = { systemPrompt, businessContext, assignedAiProvider, aiModel };
+      if (aiApiKey !== undefined && aiApiKey !== '') baseUpdate.aiApiKey = aiApiKey;
+
       const updated = await prisma.whatsAppLine.upsert({
         where: { id: lineId },
         create: {
@@ -211,19 +214,19 @@ export function createRouter(
           systemPrompt,
           businessContext,
           assignedAiProvider,
-          aiApiKey,
+          ...(aiApiKey ? { aiApiKey } : {}),
           aiModel
         },
-        update: {
-          systemPrompt,
-          businessContext,
-          assignedAiProvider,
-          aiApiKey,
-          aiModel
-        }
+        update: baseUpdate
       });
 
-      res.json(updated);
+      res.json({
+        systemPrompt: updated.systemPrompt,
+        businessContext: updated.businessContext,
+        assignedAiProvider: updated.assignedAiProvider,
+        hasApiKey: !!updated.aiApiKey,
+        aiModel: updated.aiModel
+      });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }

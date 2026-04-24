@@ -44,3 +44,5 @@ Thumbs.db
 prisma/dev.db
 prisma/dev.db-journal
 postgres-data
+.claude
+.baileys-auth
