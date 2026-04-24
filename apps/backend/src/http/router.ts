@@ -34,10 +34,6 @@ export function createRouter(
     const decoded = authService.verifyToken(token);
     if (!decoded) return res.status(401).json({ error: 'Invalid token' });
 
-    if (!(decoded as any).orgId) {
-      return res.status(401).json({ error: 'Token expirado. Por favor inicia sesión nuevamente.' });
-    }
-
     (req as any).user = decoded;
     next();
   };
@@ -60,8 +56,9 @@ export function createRouter(
       const isValid = await authService.comparePassword(password, user.passwordHash);
       if (!isValid) return res.status(401).json({ error: 'Invalid credentials' });
 
-      const token = authService.generateToken({ userId: user.id, email: user.email, role: user.role, orgId: user.orgId });
-      res.json({ token, user: { id: user.id, email: user.email, name: user.name, role: user.role, orgId: user.orgId } });
+      const orgId = user.orgId ?? '';
+      const token = authService.generateToken({ userId: user.id, email: user.email, role: user.role, orgId });
+      res.json({ token, user: { id: user.id, email: user.email, name: user.name, role: user.role, orgId } });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
