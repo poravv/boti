@@ -1,9 +1,7 @@
 import clsx, { type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
 
-/**
- * Class name helper. Thin wrapper over clsx to standardise the import path
- * and keep the option open to swap implementations (e.g. tailwind-merge) later.
- */
+// Merges Tailwind classes correctly — last conflicting class wins (e.g. bg-primary overrides bg-surface)
 export function cn(...inputs: ClassValue[]): string {
-  return clsx(inputs);
+  return twMerge(clsx(inputs));
 }
