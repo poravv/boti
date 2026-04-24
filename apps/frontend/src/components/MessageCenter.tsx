@@ -277,6 +277,17 @@ const MessageCenter = () => {
     }
   };
 
+  const handleResumeAI = async () => {
+    if (!activeChat) return;
+    try {
+      await apiFetch(`/api/clients/${activeChat.phone}/unpause`, { method: 'POST' });
+      setActiveChat({ ...activeChat, aiPausedUntil: undefined });
+      setChats(prev => prev.map(c => c.phone === activeChat.phone ? { ...c, aiPausedUntil: undefined } : c));
+    } catch {
+      // UI falls back to previous state.
+    }
+  };
+
   const handleAssignAgent = async (agentId: string | null) => {
     if (!activeChat) return;
     try {
@@ -567,7 +578,7 @@ const MessageCenter = () => {
                   variant={isAiCurrentlyPaused ? 'primary' : 'secondary'}
                   size="sm"
                   leadingIcon={isAiCurrentlyPaused ? 'play_circle' : 'pause_circle'}
-                  onClick={() => handlePauseAI(1)}
+                  onClick={() => isAiCurrentlyPaused ? handleResumeAI() : handlePauseAI(1)}
                   className={cn(
                     isAiCurrentlyPaused &&
                       'bg-warning text-on-warning shadow-glass-sm hover:bg-warning/90',

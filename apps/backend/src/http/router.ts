@@ -442,13 +442,21 @@ export function createRouter(
       if (!cl || cl.orgId !== (req as any).user.orgId) return res.status(403).json({ error: 'Acceso denegado.' });
 
       const pausedUntil = new Date(Date.now() + (hours * 60 * 60 * 1000));
-
-      await prisma.client.update({
-        where: { phone },
-        data: { aiPausedUntil: pausedUntil }
-      });
-      
+      await prisma.client.update({ where: { phone }, data: { aiPausedUntil: pausedUntil } });
       res.json({ status: 'paused', pausedUntil });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  router.post('/clients/:phone/unpause', authMiddleware, async (req, res) => {
+    try {
+      const { phone } = req.params;
+      const cl = await prisma.client.findUnique({ where: { phone } });
+      if (!cl || cl.orgId !== (req as any).user.orgId) return res.status(403).json({ error: 'Acceso denegado.' });
+
+      await prisma.client.update({ where: { phone }, data: { aiPausedUntil: null } });
+      res.json({ status: 'active' });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
