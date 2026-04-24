@@ -17,6 +17,7 @@ interface AuthUser {
   name?: string;
   role?: string;
   email?: string;
+  orgId?: string;
 }
 
 interface WSEventDetail {

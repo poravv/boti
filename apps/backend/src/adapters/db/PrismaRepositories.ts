@@ -9,18 +9,24 @@ export { prisma };
 
 // ─── Client Repository ───────────────────────────────────────────────────────
 export class PrismaClientRepository implements IClientRepository {
+  /** Set before calling upsert on inbound paths to pass the line's orgId. */
+  currentOrgId: string | undefined = undefined;
+
   async findByPhone(phone: string): Promise<Client | null> {
     return prisma.client.findUnique({ where: { phone } }) as any;
   }
 
-  async upsert(data: Omit<Client, 'id' | 'createdAt' | 'updatedAt'>): Promise<Client> {
+  async upsert(data: Omit<Client, 'id' | 'createdAt' | 'updatedAt'>, orgId?: string): Promise<Client> {
+    const effectiveOrgId = orgId ?? this.currentOrgId;
     return prisma.client.upsert({
       where: { phone: data.phone },
       update: {
         conversationStatus: 'OPEN',
         ...(data.name && data.name !== data.phone ? { name: data.name } : {}),
       },
-      create: { phone: data.phone, name: data.name },
+      create: effectiveOrgId
+        ? { phone: data.phone, name: data.name, orgId: effectiveOrgId }
+        : { phone: data.phone, name: data.name, orgId: '00000000-0000-0000-0000-000000000001' },
     }) as any;
   }
 
@@ -78,6 +84,11 @@ export class PrismaExternalApiRepository implements IExternalApiRepository {
       headers: (a.headers as Record<string, string>) ?? {},
     }));
   }
+}
+
+export async function resolveOrgIdFromLine(prismaClient: PrismaClient, lineId: string): Promise<string | undefined> {
+  const line = await prismaClient.whatsAppLine.findUnique({ where: { id: lineId }, select: { orgId: true } });
+  return line?.orgId ?? undefined;
 }
 
 // ─── Context Repository ───────────────────────────────────────────────────────

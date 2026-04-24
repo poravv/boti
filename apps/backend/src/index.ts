@@ -23,6 +23,7 @@ import {
   PrismaMessageRepository,
   PrismaContextRepository,
   PrismaExternalApiRepository,
+  resolveOrgIdFromLine,
   prisma,
 } from './adapters/db/PrismaRepositories.js';
 
@@ -48,7 +49,8 @@ async function bootstrap() {
   const redisConn = { host: redis.options.host ?? 'localhost', port: redis.options.port ?? 6379 };
 
   // ─── Repositories ────────────────────────────────────────────────────
-  const clientRepo = new PrismaClientRepository();
+  const baseClientRepo = new PrismaClientRepository();
+  const clientRepo = baseClientRepo;
   const messageRepo = new PrismaMessageRepository();
   const contextRepo = new PrismaContextRepository();
   const externalApiRepo = new PrismaExternalApiRepository();
@@ -62,21 +64,25 @@ async function bootstrap() {
   const aiService = createAIService(prisma);
   const authService = new AuthService(prisma);
 
-  // --- Seed Admin User ---
+  // --- Seed Default Org + Admin User ---
+  const DEFAULT_ORG_ID = '00000000-0000-0000-0000-000000000001';
+  // Ensure default org exists
+  await prisma.organization.upsert({
+    where: { id: DEFAULT_ORG_ID },
+    update: {},
+    create: { id: DEFAULT_ORG_ID, name: 'Default', slug: 'default' },
+  });
+  // Ensure admin user exists with orgId
   const adminEmail = 'admin@boti.com';
   const existingAdmin = await prisma.user.findUnique({ where: { email: adminEmail } });
   if (!existingAdmin) {
     const hashedPassword = await authService.hashPassword('admin123');
     await prisma.user.create({
-      data: {
-        email: adminEmail,
-        passwordHash: hashedPassword,
-        name: 'Boti Admin',
-        role: 'ADMIN',
-        isActive: true
-      }
+      data: { email: adminEmail, passwordHash: hashedPassword, name: 'Boti Admin', role: 'ADMIN', isActive: true, orgId: DEFAULT_ORG_ID },
     });
-    logger.info('Default admin user created: admin@boti.com / admin123');
+    logger.info('Default admin user created.');
+  } else if (!existingAdmin.orgId) {
+    await prisma.user.update({ where: { email: adminEmail }, data: { orgId: DEFAULT_ORG_ID } });
   }
 
   // ─── Context Fetcher ─────────────────────────────────────────────────
@@ -153,7 +159,11 @@ async function bootstrap() {
       wsManager.broadcast('operator:notification', { lineId, event: 'SPAM_DETECTED', details: { phone: fromPhone } });
       return;
     }
+    // Resolve the org for this line so the client upsert carries the correct orgId.
+    const lineOrgId = await resolveOrgIdFromLine(prisma, lineId);
+    baseClientRepo.currentOrgId = lineOrgId;
     await handleInbound.execute({ lineId, fromPhone, fromName, content, type });
+    baseClientRepo.currentOrgId = undefined;
     wsManager.broadcast('message:new', { lineId, fromPhone, clientPhone: fromPhone, fromName, content, type });
   });
 

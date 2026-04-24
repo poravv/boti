@@ -26,6 +26,10 @@ model Client {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
   messages        Message[]
+  orgId  String
+  org    Organization @relation(fields: [orgId], references: [id])
+
+  @@index([orgId])
 }
 
 model Message {
@@ -59,6 +63,10 @@ model WhatsAppLine {
   createdAt         DateTime  @default(now())
   messages          Message[]
   externalApis      ExternalApi[]
+  orgId  String
+  org    Organization @relation(fields: [orgId], references: [id])
+
+  @@index([orgId])
 }
 
 model ConversationContext {
@@ -84,6 +92,10 @@ model User {
   closedConversations Client[]       @relation("ClosedConversations")
   authoredNotes       InternalNote[] @relation("AuthoredNotes")
   createdAt    DateTime  @default(now())
+  orgId  String
+  org    Organization @relation(fields: [orgId], references: [id])
+
+  @@index([orgId])
 }
 
 model AuditLog {
@@ -123,4 +135,16 @@ model InternalNote {
   author      User     @relation("AuthoredNotes", fields: [authorId], references: [id])
 
   @@index([clientPhone])
+}
+
+model Organization {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users   User[]
+  lines   WhatsAppLine[]
+  clients Client[]
 }

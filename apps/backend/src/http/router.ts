@@ -9,6 +9,7 @@ import type {
 import { PrismaClient } from '@prisma/client';
 import { PrismaMessageRepository, PrismaClientRepository } from '../adapters/db/PrismaRepositories.js';
 import { AuthService } from '../lib/AuthService.js';
+import { orgScope } from '../lib/orgScope.js';
 import type { WebSocketManager } from '../lib/WebSocketManager.js';
 
 const messageRepo = new PrismaMessageRepository();
@@ -33,6 +34,10 @@ export function createRouter(
     const decoded = authService.verifyToken(token);
     if (!decoded) return res.status(401).json({ error: 'Invalid token' });
 
+    if (!(decoded as any).orgId) {
+      return res.status(401).json({ error: 'Token expirado. Por favor inicia sesión nuevamente.' });
+    }
+
     (req as any).user = decoded;
     next();
   };
@@ -55,8 +60,8 @@ export function createRouter(
       const isValid = await authService.comparePassword(password, user.passwordHash);
       if (!isValid) return res.status(401).json({ error: 'Invalid credentials' });
 
-      const token = authService.generateToken({ userId: user.id, email: user.email, role: user.role });
-      res.json({ token, user: { id: user.id, email: user.email, name: user.name, role: user.role } });
+      const token = authService.generateToken({ userId: user.id, email: user.email, role: user.role, orgId: user.orgId });
+      res.json({ token, user: { id: user.id, email: user.email, name: user.name, role: user.role, orgId: user.orgId } });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
@@ -85,6 +90,33 @@ export function createRouter(
       res.json({ status: 'ok' });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
+    }
+  });
+
+  router.post('/auth/register-org', async (req, res) => {
+    const { orgName, ownerName, ownerEmail, ownerPassword } = req.body as {
+      orgName?: string; ownerName?: string; ownerEmail?: string; ownerPassword?: string;
+    };
+    if (!orgName?.trim() || !ownerName?.trim() || !ownerEmail?.trim() || !ownerPassword) {
+      return res.status(400).json({ error: 'orgName, ownerName, ownerEmail y ownerPassword son requeridos.' });
+    }
+    if (ownerPassword.length < 8) {
+      return res.status(400).json({ error: 'La contraseña debe tener al menos 8 caracteres.' });
+    }
+    const slug = orgName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '').replace(/-+/g, '-').replace(/^-|-$/g, '');
+    try {
+      const existing = await prisma.organization.findUnique({ where: { slug } });
+      if (existing) return res.status(409).json({ error: 'Ya existe una organización con ese nombre.' });
+      const org = await prisma.organization.create({ data: { name: orgName.trim(), slug } });
+      const passwordHash = await authService.hashPassword(ownerPassword);
+      const user = await prisma.user.create({
+        data: { name: ownerName.trim(), email: ownerEmail.trim().toLowerCase(), passwordHash, role: 'ADMIN', isActive: true, orgId: org.id },
+      });
+      const token = authService.generateToken({ userId: user.id, email: user.email, role: user.role, orgId: org.id });
+      return res.status(201).json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role, orgId: org.id }, org: { id: org.id, name: org.name, slug: org.slug } });
+    } catch (err: any) {
+      if (err?.code === 'P2002') return res.status(409).json({ error: 'Email ya registrado.' });
+      return res.status(500).json({ error: 'Error interno.' });
     }
   });
 
@@ -139,9 +171,9 @@ export function createRouter(
   });
 
   // Lines
-  router.get('/lines', authMiddleware, async (_req, res) => {
+  router.get('/lines', authMiddleware, async (req, res) => {
     try {
-      const dbLines = await prisma.whatsAppLine.findMany();
+      const dbLines = await prisma.whatsAppLine.findMany({ where: { ...orgScope(req) } });
       const lines = await Promise.all(dbLines.map(async (line) => ({
         id: line.id,
         name: line.name, // Use actual name
@@ -164,12 +196,13 @@ export function createRouter(
       await prisma.whatsAppLine.upsert({
         where: { id: lineId },
         update: {},
-        create: { 
+        create: {
           id: lineId,
-          name: lineId, // Added missing required field
+          name: lineId,
           systemPrompt: 'Eres un asistente útil.',
           businessContext: {},
-          assignedAiProvider: 'gemini'
+          assignedAiProvider: 'gemini',
+          orgId: (req as any).user.orgId,
         }
       });
 
@@ -210,6 +243,8 @@ export function createRouter(
     try {
       const { lineId } = req.params;
       const { systemPrompt, businessContext, assignedAiProvider, aiApiKey, aiModel } = req.body;
+      const existingLine = await prisma.whatsAppLine.findUnique({ where: { id: lineId } });
+      if (existingLine && existingLine.orgId !== (req as any).user.orgId) return res.status(403).json({ error: 'Acceso denegado.' });
 
       const baseUpdate: Record<string, unknown> = { systemPrompt, businessContext, assignedAiProvider, aiModel };
       if (aiApiKey !== undefined && aiApiKey !== '') baseUpdate.aiApiKey = aiApiKey;
@@ -223,7 +258,8 @@ export function createRouter(
           businessContext,
           assignedAiProvider,
           ...(aiApiKey ? { aiApiKey } : {}),
-          aiModel
+          aiModel,
+          orgId: (req as any).user.orgId,
         },
         update: baseUpdate
       });
@@ -255,9 +291,11 @@ export function createRouter(
     try {
       const { lineId } = req.params;
       const { businessContext, systemPrompt } = req.body;
+      const existingLine = await prisma.whatsAppLine.findUnique({ where: { id: lineId } });
+      if (existingLine && existingLine.orgId !== (req as any).user.orgId) return res.status(403).json({ error: 'Acceso denegado.' });
       const updated = await prisma.whatsAppLine.upsert({
         where: { id: lineId },
-        create: { id: lineId, name: lineId, businessContext, systemPrompt, assignedAiProvider: 'gemini' },
+        create: { id: lineId, name: lineId, businessContext, systemPrompt, assignedAiProvider: 'gemini', orgId: (req as any).user.orgId },
         update: { businessContext, systemPrompt },
       });
       res.json({ businessContext: updated.businessContext, systemPrompt: updated.systemPrompt });
@@ -278,6 +316,8 @@ export function createRouter(
   router.delete('/lines/:lineId', authMiddleware, async (req, res) => {
     try {
       const { lineId } = req.params;
+      const line = await prisma.whatsAppLine.findUnique({ where: { id: lineId } });
+      if (!line || line.orgId !== (req as any).user.orgId) return res.status(403).json({ error: 'Acceso denegado.' });
       await whatsApp.disconnectLine(lineId);
       await prisma.whatsAppLine.delete({ where: { id: lineId } });
       res.json({ status: 'deleted' });
@@ -319,7 +359,9 @@ export function createRouter(
   router.get('/chats', authMiddleware, async (req, res) => {
     try {
       const statusFilter = (req.query.status as string) || 'OPEN';
-      const where = statusFilter === 'ALL' ? {} : { conversationStatus: statusFilter };
+      const where = statusFilter === 'ALL'
+        ? { ...orgScope(req) }
+        : { conversationStatus: statusFilter, ...orgScope(req) };
       const clients = await prisma.client.findMany({
         where,
         include: {
@@ -399,9 +441,11 @@ export function createRouter(
     try {
       const { phone } = req.params;
       const { hours } = req.body;
-      
+      const cl = await prisma.client.findUnique({ where: { phone } });
+      if (!cl || cl.orgId !== (req as any).user.orgId) return res.status(403).json({ error: 'Acceso denegado.' });
+
       const pausedUntil = new Date(Date.now() + (hours * 60 * 60 * 1000));
-      
+
       await prisma.client.update({
         where: { phone },
         data: { aiPausedUntil: pausedUntil }
@@ -417,6 +461,8 @@ export function createRouter(
     try {
       const { phone } = req.params;
       const { agentId } = req.body; // Can be null to unassign
+      const cl = await prisma.client.findUnique({ where: { phone } });
+      if (!cl || cl.orgId !== (req as any).user.orgId) return res.status(403).json({ error: 'Acceso denegado.' });
 
       const updated = await prisma.client.update({
         where: { phone },
@@ -437,6 +483,8 @@ export function createRouter(
     const { name } = req.body;
     if (!name?.trim()) return res.status(400).json({ error: 'Nombre requerido.' });
     try {
+      const existing = await prisma.client.findUnique({ where: { phone: req.params.phone } });
+      if (!existing || existing.orgId !== (req as any).user.orgId) return res.status(403).json({ error: 'Acceso denegado.' });
       const client = await prisma.client.update({
         where: { phone: req.params.phone },
         data: { name: name.trim() },
@@ -451,6 +499,8 @@ export function createRouter(
     try {
       const { phone } = req.params;
       const userId = (req as any).user.userId;
+      const cl = await prisma.client.findUnique({ where: { phone } });
+      if (!cl || cl.orgId !== (req as any).user.orgId) return res.status(403).json({ error: 'Acceso denegado.' });
       await prisma.client.update({
         where: { phone },
         data: {
@@ -471,6 +521,8 @@ export function createRouter(
   router.post('/clients/:phone/reopen', authMiddleware, async (req, res) => {
     try {
       const { phone } = req.params;
+      const cl = await prisma.client.findUnique({ where: { phone } });
+      if (!cl || cl.orgId !== (req as any).user.orgId) return res.status(403).json({ error: 'Acceso denegado.' });
       await prisma.client.update({
         where: { phone },
         data: {
@@ -488,6 +540,8 @@ export function createRouter(
 
   router.get('/clients/:phone/notes', authMiddleware, async (req, res) => {
     try {
+      const cl = await prisma.client.findUnique({ where: { phone: req.params.phone } });
+      if (!cl || cl.orgId !== (req as any).user.orgId) return res.status(403).json({ error: 'Acceso denegado.' });
       const notes = await prisma.internalNote.findMany({
         where: { clientPhone: req.params.phone },
         include: { author: { select: { id: true, name: true } } },
@@ -503,6 +557,8 @@ export function createRouter(
     const { content } = req.body;
     if (!content?.trim()) return res.status(400).json({ error: 'Contenido requerido.' });
     try {
+      const cl = await prisma.client.findUnique({ where: { phone: req.params.phone } });
+      if (!cl || cl.orgId !== (req as any).user.orgId) return res.status(403).json({ error: 'Acceso denegado.' });
       const note = await prisma.internalNote.create({
         data: {
           clientPhone: req.params.phone,
@@ -534,10 +590,10 @@ export function createRouter(
     }
   });
 
-  router.get('/agents', authMiddleware, async (_req, res) => {
+  router.get('/agents', authMiddleware, async (req, res) => {
     try {
       const agents = await prisma.user.findMany({
-        where: { isActive: true },
+        where: { isActive: true, ...orgScope(req) },
         select: { id: true, name: true, role: true }
       });
       res.json({ agents });
@@ -653,9 +709,10 @@ export function createRouter(
 
   // --- User Management (Admin only) ---
 
-  router.get('/users', authMiddleware, requireAdmin, async (_req, res) => {
+  router.get('/users', authMiddleware, requireAdmin, async (req, res) => {
     try {
       const users = await prisma.user.findMany({
+        where: { ...orgScope(req) },
         select: { id: true, name: true, email: true, role: true, isActive: true },
         orderBy: { createdAt: 'asc' },
       });
@@ -679,7 +736,7 @@ export function createRouter(
 
       const passwordHash = await authService.hashPassword(password);
       const user = await prisma.user.create({
-        data: { name: name.trim(), email: email.trim(), passwordHash, role },
+        data: { name: name.trim(), email: email.trim(), passwordHash, role, orgId: (req as any).user.orgId },
         select: { id: true, name: true, email: true, role: true, isActive: true },
       });
       res.status(201).json({ user });
@@ -701,6 +758,7 @@ export function createRouter(
     try {
       const target = await prisma.user.findUnique({ where: { id } });
       if (!target) return res.status(404).json({ error: 'Usuario no encontrado.' });
+      if (target.orgId !== (req as any).user.orgId) return res.status(403).json({ error: 'Acceso denegado.' });
 
       const data: Record<string, unknown> = {};
       if (name !== undefined) data.name = name.trim();
@@ -729,6 +787,7 @@ export function createRouter(
     try {
       const target = await prisma.user.findUnique({ where: { id } });
       if (!target) return res.status(404).json({ error: 'Usuario no encontrado.' });
+      if (target.orgId !== (req as any).user.orgId) return res.status(403).json({ error: 'Acceso denegado.' });
 
       const user = await prisma.user.update({
         where: { id },

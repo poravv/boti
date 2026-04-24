@@ -14,7 +14,7 @@ export interface IWhatsAppProvider {
 // --- Repositories ---
 export interface IClientRepository {
   findByPhone(phone: string): Promise<Client | null>;
-  upsert(client: Omit<Client, 'id' | 'createdAt' | 'updatedAt'>): Promise<Client>;
+  upsert(client: Omit<Client, 'id' | 'createdAt' | 'updatedAt'>, orgId?: string): Promise<Client>;
   blockClient(phone: string, until: Date): Promise<void>;
 }
 

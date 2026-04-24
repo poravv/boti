@@ -16,7 +16,7 @@ export class AuthService {
     return bcrypt.compare(password, hash);
   }
 
-  generateToken(payload: { userId: string; email: string; role: string }): string {
+  generateToken(payload: { userId: string; email: string; role: string; orgId: string }): string {
     return jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
   }
 
