@@ -11,6 +11,10 @@ echo "Database is up!"
 echo "Syncing database schema..."
 npx prisma db push
 
+# Backfill default org and patch existing rows without orgId
+echo "Running org backfill..."
+npx tsx prisma/seed-default-org.ts || echo "Backfill skipped (tsx unavailable — index.ts seed will handle it)"
+
 # Start the application
 echo "Starting application..."
 npm run start

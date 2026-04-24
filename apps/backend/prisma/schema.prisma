@@ -26,8 +26,7 @@ model Client {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
   messages        Message[]
-  orgId  String
-  org    Organization @relation(fields: [orgId], references: [id])
+  orgId           String?
 
   @@index([orgId])
 }
@@ -54,17 +53,16 @@ model WhatsAppLine {
   status            String    @default("DISCONNECTED")
   systemPrompt      String?
   assignedAiProvider String?
-  aiApiKey          String?     // New field for per-line AI keys
-  aiModel           String?     // New field for specifying the model name
+  aiApiKey          String?
+  aiModel           String?
   contextUrl        String?
   contextHeaders    Json?
-  businessContext   Json?     // New field for DB-stored context
+  businessContext   Json?
   maxMessages       Int       @default(10)
   createdAt         DateTime  @default(now())
   messages          Message[]
   externalApis      ExternalApi[]
-  orgId  String
-  org    Organization @relation(fields: [orgId], references: [id])
+  orgId             String?
 
   @@index([orgId])
 }
@@ -92,8 +90,7 @@ model User {
   closedConversations Client[]       @relation("ClosedConversations")
   authoredNotes       InternalNote[] @relation("AuthoredNotes")
   createdAt    DateTime  @default(now())
-  orgId  String
-  org    Organization @relation(fields: [orgId], references: [id])
+  orgId        String?
 
   @@index([orgId])
 }
@@ -143,8 +140,4 @@ model Organization {
   slug      String   @unique
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
-  users   User[]
-  lines   WhatsAppLine[]
-  clients Client[]
 }
