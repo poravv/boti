@@ -28,12 +28,20 @@ export function createRouter(
   const authMiddleware = (req: Request, res: Response, next: () => void) => {
     const authHeader = req.headers.authorization;
     if (!authHeader) return res.status(401).json({ error: 'No token provided' });
-    
+
     const token = authHeader.split(' ')[1];
     const decoded = authService.verifyToken(token);
     if (!decoded) return res.status(401).json({ error: 'Invalid token' });
-    
+
     (req as any).user = decoded;
+    next();
+  };
+
+  // --- Admin Middleware ---
+  const requireAdmin = (req: Request, res: Response, next: () => void) => {
+    if ((req as any).user?.role !== 'ADMIN') {
+      return res.status(403).json({ error: 'Se requiere rol ADMIN.' });
+    }
     next();
   };
 
@@ -632,6 +640,96 @@ export function createRouter(
         raw: parsed,
         extracted: outputKey ? extracted : undefined,
       });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // --- User Management (Admin only) ---
+
+  router.get('/users', authMiddleware, requireAdmin, async (_req, res) => {
+    try {
+      const users = await prisma.user.findMany({
+        select: { id: true, name: true, email: true, role: true, isActive: true },
+        orderBy: { createdAt: 'asc' },
+      });
+      res.json({ users });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  router.post('/users', authMiddleware, requireAdmin, async (req, res) => {
+    const { name, email, password, role } = req.body;
+    if (!name?.trim() || !email?.trim() || !password || !role) {
+      return res.status(400).json({ error: 'name, email, password y role son requeridos.' });
+    }
+    if (!['ADMIN', 'OPERATOR'].includes(role)) {
+      return res.status(400).json({ error: 'role debe ser ADMIN u OPERATOR.' });
+    }
+    try {
+      const existing = await prisma.user.findUnique({ where: { email } });
+      if (existing) return res.status(409).json({ error: 'Ya existe un usuario con ese email.' });
+
+      const passwordHash = await authService.hashPassword(password);
+      const user = await prisma.user.create({
+        data: { name: name.trim(), email: email.trim(), passwordHash, role },
+        select: { id: true, name: true, email: true, role: true, isActive: true },
+      });
+      res.status(201).json({ user });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  router.put('/users/:id', authMiddleware, requireAdmin, async (req, res) => {
+    const { id } = req.params;
+    const requesterId = (req as any).user.userId;
+    const { name, role, isActive } = req.body;
+
+    if (id === requesterId) {
+      if (role !== undefined) return res.status(400).json({ error: 'No puedes cambiar tu propio rol.' });
+      if (isActive === false) return res.status(400).json({ error: 'No puedes desactivarte a ti mismo.' });
+    }
+
+    try {
+      const target = await prisma.user.findUnique({ where: { id } });
+      if (!target) return res.status(404).json({ error: 'Usuario no encontrado.' });
+
+      const data: Record<string, unknown> = {};
+      if (name !== undefined) data.name = name.trim();
+      if (role !== undefined) data.role = role;
+      if (isActive !== undefined) data.isActive = isActive;
+
+      const user = await prisma.user.update({
+        where: { id },
+        data,
+        select: { id: true, name: true, email: true, role: true, isActive: true },
+      });
+      res.json({ user });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  router.delete('/users/:id', authMiddleware, requireAdmin, async (req, res) => {
+    const { id } = req.params;
+    const requesterId = (req as any).user.userId;
+
+    if (id === requesterId) {
+      return res.status(400).json({ error: 'No puedes eliminarte a ti mismo.' });
+    }
+
+    try {
+      const target = await prisma.user.findUnique({ where: { id } });
+      if (!target) return res.status(404).json({ error: 'Usuario no encontrado.' });
+
+      const user = await prisma.user.update({
+        where: { id },
+        data: { isActive: false },
+        select: { id: true, name: true, email: true, role: true, isActive: true },
+      });
+      res.json({ user });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
