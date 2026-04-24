@@ -16,9 +16,13 @@ model Client {
   name        String
   isBlocked   Boolean   @default(false)
   blockedUntil DateTime?
-  aiPausedUntil DateTime? // New field for temporary AI pause
+  aiPausedUntil DateTime?
   assignedToUserId String?
   assignedTo      User?     @relation(fields: [assignedToUserId], references: [id])
+  conversationStatus  String    @default("OPEN")
+  closedAt            DateTime?
+  closedByUserId      String?
+  closedBy            User?     @relation("ClosedConversations", fields: [closedByUserId], references: [id])
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
   messages        Message[]
@@ -76,7 +80,9 @@ model User {
   name         String
   role         String    @default("OPERATOR") // ADMIN | OPERATOR
   isActive     Boolean   @default(true)
-  assignedClients Client[]
+  assignedClients     Client[]
+  closedConversations Client[]       @relation("ClosedConversations")
+  authoredNotes       InternalNote[] @relation("AuthoredNotes")
   createdAt    DateTime  @default(now())
 }
 
@@ -105,4 +111,16 @@ model ExternalApi {
   updatedAt   DateTime @updatedAt
 
   line        WhatsAppLine @relation(fields: [lineId], references: [id], onDelete: Cascade)
+}
+
+model InternalNote {
+  id          String   @id @default(uuid())
+  clientPhone String
+  authorId    String
+  content     String
+  createdAt   DateTime @default(now())
+
+  author      User     @relation("AuthoredNotes", fields: [authorId], references: [id])
+
+  @@index([clientPhone])
 }

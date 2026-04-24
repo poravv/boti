@@ -126,6 +126,18 @@ async function bootstrap() {
 
   queue.startWorker();
 
+  // Auto-close conversations inactive for 30+ days — runs every hour
+  setInterval(async () => {
+    const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const result = await prisma.client.updateMany({
+      where: { conversationStatus: 'OPEN', updatedAt: { lt: cutoff } },
+      data: { conversationStatus: 'CLOSED', closedAt: new Date() },
+    });
+    if (result.count > 0) {
+      logger.info({ count: result.count }, 'Auto-closed inactive conversations');
+    }
+  }, 60 * 60 * 1000);
+
   // ─── Spam Filter ─────────────────────────────────────────────────────
   const spamFilter = new SpamFilterAdapter(redis, blockClientUseCase);
 
@@ -146,7 +158,7 @@ async function bootstrap() {
   });
 
   // ─── HTTP Routes ─────────────────────────────────────────────────────
-  app.use('/api', createRouter(whatsApp, sendMessageUseCase, blockClientUseCase, prisma));
+  app.use('/api', createRouter(whatsApp, sendMessageUseCase, blockClientUseCase, prisma, wsManager));
 
   // ─── Autostart Lines ────────────────────────────────────────────────
   try {

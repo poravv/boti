@@ -6,7 +6,8 @@ export interface Client {
   name: string;
   isBlocked: boolean;
   blockedUntil?: Date;
-  aiPausedUntil?: Date; // Added
+  aiPausedUntil?: Date;
+  conversationStatus?: string;
   createdAt: Date;
   updatedAt: Date;
 }

@@ -9,6 +9,7 @@ import type {
 import { PrismaClient } from '@prisma/client';
 import { PrismaMessageRepository, PrismaClientRepository } from '../adapters/db/PrismaRepositories.js';
 import { AuthService } from '../lib/AuthService.js';
+import type { WebSocketManager } from '../lib/WebSocketManager.js';
 
 const messageRepo = new PrismaMessageRepository();
 const clientRepo = new PrismaClientRepository();
@@ -18,6 +19,7 @@ export function createRouter(
   sendMessage: SendMessage,
   blockClient: BlockClient,
   prisma: PrismaClient,
+  wsManager: WebSocketManager,
 ): Router {
   const router = Router();
   const authService = new AuthService(prisma);
@@ -303,9 +305,12 @@ export function createRouter(
     }
   });
 
-  router.get('/chats', authMiddleware, async (_req, res) => {
+  router.get('/chats', authMiddleware, async (req, res) => {
     try {
+      const statusFilter = (req.query.status as string) || 'OPEN';
+      const where = statusFilter === 'ALL' ? {} : { conversationStatus: statusFilter };
       const clients = await prisma.client.findMany({
+        where,
         include: {
           messages: {
             orderBy: { createdAt: 'desc' },
@@ -335,7 +340,9 @@ export function createRouter(
         assignedTo: c.assignedTo,
         aiPausedUntil: c.aiPausedUntil,
         unreadCount: (c as any)._count.messages,
-        lineId: c.messages[0]?.lineId
+        lineId: c.messages[0]?.lineId,
+        conversationStatus: (c as any).conversationStatus ?? 'OPEN',
+        closedAt: (c as any).closedAt ?? null,
       }));
 
       res.json({ chats });
@@ -420,6 +427,91 @@ export function createRouter(
         data: { name: name.trim() },
       });
       res.json({ client });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  router.post('/clients/:phone/close', authMiddleware, async (req, res) => {
+    try {
+      const { phone } = req.params;
+      const userId = (req as any).user.userId;
+      await prisma.client.update({
+        where: { phone },
+        data: {
+          conversationStatus: 'CLOSED',
+          closedAt: new Date(),
+          closedByUserId: userId,
+        },
+      });
+      wsManager.broadcast('conversation:status', { phone, status: 'CLOSED' });
+      res.json({ status: 'closed' });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  router.post('/clients/:phone/reopen', authMiddleware, async (req, res) => {
+    try {
+      const { phone } = req.params;
+      await prisma.client.update({
+        where: { phone },
+        data: {
+          conversationStatus: 'OPEN',
+          closedAt: null,
+          closedByUserId: null,
+        },
+      });
+      wsManager.broadcast('conversation:status', { phone, status: 'OPEN' });
+      res.json({ status: 'reopened' });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  router.get('/clients/:phone/notes', authMiddleware, async (req, res) => {
+    try {
+      const notes = await prisma.internalNote.findMany({
+        where: { clientPhone: req.params.phone },
+        include: { author: { select: { id: true, name: true } } },
+        orderBy: { createdAt: 'asc' },
+      });
+      res.json({ notes });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  router.post('/clients/:phone/notes', authMiddleware, async (req, res) => {
+    const { content } = req.body;
+    if (!content?.trim()) return res.status(400).json({ error: 'Contenido requerido.' });
+    try {
+      const note = await prisma.internalNote.create({
+        data: {
+          clientPhone: req.params.phone,
+          authorId: (req as any).user.userId,
+          content: content.trim(),
+        },
+        include: { author: { select: { id: true, name: true } } },
+      });
+      wsManager.broadcast('note:new', { clientPhone: req.params.phone, note });
+      res.status(201).json({ note });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  router.delete('/clients/:phone/notes/:noteId', authMiddleware, async (req, res) => {
+    try {
+      const note = await prisma.internalNote.findUnique({ where: { id: req.params.noteId } });
+      if (!note) return res.status(404).json({ error: 'Nota no encontrada.' });
+      const userId = (req as any).user.userId;
+      const user = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+      if (note.authorId !== userId && user?.role !== 'ADMIN') {
+        return res.status(403).json({ error: 'Sin permisos para eliminar esta nota.' });
+      }
+      await prisma.internalNote.delete({ where: { id: req.params.noteId } });
+      res.json({ status: 'deleted' });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }

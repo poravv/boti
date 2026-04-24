@@ -17,6 +17,7 @@ export class PrismaClientRepository implements IClientRepository {
     return prisma.client.upsert({
       where: { phone: data.phone },
       update: {
+        conversationStatus: 'OPEN',
         ...(data.name && data.name !== data.phone ? { name: data.name } : {}),
       },
       create: { phone: data.phone, name: data.name },
