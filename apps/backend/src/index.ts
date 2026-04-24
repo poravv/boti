@@ -126,12 +126,17 @@ async function bootstrap() {
 
   queue.startWorker();
 
-  // Auto-close conversations inactive for 30+ days — runs every hour
+  // Auto-close conversations inactive for 12+ hours — runs every hour
   setInterval(async () => {
-    const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const cutoff = new Date(Date.now() - 12 * 60 * 60 * 1000);
     const result = await prisma.client.updateMany({
       where: { conversationStatus: 'OPEN', updatedAt: { lt: cutoff } },
-      data: { conversationStatus: 'CLOSED', closedAt: new Date() },
+      data: {
+        conversationStatus: 'CLOSED',
+        closedAt: new Date(),
+        assignedToUserId: null,
+        aiPausedUntil: null,
+      },
     });
     if (result.count > 0) {
       logger.info({ count: result.count }, 'Auto-closed inactive conversations');

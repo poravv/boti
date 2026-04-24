@@ -420,9 +420,13 @@ export function createRouter(
 
       const updated = await prisma.client.update({
         where: { phone },
-        data: { assignedToUserId: agentId }
+        data: {
+          assignedToUserId: agentId,
+          aiPausedUntil: agentId ? new Date('2099-12-31T23:59:59Z') : null,
+        },
       });
 
+      wsManager.broadcast('conversation:assigned', { phone, assignedToUserId: agentId });
       res.json({ status: 'assigned', client: updated });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
@@ -453,6 +457,8 @@ export function createRouter(
           conversationStatus: 'CLOSED',
           closedAt: new Date(),
           closedByUserId: userId,
+          assignedToUserId: null,
+          aiPausedUntil: null,
         },
       });
       wsManager.broadcast('conversation:status', { phone, status: 'CLOSED' });

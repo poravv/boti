@@ -71,7 +71,7 @@ const MessageCenter = () => {
   const [oldestId, setOldestId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'OPEN' | 'CLOSED' | 'ALL'>('OPEN');
+  const [statusFilter, setStatusFilter] = useState<'OPEN' | 'CLOSED' | 'ALL' | 'UNASSIGNED'>('OPEN');
   const [notes, setNotes] = useState<InternalNote[]>([]);
   const [noteMode, setNoteMode] = useState(false);
   const [newNote, setNewNote] = useState('');
@@ -87,10 +87,12 @@ const MessageCenter = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const fetchChats = useCallback(async (filter?: 'OPEN' | 'CLOSED' | 'ALL') => {
+  const fetchChats = useCallback(async (filter?: 'OPEN' | 'CLOSED' | 'ALL' | 'UNASSIGNED') => {
     const status = filter ?? statusFilter;
+    // UNASSIGNED is a client-side filter on top of OPEN chats.
+    const apiStatus = status === 'UNASSIGNED' ? 'OPEN' : status;
     try {
-      const data = await apiFetchJson<{ chats: Chat[] }>(`/api/chats?status=${status}`);
+      const data = await apiFetchJson<{ chats: Chat[] }>(`/api/chats?status=${apiStatus}`);
       setChats(data.chats || []);
       // Use ref so this callback stays stable but still reads the latest value.
       if (data.chats?.length > 0 && !activeChatRef.current) {
@@ -338,13 +340,14 @@ const MessageCenter = () => {
   const isAiCurrentlyPaused =
     !!activeChat?.aiPausedUntil && new Date(activeChat.aiPausedUntil) > new Date();
 
+  const baseChats = statusFilter === 'UNASSIGNED' ? chats.filter((c) => !c.assignedTo) : chats;
   const filteredChats = searchTerm
-    ? chats.filter(
+    ? baseChats.filter(
         (chat) =>
           chat.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
           chat.phone.includes(searchTerm),
       )
-    : chats;
+    : baseChats;
 
   return (
     <div className="flex h-[calc(100vh-4rem)] md:h-[calc(100vh-6rem)] -mx-4 md:-mx-6 overflow-hidden bg-surface-container-lowest rounded-2xl border border-outline-variant/40 shadow-glass-sm">
@@ -365,19 +368,19 @@ const MessageCenter = () => {
           />
         </div>
         <div className="px-3 py-2 flex gap-1 border-b border-outline-variant/30">
-          {(['OPEN', 'CLOSED', 'ALL'] as const).map((tab) => (
+          {(['OPEN', 'CLOSED', 'ALL', 'UNASSIGNED'] as const).map((tab) => (
             <button
               key={tab}
               type="button"
               onClick={() => setStatusFilter(tab)}
               className={cn(
-                'flex-1 py-1 rounded-lg text-caption font-medium transition-colors',
+                'flex-1 py-1 rounded-lg text-[10px] font-medium transition-colors',
                 statusFilter === tab
                   ? 'bg-primary text-white'
                   : 'text-on-surface-variant hover:bg-surface-container-low',
               )}
             >
-              {tab === 'OPEN' ? 'Abiertas' : tab === 'CLOSED' ? 'Cerradas' : 'Todas'}
+              {tab === 'OPEN' ? 'Abiertas' : tab === 'CLOSED' ? 'Cerradas' : tab === 'ALL' ? 'Todas' : 'Sin asignar'}
             </button>
           ))}
         </div>
@@ -449,13 +452,10 @@ const MessageCenter = () => {
                         <p className="text-caption text-on-surface-variant truncate">
                           {chat.lastMsg}
                         </p>
-                        {chat.assignedTo && (
-                          <div className="mt-1 flex items-center gap-1">
-                            <Badge variant="primary" size="sm">
-                              <Icon name="person" size="xs" />
-                              {chat.assignedTo.name}
-                            </Badge>
-                          </div>
+                        {chat.assignedTo && (statusFilter === 'OPEN' || statusFilter === 'UNASSIGNED') && (
+                          <span className="text-[10px] text-on-surface-variant/70 font-medium">
+                            → {chat.assignedTo.name.split(' ')[0]}
+                          </span>
                         )}
                       </div>
                       {unread > 0 && (
