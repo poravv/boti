@@ -153,18 +153,42 @@ async function bootstrap() {
   const spamFilter = new SpamFilterAdapter(redis, blockClientUseCase);
 
   // ─── Incoming Message Handler ─────────────────────────────────────────
+  // Debounce: wait before processing so rapid consecutive messages from the
+  // same client are accumulated and sent to the AI as a single turn.
+  const debounceMs = parseInt(process.env.INBOUND_DEBOUNCE_MS ?? '3000', 10);
+  interface Pending { content: string; fromName: string; lineId: string; timer: ReturnType<typeof setTimeout> }
+  const pending = new Map<string, Pending>();
+
   whatsApp.setOnMessage(async (lineId, fromPhone, fromName, content, type) => {
     const isSpam = await spamFilter.check(fromPhone);
     if (isSpam) {
       wsManager.broadcast('operator:notification', { lineId, event: 'SPAM_DETECTED', details: { phone: fromPhone } });
       return;
     }
-    // Resolve the org for this line so the client upsert carries the correct orgId.
-    const lineOrgId = await resolveOrgIdFromLine(prisma, lineId);
-    baseClientRepo.currentOrgId = lineOrgId;
-    await handleInbound.execute({ lineId, fromPhone, fromName, content, type });
-    baseClientRepo.currentOrgId = undefined;
+
+    // Broadcast immediately so the UI shows the message without waiting for AI.
     wsManager.broadcast('message:new', { lineId, fromPhone, clientPhone: fromPhone, fromName, content, type });
+
+    const key = `${lineId}:${fromPhone}`;
+    const existing = pending.get(key);
+
+    if (existing) {
+      // Append new content and reset the timer.
+      clearTimeout(existing.timer);
+      existing.content = existing.content + '\n' + content;
+    }
+
+    const accumulated = existing?.content ?? content;
+
+    const timer = setTimeout(async () => {
+      pending.delete(key);
+      const lineOrgId = await resolveOrgIdFromLine(prisma, lineId);
+      baseClientRepo.currentOrgId = lineOrgId;
+      await handleInbound.execute({ lineId, fromPhone, fromName, content: accumulated, type });
+      baseClientRepo.currentOrgId = undefined;
+    }, debounceMs);
+
+    pending.set(key, { content: accumulated, fromName, lineId, timer });
   });
 
   // Root Health Check

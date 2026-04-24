@@ -29,11 +29,21 @@ interface LineState {
 export class BaileysWhatsAppAdapter implements IWhatsAppProvider {
   private lines = new Map<string, LineState>();
   private onMessageCallback?: (lineId: string, from: string, fromName: string, content: string, type: string) => void;
+  // Dedup: track seen Baileys message IDs to skip replays on reconnect.
+  private seenIds = new Map<string, number>();
 
   constructor(
     private readonly redis: Redis,
     private readonly onStatusChange?: (lineId: string, status: LineState['status'], qrCode?: string) => void,
-  ) {}
+  ) {
+    // Purge seen IDs older than 10 minutes every 5 minutes.
+    setInterval(() => {
+      const cutoff = Date.now() - 10 * 60 * 1000;
+      for (const [id, ts] of this.seenIds) {
+        if (ts < cutoff) this.seenIds.delete(id);
+      }
+    }, 5 * 60 * 1000);
+  }
 
   /** Register handler for incoming messages */
   setOnMessage(cb: typeof this.onMessageCallback) {
@@ -209,6 +219,11 @@ export class BaileysWhatsAppAdapter implements IWhatsAppProvider {
         const msgType = msg.message?.imageMessage ? 'IMAGE'
           : msg.message?.documentMessage ? 'PDF'
           : 'TEXT';
+
+        // Skip if this exact message was already processed (Baileys replay on reconnect).
+        const baileysId = msg.key.id ?? '';
+        if (baileysId && this.seenIds.has(baileysId)) continue;
+        if (baileysId) this.seenIds.set(baileysId, Date.now());
 
         this.onMessageCallback?.(lineId, fromPhone, fromName, content, msgType);
       }
