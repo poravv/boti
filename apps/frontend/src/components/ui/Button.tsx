@@ -19,13 +19,13 @@ const BASE =
 
 const VARIANT: Record<ButtonVariant, string> = {
   primary:
-    'bg-primary text-on-primary shadow-glass-sm hover:opacity-90 hover:shadow-glass hover:-translate-y-0.5 active:translate-y-0 active:shadow-glass-sm active:opacity-100',
+    'bg-primary text-white shadow-glass-sm hover:opacity-90 hover:shadow-glass hover:-translate-y-0.5 active:translate-y-0 active:shadow-glass-sm active:opacity-100',
   secondary:
     'bg-white text-primary border border-outline-variant shadow-glass-sm hover:bg-surface-container-low hover:shadow-glass hover:-translate-y-0.5 active:translate-y-0',
   ghost:
     'bg-transparent text-on-surface hover:bg-surface-container-high/60 active:bg-surface-container-high',
   danger:
-    'bg-error text-on-error shadow-glass-sm hover:shadow-glass hover:-translate-y-0.5 active:translate-y-0',
+    'bg-error text-white shadow-glass-sm hover:shadow-glass hover:-translate-y-0.5 active:translate-y-0',
   icon:
     'bg-transparent text-on-surface hover:bg-surface-container-high/60 rounded-full p-0 active:bg-surface-container-high',
 };

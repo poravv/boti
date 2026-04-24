@@ -295,6 +295,7 @@ const AIConfiguration = () => {
                 disabled={!selectedLineId}
                 leadingIcon={saving ? undefined : 'save'}
                 onClick={handleSave}
+                className="bg-white text-primary hover:bg-surface-container-low"
               >
                 {saving ? 'Guardando…' : 'Guardar configuración'}
               </Button>
