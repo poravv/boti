@@ -14,7 +14,7 @@ export default {
         'on-primary-fixed': '#001f2a',
         'on-secondary-fixed': '#00201c',
         'on-primary': '#ffffff',
-        'secondary': '#006b5f',
+        'secondary': '#3c6376',
         'on-error': '#ffffff',
         'secondary-fixed-dim': '#4fdbc8',
         'on-tertiary-fixed': '#2a1700',
@@ -36,7 +36,7 @@ export default {
         'on-tertiary': '#ffffff',
         'tertiary-container': '#4f3000',
         'on-background': '#0b1c30',
-        'primary': '#002532',
+        'primary': '#006b5f',
         'outline-variant': '#c1c7cc',
         // Darkened one step to reach WCAG AA on surface-container backgrounds (>=4.5:1).
         'on-surface-variant': '#2f3539',
