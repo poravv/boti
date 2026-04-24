@@ -50,7 +50,11 @@ const MessageCenter = () => {
   const [loadingChats, setLoadingChats] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [agents, setAgents] = useState<Agent[]>([]);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [oldestId, setOldestId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   // Ref kept in sync so WS handler always reads latest activeChat without re-registering.
   const activeChatRef = useRef<Chat | null>(null);
   useEffect(() => { activeChatRef.current = activeChat; }, [activeChat]);
@@ -86,8 +90,11 @@ const MessageCenter = () => {
   const fetchMessages = useCallback(async (phone: string) => {
     setLoadingMessages(true);
     try {
-      const data = await apiFetchJson<{ messages: Message[] }>(`/api/messages/${phone}`);
-      setMessages((data.messages || []).reverse());
+      const data = await apiFetchJson<{ messages: Message[]; hasMore: boolean }>(`/api/messages/${phone}?limit=30`);
+      const msgs = data.messages || [];
+      setMessages(msgs);
+      setHasMore(data.hasMore ?? false);
+      setOldestId(msgs.length > 0 ? msgs[0].id : null);
       setTimeout(scrollToBottom, 100);
     } catch {
       // Preserve previous thread on network error.
@@ -95,6 +102,31 @@ const MessageCenter = () => {
       setLoadingMessages(false);
     }
   }, []);
+
+  const loadMoreMessages = useCallback(async (phone: string) => {
+    if (!oldestId || loadingMore) return;
+    setLoadingMore(true);
+    const container = messagesContainerRef.current;
+    const prevHeight = container?.scrollHeight ?? 0;
+    try {
+      const data = await apiFetchJson<{ messages: Message[]; hasMore: boolean }>(
+        `/api/messages/${phone}?limit=30&before=${oldestId}`,
+      );
+      const older = data.messages || [];
+      if (older.length > 0) {
+        setMessages((prev) => [...older, ...prev]);
+        setOldestId(older[0].id);
+        setTimeout(() => {
+          if (container) container.scrollTop = container.scrollHeight - prevHeight;
+        }, 50);
+      }
+      setHasMore(data.hasMore ?? false);
+    } catch {
+      // Keep existing messages on error.
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [oldestId, loadingMore]);
 
   useEffect(() => {
     fetchChats();
@@ -385,12 +417,30 @@ const MessageCenter = () => {
             )}
 
             <div
+              ref={messagesContainerRef}
               role="log"
               aria-live="polite"
               aria-relevant="additions"
               aria-label={`Conversación con ${activeChat.name}`}
               className="flex-1 overflow-y-auto px-4 md:px-8 py-6 space-y-4 bg-surface-container-lowest"
             >
+              {hasMore && !loadingMore && (
+                <div className="flex justify-center">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    leadingIcon="expand_less"
+                    onClick={() => loadMoreMessages(activeChat.phone)}
+                  >
+                    Cargar mensajes anteriores
+                  </Button>
+                </div>
+              )}
+              {loadingMore && (
+                <div className="flex justify-center py-2">
+                  <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                </div>
+              )}
               {loadingMessages ? (
                 <div className="space-y-4">
                   <SkeletonText lines={2} />

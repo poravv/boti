@@ -39,12 +39,20 @@ export class PrismaMessageRepository implements IMessageRepository {
     await prisma.message.update({ where: { id }, data: { status, sentAt } });
   }
 
-  async findByClientPhone(phone: string, limit = 50): Promise<Message[]> {
-    return prisma.message.findMany({
-      where: { clientPhone: phone },
+  async findByClientPhone(
+    phone: string,
+    limit = 50,
+    beforeId?: string,
+  ): Promise<Message[]> {
+    const messages = await prisma.message.findMany({
+      where: {
+        clientPhone: phone,
+        ...(beforeId ? { id: { lt: beforeId } } : {}),
+      },
       orderBy: { createdAt: 'desc' },
       take: limit,
-    }) as any;
+    });
+    return messages.reverse() as any;
   }
 
   async markAsRead(phone: string): Promise<void> {

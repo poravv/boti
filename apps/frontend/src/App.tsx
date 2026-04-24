@@ -5,6 +5,7 @@ import WhatsAppConnections from './components/WhatsAppConnections';
 import AIConfiguration from './components/AIConfiguration';
 import Login from './components/Login';
 import { Dashboard } from './components/pages/Dashboard';
+import { ProfilePage } from './components/pages/ProfilePage';
 import { AppShell } from './components/layout';
 import type { NotificationItem, SidebarNavItem } from './components/layout';
 import { apiFetchJson } from './lib/apiClient';
@@ -180,6 +181,7 @@ const App = () => {
     { name: 'Connections', path: '/connections', icon: 'link' },
     { name: 'Messages', path: '/messages', icon: 'forum', badge: unreadTotal },
     { name: 'AI Config', path: '/ai-config', icon: 'psychology' },
+    { name: 'Perfil', path: '/profile', icon: 'account_circle' },
   ];
 
   return (
@@ -195,6 +197,7 @@ const App = () => {
         <Route path="/messages" element={<MessageCenter />} />
         <Route path="/connections" element={<WhatsAppConnections />} />
         <Route path="/ai-config" element={<AIConfiguration />} />
+        <Route path="/profile" element={<ProfilePage user={user ?? {}} />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </AppShell>

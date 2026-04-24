@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom';
+import { NavLink, Link } from 'react-router-dom';
 import { Badge, Button, Icon, cn } from '../ui';
 
 export interface SidebarUser {
@@ -83,7 +83,11 @@ export function Sidebar({ user, onLogout, items }: SidebarProps) {
       </nav>
 
       <div className="mt-auto px-4 space-y-3">
-        <div className="p-3 bg-surface-container rounded-2xl border border-outline-variant/40 flex items-center gap-3">
+        <Link
+          to="/profile"
+          className="p-3 bg-surface-container rounded-2xl border border-outline-variant/40 flex items-center gap-3 hover:bg-surface-container-high transition-colors focus-ring"
+          aria-label="Ver perfil de usuario"
+        >
           <div className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center text-on-secondary text-caption font-bold uppercase">
             {initials}
           </div>
@@ -95,7 +99,8 @@ export function Sidebar({ user, onLogout, items }: SidebarProps) {
               {user?.role || 'OPERATOR'}
             </p>
           </div>
-        </div>
+          <Icon name="chevron_right" size="sm" className="text-on-surface-variant" />
+        </Link>
         <Button
           variant="ghost"
           size="sm"

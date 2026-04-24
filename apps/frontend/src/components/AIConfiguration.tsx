@@ -282,10 +282,10 @@ const AIConfiguration = () => {
             />
             <div className="relative flex flex-col gap-4">
               <div className="flex items-center gap-2">
-                <Icon name="verified_user" size="md" className="text-secondary" />
-                <h4 className="text-title uppercase">Guardar cambios</h4>
+                <Icon name="verified_user" size="md" className="text-on-primary/80" />
+                <h4 className="text-title uppercase text-on-primary">Guardar cambios</h4>
               </div>
-              <p className="text-body-sm opacity-80">
+              <p className="text-body-sm text-on-primary opacity-80">
                 Los cambios se aplicarán instantáneamente a todas las conversaciones activas en
                 esta línea.
               </p>

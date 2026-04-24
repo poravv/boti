@@ -124,6 +124,18 @@ const WhatsAppConnections = () => {
     }
   };
 
+  const handleDelete = async (id: string) => {
+    if (!confirm('¿Eliminar esta línea permanentemente? Esta acción no se puede deshacer.')) return;
+    try {
+      await apiFetch(`/api/lines/${id}`, { method: 'DELETE' });
+      fetchLines();
+      toast.show('Línea eliminada.', { variant: 'success' });
+    } catch (err) {
+      console.error('Error deleting line:', err);
+      toast.show('Error al eliminar la línea.', { variant: 'error' });
+    }
+  };
+
   const connectedCount = lines.filter((line) => line.status === 'CONNECTED').length;
 
   return (
@@ -365,6 +377,16 @@ const WhatsAppConnections = () => {
                         className="text-on-surface-variant hover:text-error hover:bg-error/5"
                       >
                         <Icon name="link_off" size="sm" />
+                      </Button>
+
+                      <Button
+                        variant="icon"
+                        size="sm"
+                        aria-label="Eliminar línea permanentemente"
+                        onClick={() => handleDelete(line.id)}
+                        className="text-error hover:bg-error/10"
+                      >
+                        <Icon name="delete" size="sm" />
                       </Button>
                     </div>
                   </Card>

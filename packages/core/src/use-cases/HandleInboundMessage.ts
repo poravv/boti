@@ -78,23 +78,37 @@ export class HandleInboundMessage implements HandleInboundMessageUseCase {
     // 5. Build the AI prompt with business context + conversation history
     const businessContext = await contextFetcher.fetchContextForBusiness(lineId);
 
-    const SAFETY_WRAPPER = `
-REGLAS DE CONVERSACIÓN (Escucha Activa):
-1. NO seas un vendedor ansioso. Si el usuario solo saluda, tú SOLO saludas y te pones a disposición.
-2. NUNCA menciones precios o planes a menos que el usuario lo pregunte o la conversación sea sobre costos.
-3. ADÁPTATE a la energía del usuario. Si el usuario es breve, tú eres breve.
-4. Tu prioridad es ENTENDER el problema del usuario antes de ofrecer una solución.
+    // Extract business name for out-of-scope redirect message
+    let businessName = 'nuestro negocio';
+    try {
+      const parsed = JSON.parse(businessContext);
+      if (parsed.empresa) businessName = parsed.empresa;
+      else if (parsed.businessName) businessName = parsed.businessName;
+      else if (parsed.name) businessName = parsed.name;
+    } catch {
+      // businessContext is plain text, not JSON — keep default
+    }
 
-DIRECTIVAS DEL NEGOCIO (Prioridad):
+    const SYSTEM_PROMPT = `Eres un asistente virtual de atención al cliente. Responde ÚNICAMENTE sobre los temas del negocio descritos a continuación.
+
+REGLAS ESTRICTAS:
+1. Si el usuario pide algo fuera del contexto del negocio (generar código, hacer cálculos, responder preguntas generales, escribir textos, etc.), responde SOLAMENTE: "Solo puedo ayudarte con temas relacionados a ${businessName}. ¿En qué puedo ayudarte?"
+2. NO generes código, scripts, ni contenido técnico de ningún tipo.
+3. NO respondas preguntas de cultura general, matemáticas, traducciones, ni nada que no esté directamente relacionado con los servicios/productos del negocio.
+4. Sé amable pero directo al redirigir al usuario al contexto correcto.
+5. Si el usuario saluda, responde cordialmente y pregunta en qué puedes ayudarle (relacionado al negocio).
+6. NUNCA menciones que eres un modelo de lenguaje, que usas IA, o que eres ChatGPT/OpenAI.
+
+CONTEXTO DEL NEGOCIO:
 `;
 
     const aiMessages = [
-      { role: 'system' as const, content: SAFETY_WRAPPER + businessContext },
+      { role: 'system' as const, content: SYSTEM_PROMPT + businessContext },
       ...ctx.lastMessages.map((m) => ({
         role: m.direction === 'INBOUND' ? 'user' as const : 'assistant' as const,
         content: m.content,
       })),
-      { role: 'user' as const, content }, // Incluir el mensaje actual
+      { role: 'user' as const, content },
     ];
 
     // 6. Generate AI reply

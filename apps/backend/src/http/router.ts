@@ -56,6 +56,28 @@ export function createRouter(
     res.json((req as any).user);
   });
 
+  router.put('/auth/change-password', authMiddleware, async (req, res) => {
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ error: 'Campos requeridos.' });
+    }
+    if (newPassword.length < 8) {
+      return res.status(400).json({ error: 'La contraseña debe tener al menos 8 caracteres.' });
+    }
+    try {
+      const userId = (req as any).user.userId;
+      const user = await prisma.user.findUnique({ where: { id: userId } });
+      if (!user) return res.status(404).json({ error: 'Usuario no encontrado.' });
+      const valid = await authService.comparePassword(currentPassword, user.passwordHash);
+      if (!valid) return res.status(400).json({ error: 'Contraseña actual incorrecta.' });
+      const hashed = await authService.hashPassword(newPassword);
+      await prisma.user.update({ where: { id: user.id }, data: { passwordHash: hashed } });
+      res.json({ status: 'ok' });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // Health
   router.get('/health', (_req: Request, res: Response) => {
     res.json({ status: 'ok', ts: new Date().toISOString() });
@@ -65,7 +87,9 @@ export function createRouter(
   router.get('/stats', authMiddleware, async (_req, res) => {
     try {
       const totalMessages = await prisma.message.count();
-      const activeLinesCount = await prisma.whatsAppLine.count({ where: { status: 'CONNECTED' } });
+      const allLines = await prisma.whatsAppLine.findMany({ select: { id: true } });
+      const lineStatuses = await Promise.all(allLines.map(l => whatsApp.getLineStatus(l.id)));
+      const activeLinesCount = lineStatuses.filter(s => s === 'CONNECTED').length;
       const totalLeads = await prisma.client.count();
       const messagesToday = await prisma.message.count({
         where: {
@@ -238,6 +262,17 @@ export function createRouter(
     }
   });
 
+  router.delete('/lines/:lineId', authMiddleware, async (req, res) => {
+    try {
+      const { lineId } = req.params;
+      await whatsApp.disconnectLine(lineId);
+      await prisma.whatsAppLine.delete({ where: { id: lineId } });
+      res.json({ status: 'deleted' });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   router.get('/lines/:lineId/status', authMiddleware, async (req, res) => {
     const status = await whatsApp.getLineStatus(req.params.lineId);
     const qrCode = await whatsApp.getQrCode(req.params.lineId);
@@ -321,8 +356,15 @@ export function createRouter(
   });
 
   router.get('/messages/:phone', authMiddleware, async (req, res) => {
-    const messages = await messageRepo.findByClientPhone(req.params.phone);
-    res.json({ messages });
+    try {
+      const limit = Math.min(Number(req.query.limit) || 30, 100);
+      const beforeId = req.query.before as string | undefined;
+      const messages = await messageRepo.findByClientPhone(req.params.phone, limit, beforeId);
+      const hasMore = messages.length === limit;
+      res.json({ messages, hasMore });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
   });
 
   router.post('/messages/:phone/read', authMiddleware, async (req, res) => {

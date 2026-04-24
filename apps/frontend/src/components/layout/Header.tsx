@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Icon, Tooltip } from '../ui';
 import { NotificationCenter, type NotificationItem } from './NotificationCenter';
 
@@ -19,10 +19,12 @@ const ROUTE_TITLES: Record<string, string> = {
   '/connections': 'Connection Management',
   '/messages': 'Message Center',
   '/ai-config': 'AI Engine Tuning',
+  '/profile': 'Mi Perfil',
 };
 
 export function Header({ user, notifications, onClearNotifications, actions }: HeaderProps) {
   const location = useLocation();
+  const navigate = useNavigate();
   const title = ROUTE_TITLES[location.pathname] ?? 'Boti';
   const avatarChar = (user?.name || 'A').slice(0, 1).toUpperCase();
 
@@ -59,12 +61,14 @@ export function Header({ user, notifications, onClearNotifications, actions }: H
         </Tooltip>
         {actions}
         <NotificationCenter notifications={notifications} onClear={onClearNotifications} />
-        <div
-          aria-label={`Sesión de ${user?.name || 'Admin'}`}
-          className="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-on-primary text-caption font-bold uppercase shadow-glass-sm"
+        <button
+          type="button"
+          aria-label={`Perfil de ${user?.name || 'Admin'}`}
+          onClick={() => navigate('/profile')}
+          className="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-on-primary text-caption font-bold uppercase shadow-glass-sm cursor-pointer hover:ring-2 hover:ring-primary/50 transition-shadow focus-ring"
         >
           {avatarChar}
-        </div>
+        </button>
       </div>
     </header>
   );
