@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Icon, Tooltip } from '../ui';
 import { NotificationCenter, type NotificationItem } from './NotificationCenter';
 
 export interface HeaderUser {
@@ -15,11 +14,12 @@ export interface HeaderProps {
 }
 
 const ROUTE_TITLES: Record<string, string> = {
-  '/': 'System Overview',
-  '/connections': 'Connection Management',
-  '/messages': 'Message Center',
-  '/ai-config': 'AI Engine Tuning',
-  '/profile': 'Mi Perfil',
+  '/': 'Panel principal',
+  '/connections': 'Conexiones WhatsApp',
+  '/messages': 'Centro de mensajes',
+  '/ai-config': 'Configuración IA',
+  '/profile': 'Mi perfil',
+  '/external-apis': 'APIs externas',
 };
 
 export function Header({ user, notifications, onClearNotifications, actions }: HeaderProps) {
@@ -32,40 +32,28 @@ export function Header({ user, notifications, onClearNotifications, actions }: H
     <header
       role="banner"
       style={{ height: 'var(--app-header-h)' }}
-      className="fixed top-0 left-0 right-0 md:left-64 z-sticky flex items-center justify-between px-4 md:px-6 bg-white/70 backdrop-blur-xl border-b border-outline-variant/40 shadow-glass-sm"
+      className="fixed top-0 left-0 md:left-64 right-0 z-sticky bg-surface-container-lowest/95 backdrop-blur-xl border-b border-outline-variant/30 flex items-center px-4 md:px-6 gap-4"
     >
-      <div className="flex items-center gap-4 min-w-0">
-        <h1 className="text-overline text-primary uppercase truncate">{title}</h1>
+      {/* Page title */}
+      <div className="flex-1 min-w-0">
+        <h1 className="text-on-surface font-semibold text-heading-sm truncate">{title}</h1>
       </div>
-      <div className="flex items-center gap-2 md:gap-3">
-        <Tooltip content="Próximamente">
-          <div
-            className="hidden sm:flex items-center gap-2 bg-surface-container-low border border-outline-variant/40 rounded-full px-4 h-10 opacity-60 cursor-not-allowed"
-            aria-disabled="true"
-          >
-            <Icon
-              name="search"
-              size="sm"
-              className="text-on-surface-variant"
-              aria-hidden="true"
-            />
-            <input
-              type="search"
-              aria-label="Buscar logs (próximamente)"
-              aria-disabled="true"
-              disabled
-              placeholder="Búsqueda próximamente..."
-              className="bg-transparent border-none focus:ring-0 text-body-sm text-on-surface placeholder:text-on-surface-variant/70 w-48 focus:outline-none cursor-not-allowed"
-            />
-          </div>
-        </Tooltip>
+
+      {/* Actions */}
+      <div className="flex items-center gap-2">
         {actions}
-        <NotificationCenter notifications={notifications} onClear={onClearNotifications} />
+
+        {/* Notifications */}
+        <div className="relative">
+          <NotificationCenter notifications={notifications} onClear={onClearNotifications} />
+        </div>
+
+        {/* Avatar */}
         <button
           type="button"
-          aria-label={`Perfil de ${user?.name || 'Admin'}`}
+          aria-label={`Perfil de ${user?.name ?? 'usuario'}`}
           onClick={() => navigate('/profile')}
-          className="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-on-primary text-caption font-bold uppercase shadow-glass-sm cursor-pointer hover:ring-2 hover:ring-primary/50 transition-shadow focus-ring"
+          className="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-on-primary text-caption font-bold uppercase shadow-glass-sm hover:shadow-glass transition-shadow duration-200 focus-ring flex-shrink-0 cursor-pointer"
         >
           {avatarChar}
         </button>

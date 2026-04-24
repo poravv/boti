@@ -331,24 +331,24 @@ function ApiFormPanel({ open, onClose, onSaved, lineId, editing }: ApiFormPanelP
               <input
                 type="text"
                 aria-label={`Header key ${idx + 1}`}
-                placeholder="Authorization"
+                placeholder="Nombre"
                 value={row.key}
                 onChange={(e) => updateHeader(idx, 'key', e.target.value)}
-                className="flex-1 h-9 bg-white/70 backdrop-blur-xl border border-outline-variant/60 hover:border-primary/40 focus:border-primary rounded-xl px-3 text-body-sm text-on-surface placeholder:text-on-surface-variant/70 focus-ring transition-all duration-250"
+                className="flex-1 px-3 py-2 rounded-lg border border-outline-variant/40 bg-surface text-on-surface text-body-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
               />
               <input
                 type="text"
                 aria-label={`Header value ${idx + 1}`}
-                placeholder="Bearer xxx"
+                placeholder="Valor"
                 value={row.value}
                 onChange={(e) => updateHeader(idx, 'value', e.target.value)}
-                className="flex-1 h-9 bg-white/70 backdrop-blur-xl border border-outline-variant/60 hover:border-primary/40 focus:border-primary rounded-xl px-3 text-body-sm text-on-surface placeholder:text-on-surface-variant/70 focus-ring transition-all duration-250"
+                className="flex-1 px-3 py-2 rounded-lg border border-outline-variant/40 bg-surface text-on-surface text-body-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
               />
               <button
                 type="button"
                 aria-label="Eliminar header"
                 onClick={() => removeHeader(idx)}
-                className="h-9 w-9 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-error-container hover:text-error transition-colors duration-250 focus-ring"
+                className="p-2 rounded-lg hover:bg-error/8 text-error transition-colors"
               >
                 <Icon name="close" size="sm" />
               </button>
@@ -368,7 +368,7 @@ function ApiFormPanel({ open, onClose, onSaved, lineId, editing }: ApiFormPanelP
               onChange={(e) => updateForm('body', e.target.value)}
               placeholder={'{"query": "{{message}}", "limit": 10}'}
               rows={4}
-              className="w-full bg-inverse-surface text-success font-mono text-body-sm p-4 rounded-2xl border border-outline-variant/40 focus-ring transition-all duration-250 resize-y"
+              className="w-full bg-inverse-surface text-inverse-on-surface font-mono text-body-sm p-4 rounded-2xl border border-outline-variant/40 focus-ring transition-all duration-250 resize-y"
             />
             <p className="text-overline text-on-surface-variant/70">
               Usa {'{{message}}'} para incluir el mensaje del usuario
@@ -427,21 +427,16 @@ function ApiFormPanel({ open, onClose, onSaved, lineId, editing }: ApiFormPanelP
 
         {/* Test result */}
         {testResult && (
-          <div className="space-y-3 rounded-xl border border-outline-variant/40 p-4 bg-surface-container-low/60">
-            <div className="flex items-center gap-2">
-              <span className="text-caption uppercase tracking-wider text-on-surface-variant">
-                Resultado
+          <div className="space-y-3">
+            <div className={`rounded-xl p-4 flex items-center gap-2 ${testResult.status >= 200 && testResult.status < 300 ? 'bg-success-container text-on-success-container' : 'bg-error-container text-on-error-container'}`}>
+              <Icon name={testResult.status >= 200 && testResult.status < 300 ? 'check_circle' : 'error'} size="sm" />
+              <span className="text-body-sm font-semibold">
+                HTTP {testResult.status} — {testResult.status >= 200 && testResult.status < 300 ? 'Éxito' : 'Error'}
               </span>
-              <Badge
-                variant={testResult.status >= 200 && testResult.status < 300 ? 'success' : 'danger'}
-                size="sm"
-              >
-                {testResult.status}
-              </Badge>
             </div>
             <div>
-              <p className="text-overline uppercase text-on-surface-variant mb-1">Raw response</p>
-              <pre className="bg-inverse-surface text-success font-mono text-overline p-3 rounded-xl overflow-x-auto whitespace-pre-wrap break-all max-h-48">
+              <p className="text-overline uppercase text-on-surface-variant mb-1">Respuesta</p>
+              <pre className="bg-inverse-surface text-inverse-on-surface font-mono text-body-sm rounded-xl p-4 overflow-auto max-h-48 whitespace-pre-wrap break-all">
                 {JSON.stringify(testResult.body, null, 2)}
               </pre>
             </div>
@@ -622,21 +617,33 @@ export function ExternalApisPage() {
   return (
     <section className="space-y-6">
       {/* Header */}
-      <header className="flex flex-col gap-2">
-        <h1 className="text-display-sm text-primary">APIs Externas</h1>
-        <p className="text-body text-on-surface-variant">
-          Conecta APIs externas para que el chatbot consulte información en tiempo real.
-        </p>
-      </header>
+      <div className="mb-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-heading-lg font-bold text-on-surface">APIs externas</h1>
+            <p className="text-on-surface-variant text-body mt-1">
+              Conecta APIs para enriquecer el contexto del chatbot en tiempo real
+            </p>
+          </div>
+          <Button
+            variant="primary"
+            onClick={handleAdd}
+            disabled={!selectedLineId}
+            leadingIcon="add"
+          >
+            Nueva API
+          </Button>
+        </div>
+      </div>
 
       <div className="grid grid-cols-12 gap-6 items-start">
         <div className="col-span-12 lg:col-span-8 space-y-6">
           {/* Line selector */}
           <Card variant="glass" padding="lg" className="animate-fade-in-up">
             <Card.Header>
-              <div className="flex items-center gap-3 text-secondary">
-                <Icon name="account_tree" size="md" filled />
-                <h3 className="text-title uppercase">Seleccionar línea</h3>
+              <div className="flex items-center gap-3">
+                <Icon name="account_tree" size="md" filled className="text-secondary" />
+                <h3 className="text-title font-semibold text-on-surface uppercase">Seleccionar línea</h3>
               </div>
               {selectedLine && (
                 <Badge
@@ -675,9 +682,9 @@ export function ExternalApisPage() {
             style={{ animationDelay: '60ms' }}
           >
             <Card.Header>
-              <div className="flex items-center gap-3 text-secondary">
-                <Icon name="api" size="md" />
-                <h3 className="text-title uppercase">APIs configuradas</h3>
+              <div className="flex items-center gap-3">
+                <Icon name="api" size="md" className="text-secondary" />
+                <h3 className="text-title font-semibold text-on-surface uppercase">APIs configuradas</h3>
                 {apis.length > 0 && (
                   <Badge variant="primary" size="sm">
                     {apis.length}
@@ -753,9 +760,9 @@ export function ExternalApisPage() {
             <div className="relative flex flex-col gap-3">
               <div className="flex items-center gap-2">
                 <Icon name="bolt" size="md" className="text-on-primary/80" />
-                <h4 className="text-title uppercase text-on-primary">Cómo funciona</h4>
+                <h4 className="text-title font-semibold uppercase text-on-primary">Cómo funciona</h4>
               </div>
-              <p className="text-body-sm text-on-primary opacity-80">
+              <p className="text-body-sm text-on-primary/70">
                 Cuando el chatbot recibe un mensaje, consulta las APIs activas y enriquece su
                 contexto antes de responder.
               </p>
@@ -771,7 +778,7 @@ export function ExternalApisPage() {
             <Card.Header>
               <div className="flex items-center gap-2 text-on-surface-variant">
                 <Icon name="info" size="sm" />
-                <span className="text-caption uppercase tracking-wider">Tips</span>
+                <span className="text-caption uppercase tracking-wider">Consejos</span>
               </div>
             </Card.Header>
             <Card.Body>

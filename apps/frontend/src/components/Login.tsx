@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Button, Card, FormInput, Icon, useToast } from './ui';
+import { Button, FormInput, Icon, useToast } from './ui';
 
 interface LoginProps {
   onLogin: (token: string, user: any) => void;
@@ -38,67 +38,120 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background relative overflow-hidden px-4">
-      <div aria-hidden="true" className="absolute inset-0 pointer-events-none">
-        <div className="absolute -top-32 -left-32 w-[40%] h-[40%] bg-primary/10 rounded-full blur-[120px]" />
-        <div className="absolute -bottom-32 -right-32 w-[40%] h-[40%] bg-secondary/10 rounded-full blur-[120px]" />
-      </div>
+    <div className="min-h-screen flex">
+      {/* Left panel — branding (desktop only) */}
+      <div className="hidden lg:flex lg:w-1/2 xl:w-2/5 flex-col justify-between bg-primary p-10 relative overflow-hidden">
+        {/* Background decoration */}
+        <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary-container to-secondary opacity-90" />
+        <div className="absolute top-0 right-0 w-96 h-96 bg-secondary/20 rounded-full -translate-y-1/2 translate-x-1/3 blur-3xl" />
+        <div className="absolute bottom-0 left-0 w-64 h-64 bg-primary-container/30 rounded-full translate-y-1/3 -translate-x-1/4 blur-2xl" />
 
-      <Card
-        variant="glass-elevated"
-        padding="lg"
-        className="w-full max-w-md shadow-glass-xl relative z-base animate-fade-in-up"
-      >
-        <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-5">
-            <Icon name="smart_toy" size="xl" className="text-primary" filled />
+        <div className="relative z-10">
+          {/* Logo */}
+          <div className="flex items-center gap-3 mb-16">
+            <div className="w-10 h-10 rounded-xl bg-white/10 backdrop-blur flex items-center justify-center">
+              <span className="material-symbols-outlined text-white text-[22px]" style={{ fontVariationSettings: "'FILL' 1" }}>smart_toy</span>
+            </div>
+            <span className="text-white font-bold text-xl tracking-tight">Boti</span>
           </div>
-          <h1 className="text-display-sm text-primary uppercase">Boti Platform</h1>
-          <p className="text-body text-on-surface-variant mt-2">Acceso administrativo</p>
+
+          {/* Hero text */}
+          <div className="space-y-4">
+            <h1 className="text-on-primary text-4xl font-bold leading-tight">
+              Automatiza tu<br />atención al cliente<br />con IA
+            </h1>
+            <p className="text-on-primary/60 text-base leading-relaxed max-w-sm">
+              Plataforma WhatsApp Business con inteligencia artificial para gestionar conversaciones y escalar tu negocio.
+            </p>
+          </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5" noValidate>
-          {inlineError && (
-            <div
-              role="alert"
-              className="p-3 bg-error-container border border-error/20 rounded-xl text-body-sm text-on-error-container flex items-center gap-2"
-            >
-              <Icon name="error" size="sm" />
-              <span>{inlineError}</span>
+        {/* Feature list */}
+        <div className="relative z-10 space-y-3">
+          {[
+            { icon: 'bolt', text: 'Respuestas automáticas con IA' },
+            { icon: 'group', text: 'Gestión multiagente en tiempo real' },
+            { icon: 'api', text: 'Integración con APIs externas' },
+          ].map(f => (
+            <div key={f.icon} className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center flex-shrink-0">
+                <span className="material-symbols-outlined text-white/80 text-[16px]">{f.icon}</span>
+              </div>
+              <span className="text-on-primary/70 text-sm">{f.text}</span>
             </div>
-          )}
+          ))}
+        </div>
+      </div>
 
-          <FormInput
-            label="Email corporativo"
-            floatingLabel
-            type="email"
-            autoComplete="email"
-            required
-            status={inlineError ? 'error' : 'default'}
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-          />
+      {/* Right panel — form */}
+      <div className="flex-1 flex items-center justify-center p-6 bg-surface-container-lowest">
+        <div className="w-full max-w-sm space-y-8 animate-fade-in-up">
+          {/* Mobile logo */}
+          <div className="flex lg:hidden flex-col items-center gap-3 text-center">
+            <div className="w-12 h-12 rounded-2xl bg-primary flex items-center justify-center shadow-glass">
+              <span className="material-symbols-outlined text-white text-2xl" style={{ fontVariationSettings: "'FILL' 1" }}>smart_toy</span>
+            </div>
+            <div>
+              <div className="font-bold text-on-surface text-xl tracking-tight">Boti Platform</div>
+              <div className="text-on-surface-variant text-sm">Acceso administrativo</div>
+            </div>
+          </div>
 
-          <FormInput
-            label="Contraseña"
-            floatingLabel
-            type="password"
-            autoComplete="current-password"
-            required
-            status={inlineError ? 'error' : 'default'}
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-          />
+          {/* Form card */}
+          <div>
+            <div className="hidden lg:block mb-8">
+              <h2 className="text-on-surface text-heading-md font-bold">Bienvenido de nuevo</h2>
+              <p className="text-on-surface-variant text-body mt-1">Ingresa tus credenciales para continuar</p>
+            </div>
 
-          <Button type="submit" variant="primary" size="lg" fullWidth loading={loading}>
-            {loading ? 'Autenticando…' : 'Entrar al panel'}
-          </Button>
-        </form>
+            <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+              {inlineError && (
+                <div role="alert" className="flex items-center gap-2.5 px-4 py-3 rounded-xl bg-error-container text-on-error-container text-body-sm">
+                  <Icon name="error" size="sm" className="flex-shrink-0" />
+                  {inlineError}
+                </div>
+              )}
 
-        <p className="text-center text-overline text-on-surface-variant uppercase mt-8 opacity-60">
-          Powered by DeepMind Agents · v2.0.0
-        </p>
-      </Card>
+              <FormInput
+                label="Correo electrónico"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                floatingLabel
+                autoComplete="email"
+                status={inlineError ? 'error' : 'default'}
+                required
+              />
+
+              <FormInput
+                label="Contraseña"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                floatingLabel
+                autoComplete="current-password"
+                status={inlineError ? 'error' : 'default'}
+                required
+              />
+
+              <Button
+                type="submit"
+                variant="primary"
+                fullWidth
+                size="lg"
+                loading={loading}
+                className="mt-2"
+              >
+                {loading ? 'Ingresando...' : 'Ingresar al panel'}
+              </Button>
+            </form>
+          </div>
+
+          <p className="text-center text-on-surface-variant/50 text-caption">
+            Boti Platform · Todos los derechos reservados
+          </p>
+        </div>
+      </div>
     </div>
   );
 };

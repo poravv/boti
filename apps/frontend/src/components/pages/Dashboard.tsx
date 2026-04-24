@@ -97,29 +97,29 @@ export function Dashboard() {
     () => [
       {
         id: 'active-lines',
-        title: 'Active Lines',
+        title: 'Líneas activas',
         value: stats.activeLines,
         icon: 'bolt',
         tone: 'success',
-        deltaLabel: 'Online',
+        deltaLabel: 'En línea',
         deltaVariant: 'success',
       },
       {
         id: 'total-leads',
-        title: 'Total Leads',
+        title: 'Contactos totales',
         value: stats.totalLeads,
         icon: 'psychology',
         tone: 'warning',
-        deltaLabel: 'Growth',
+        deltaLabel: 'Crecimiento',
         deltaVariant: 'warning',
       },
       {
         id: 'performance',
-        title: 'Performance',
+        title: 'Rendimiento',
         value: stats.performance || '0%',
         icon: 'trending_up',
         tone: 'info',
-        deltaLabel: 'Healthy',
+        deltaLabel: 'Saludable',
         deltaVariant: 'primary',
       },
     ],
@@ -128,12 +128,12 @@ export function Dashboard() {
 
   return (
     <section className="space-y-6">
-      <header className="flex flex-col gap-2">
-        <h1 className="text-display-sm text-primary">Dashboard</h1>
-        <p className="text-body text-on-surface-variant">
-          Vista general del sistema en tiempo real.
+      <div className="mb-6">
+        <h1 className="text-heading-lg font-bold text-on-surface">Panel principal</h1>
+        <p className="text-on-surface-variant text-body mt-1">
+          Resumen de actividad en tiempo real
         </p>
-      </header>
+      </div>
 
       {loading ? (
         <div className="grid grid-cols-12 auto-rows-[minmax(160px,auto)] gap-6">
@@ -189,7 +189,7 @@ export function Dashboard() {
         open={showLogModal}
         onClose={() => setShowLogModal(false)}
         size="lg"
-        title="System Audit Log"
+        title="Historial de auditoría"
         description="Historial completo de eventos del sistema."
       >
         {logs.length === 0 ? (
@@ -357,7 +357,7 @@ function TrafficCard({ hourlyTraffic, maxTraffic, total, delay }: TrafficCardPro
     >
       <Card.Header>
         <div>
-          <h3 className="text-heading-sm text-primary">Real-time Traffic</h3>
+          <h3 className="text-heading-sm text-primary">Tráfico en tiempo real</h3>
           <p className="text-caption text-on-surface-variant">
             Mensajes procesados en las últimas 15 horas
           </p>
@@ -410,7 +410,7 @@ function ActivityCard({ logs, total, onOpenAudit, delay }: ActivityCardProps) {
     >
       <Card.Header>
         <div>
-          <h3 className="text-heading-sm text-primary">Recent Activity</h3>
+          <h3 className="text-heading-sm text-primary">Actividad reciente</h3>
           <p className="text-caption text-on-surface-variant">Últimos eventos del sistema</p>
         </div>
         <Badge variant="neutral" size="sm">
@@ -472,7 +472,7 @@ function ActivityCard({ logs, total, onOpenAudit, delay }: ActivityCardProps) {
           trailingIcon="arrow_forward"
           onClick={onOpenAudit}
         >
-          View Audit Log
+          Ver historial de auditoría
         </Button>
       </Card.Footer>
     </Card>

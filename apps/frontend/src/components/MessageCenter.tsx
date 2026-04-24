@@ -425,15 +425,14 @@ const MessageCenter = () => {
               className="flex-1 overflow-y-auto px-4 md:px-8 py-6 space-y-4 bg-surface-container-lowest"
             >
               {hasMore && !loadingMore && (
-                <div className="flex justify-center">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    leadingIcon="expand_less"
+                <div className="flex justify-center py-2">
+                  <button
+                    type="button"
+                    className="text-body-sm text-primary bg-primary/8 hover:bg-primary/12 px-4 py-1.5 rounded-full transition-colors"
                     onClick={() => loadMoreMessages(activeChat.phone)}
                   >
                     Cargar mensajes anteriores
-                  </Button>
+                  </button>
                 </div>
               )}
               {loadingMore && (
@@ -499,12 +498,14 @@ const MessageCenter = () => {
             <SkeletonCard className="max-w-md w-full" />
           </div>
         ) : (
-          <div className="flex-1 flex items-center justify-center">
-            <EmptyState
-              icon="chat_bubble"
-              title="Selecciona una conversación"
-              description="Elegí un cliente del listado para empezar a conversar."
-            />
+          <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center p-8">
+            <div className="w-16 h-16 rounded-2xl bg-surface-container flex items-center justify-center">
+              <Icon name="forum" size="xl" className="text-on-surface-variant/40" />
+            </div>
+            <div>
+              <p className="text-on-surface font-medium">Selecciona una conversación</p>
+              <p className="text-on-surface-variant text-body-sm mt-1">Elige un contacto de la lista para ver sus mensajes</p>
+            </div>
           </div>
         )}
       </section>
@@ -531,7 +532,7 @@ const MessageBubble = ({ sent, text, time, isAi, delay }: MessageBubbleProps) =>
           'px-4 py-3 rounded-2xl shadow-glass-sm border',
           sent
             ? 'bg-primary text-on-primary border-primary rounded-tr-sm'
-            : 'bg-white text-on-surface border-outline-variant/40 rounded-tl-sm',
+            : 'bg-surface-container text-on-surface border-outline-variant/40 rounded-tl-sm',
         )}
       >
         {isAi && (

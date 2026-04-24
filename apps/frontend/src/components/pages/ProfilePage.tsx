@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Button, Card, FormInput, Icon } from '../ui';
+import { Badge, Button, Card, FormInput, Icon } from '../ui';
 
 interface ProfileUser {
   name?: string;
@@ -62,62 +62,58 @@ export function ProfilePage({ user }: ProfilePageProps) {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6 py-2">
-      {/* User info */}
-      <Card variant="glass" padding="lg">
-        <div className="flex items-center gap-4 mb-6">
-          <div className="w-14 h-14 rounded-full bg-primary flex items-center justify-center text-on-primary text-heading-sm font-bold uppercase shadow-glass">
-            {(user?.name || 'A').slice(0, 2).toUpperCase()}
-          </div>
-          <div>
-            <h2 className="text-heading-sm text-on-surface font-semibold">
-              {user?.name || '—'}
-            </h2>
-            <p className="text-body-sm text-on-surface-variant">{user?.email || '—'}</p>
-          </div>
-        </div>
+      <div className="mb-6">
+        <h1 className="text-heading-lg font-bold text-on-surface">Mi perfil</h1>
+        <p className="text-on-surface-variant text-body mt-1">Gestiona tu información y acceso</p>
+      </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div className="p-3 bg-surface-container-low rounded-xl">
-            <p className="text-overline text-on-surface-variant uppercase mb-1">Nombre</p>
-            <p className="text-body font-medium text-on-surface">{user?.name || '—'}</p>
+      {/* User info */}
+      <Card variant="glass" className="p-6">
+        <div className="flex items-start gap-5">
+          <div className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center text-on-primary text-heading-md font-bold uppercase shadow-glass flex-shrink-0">
+            {user?.name?.[0] ?? 'A'}
           </div>
-          <div className="p-3 bg-surface-container-low rounded-xl">
-            <p className="text-overline text-on-surface-variant uppercase mb-1">Rol</p>
-            <p className="text-body font-medium text-on-surface uppercase">{user?.role || '—'}</p>
-          </div>
-          <div className="col-span-2 p-3 bg-surface-container-low rounded-xl">
-            <p className="text-overline text-on-surface-variant uppercase mb-1">Email</p>
-            <p className="text-body font-medium text-on-surface">{user?.email || '—'}</p>
+          <div className="flex-1 min-w-0">
+            <h2 className="text-heading-sm font-bold text-on-surface">{user?.name || '—'}</h2>
+            <p className="text-on-surface-variant text-body mt-0.5">{user?.email || '—'}</p>
+            <div className="mt-3">
+              <Badge variant={user?.role === 'ADMIN' ? 'primary' : 'secondary'}>
+                {user?.role === 'ADMIN' ? 'Administrador' : 'Operador'}
+              </Badge>
+            </div>
           </div>
         </div>
       </Card>
 
       {/* Change password */}
-      <Card variant="glass" padding="lg">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
-            <Icon name="lock" size="md" className="text-primary" />
+      <Card variant="glass" className="p-6">
+        <div className="flex items-center gap-3 mb-5 pb-4 border-b border-outline-variant/30">
+          <div className="w-9 h-9 rounded-xl bg-primary/8 flex items-center justify-center">
+            <Icon name="lock" size="sm" className="text-primary" />
           </div>
-          <h3 className="text-heading-sm text-on-surface font-semibold">Cambiar contraseña</h3>
+          <div>
+            <h3 className="text-heading-sm font-semibold text-on-surface">Cambiar contraseña</h3>
+            <p className="text-on-surface-variant text-body-sm">Actualiza tu contraseña de acceso</p>
+          </div>
         </div>
 
         <form onSubmit={handleChangePassword} className="space-y-4" noValidate>
           {errorMsg && (
             <div
               role="alert"
-              className="p-3 bg-error-container border border-error/20 rounded-xl text-body-sm text-on-error-container flex items-center gap-2"
+              className="bg-error-container text-on-error-container rounded-xl px-4 py-3 flex items-center gap-2"
             >
               <Icon name="error" size="sm" />
-              <span>{errorMsg}</span>
+              <span className="text-body-sm">{errorMsg}</span>
             </div>
           )}
           {successMsg && (
             <div
               role="status"
-              className="p-3 bg-success-container border border-success/20 rounded-xl text-body-sm text-on-success-container flex items-center gap-2"
+              className="bg-success-container text-on-success-container rounded-xl px-4 py-3 flex items-center gap-2"
             >
               <Icon name="check_circle" size="sm" />
-              <span>{successMsg}</span>
+              <span className="text-body-sm">{successMsg}</span>
             </div>
           )}
 

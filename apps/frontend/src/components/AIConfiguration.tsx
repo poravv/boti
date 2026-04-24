@@ -121,20 +121,18 @@ const AIConfiguration = () => {
 
   return (
     <section className="space-y-6">
-      <header className="flex flex-col gap-2">
-        <h1 className="text-display-sm text-primary">AI Configuration</h1>
-        <p className="text-body text-on-surface-variant">
-          Definí el comportamiento y contexto de tus agentes inteligentes.
-        </p>
-      </header>
+      <div className="mb-6">
+        <h1 className="text-heading-lg font-bold text-on-surface">Configuración de IA</h1>
+        <p className="text-on-surface-variant text-body mt-1">Configura el comportamiento del asistente por línea</p>
+      </div>
 
       <div className="grid grid-cols-12 gap-6 items-start">
         <div className="col-span-12 lg:col-span-8 space-y-6">
           <Card variant="glass" padding="lg" className="animate-fade-in-up">
             <Card.Header>
-              <div className="flex items-center gap-3 text-secondary">
-                <Icon name="account_tree" size="md" filled />
-                <h3 className="text-title uppercase">Seleccionar línea</h3>
+              <div className="flex items-center gap-3">
+                <Icon name="account_tree" size="md" filled className="text-secondary" />
+                <h3 className="text-title font-semibold text-on-surface uppercase">Seleccionar línea</h3>
               </div>
             </Card.Header>
             <Card.Body>
@@ -161,15 +159,15 @@ const AIConfiguration = () => {
             style={{ animationDelay: '60ms' }}
           >
             <Card.Header>
-              <div className="flex items-center gap-3 text-secondary">
-                <Icon name="psychology_alt" size="md" />
-                <h3 className="text-title uppercase">Personalidad y modelo</h3>
+              <div className="flex items-center gap-3">
+                <Icon name="psychology_alt" size="md" className="text-secondary" />
+                <h3 className="text-title font-semibold text-on-surface uppercase">Personalidad y modelo</h3>
               </div>
             </Card.Header>
             <Card.Body className="gap-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormSelect
-                  label="AI Provider"
+                  label="Proveedor de IA"
                   value={config.assignedAiProvider}
                   onChange={(event) =>
                     setConfig({ ...config, assignedAiProvider: event.target.value })
@@ -181,7 +179,7 @@ const AIConfiguration = () => {
                 </FormSelect>
 
                 <FormInput
-                  label="Model Name (Opcional)"
+                  label="Nombre del modelo (Opcional)"
                   placeholder="Ej. gpt-4o, gemini-1.5-pro"
                   value={config.aiModel || ''}
                   onChange={(event) => setConfig({ ...config, aiModel: event.target.value })}
@@ -191,7 +189,7 @@ const AIConfiguration = () => {
                 <FormInput
                   label="API Key (Opcional)"
                   type="password"
-                  placeholder="sk-..."
+                  placeholder="sk-…"
                   value={config.aiApiKey || ''}
                   onChange={(event) => setConfig({ ...config, aiApiKey: event.target.value })}
                   helperText="Si se deja vacío, se usará la clave por defecto."
@@ -205,7 +203,7 @@ const AIConfiguration = () => {
                     htmlFor="system-prompt"
                     className="text-caption uppercase tracking-wider text-on-surface-variant"
                   >
-                    System Prompt
+                    Prompt del sistema
                   </label>
                   <span className="text-overline font-mono text-on-surface-variant/70">
                     {config.systemPrompt.length} / 4000
@@ -218,7 +216,7 @@ const AIConfiguration = () => {
                     setConfig({ ...config, systemPrompt: event.target.value })
                   }
                   disabled={loading}
-                  placeholder="Ej. Eres un asistente de ventas experto en seguros..."
+                  placeholder="Ej. Eres un asistente de ventas experto en seguros…"
                   className="w-full h-48 bg-white/70 backdrop-blur-xl border border-outline-variant/60 hover:border-primary/40 focus:border-primary rounded-xl p-4 text-body text-on-surface placeholder:text-on-surface-variant/70 focus-ring transition-all duration-250 ease-premium resize-y"
                 />
               </div>
@@ -232,9 +230,9 @@ const AIConfiguration = () => {
             style={{ animationDelay: '120ms' }}
           >
             <Card.Header>
-              <div className="flex items-center gap-3 text-secondary">
-                <Icon name="database" size="md" />
-                <h3 className="text-title uppercase">Contexto de negocio (JSON)</h3>
+              <div className="flex items-center gap-3">
+                <Icon name="database" size="md" className="text-secondary" />
+                <h3 className="text-title font-semibold text-on-surface uppercase">Contexto de negocio (JSON)</h3>
               </div>
               <Badge variant="success" size="sm">
                 Datos dinámicos
@@ -262,7 +260,7 @@ const AIConfiguration = () => {
                   onChange={(event) => setJsonText(event.target.value)}
                   spellCheck={false}
                   placeholder='{ "empresa": "Mi Negocio", "servicios": [] }'
-                  className="w-full h-80 bg-inverse-surface text-success font-mono text-body-sm p-5 pt-14 rounded-2xl border border-outline-variant/40 focus-ring transition-all duration-250 ease-premium resize-y"
+                  className="w-full h-80 bg-inverse-surface text-inverse-on-surface font-mono text-body-sm p-5 pt-14 rounded-2xl border border-outline-variant/40 focus-ring transition-all duration-250 ease-premium resize-y"
                 />
               </div>
             </Card.Body>
@@ -283,9 +281,9 @@ const AIConfiguration = () => {
             <div className="relative flex flex-col gap-4">
               <div className="flex items-center gap-2">
                 <Icon name="verified_user" size="md" className="text-on-primary/80" />
-                <h4 className="text-title uppercase text-on-primary">Guardar cambios</h4>
+                <h4 className="text-title font-semibold uppercase text-on-primary">Guardar cambios</h4>
               </div>
-              <p className="text-body-sm text-on-primary opacity-80">
+              <p className="text-body-sm text-on-primary/70">
                 Los cambios se aplicarán instantáneamente a todas las conversaciones activas en
                 esta línea.
               </p>
@@ -312,7 +310,7 @@ const AIConfiguration = () => {
             <Card.Header>
               <div className="flex items-center gap-2 text-on-surface-variant">
                 <Icon name="info" size="sm" />
-                <span className="text-caption uppercase tracking-wider">Tips</span>
+                <span className="text-caption uppercase tracking-wider">Consejos</span>
               </div>
             </Card.Header>
             <Card.Body>

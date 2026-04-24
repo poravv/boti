@@ -1,5 +1,5 @@
 import { NavLink, Link } from 'react-router-dom';
-import { Badge, Button, Icon, cn } from '../ui';
+import { Badge, Icon, cn } from '../ui';
 
 export interface SidebarUser {
   name?: string;
@@ -21,27 +21,24 @@ export interface SidebarProps {
 }
 
 export function Sidebar({ user, onLogout, items }: SidebarProps) {
-  const initials = (user?.name || 'AD').slice(0, 2).toUpperCase();
-
   return (
     <aside
       aria-label="Primary"
-      style={{ paddingTop: 'calc(var(--app-header-h) + 1rem)' }}
-      className="fixed left-0 top-0 bottom-0 hidden md:flex flex-col pb-6 w-64 z-sticky bg-white/80 backdrop-blur-xl border-r border-outline-variant/40"
+      className="fixed left-0 top-0 bottom-0 hidden md:flex flex-col w-64 z-sticky bg-surface-container-lowest/95 backdrop-blur-xl border-r border-outline-variant/30"
     >
-      <div className="px-6 mb-8">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-on-primary shadow-glass">
-            <Icon name="smart_toy" size="md" filled />
-          </div>
-          <div>
-            <p className="text-heading-sm text-primary leading-none tracking-tight uppercase">Boti</p>
-            <p className="text-overline text-on-surface-variant mt-1 uppercase">Mission Control</p>
-          </div>
+      {/* Logo */}
+      <div className="flex items-center gap-3 px-4 py-5 border-b border-outline-variant/30 flex-shrink-0">
+        <div className="w-8 h-8 rounded-xl bg-primary flex items-center justify-center flex-shrink-0 shadow-glass-sm">
+          <Icon name="smart_toy" size="sm" filled className="text-on-primary" />
+        </div>
+        <div className="min-w-0">
+          <div className="font-bold text-on-surface text-title leading-none tracking-tight">Boti</div>
+          <div className="text-on-surface-variant/60 text-caption leading-none mt-0.5">Business Platform</div>
         </div>
       </div>
 
-      <nav className="flex-1 space-y-1 px-2" aria-label="Primary">
+      {/* Nav items */}
+      <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto" aria-label="Primary">
         {items.map((item) => (
           <NavLink
             key={item.path}
@@ -49,10 +46,10 @@ export function Sidebar({ user, onLogout, items }: SidebarProps) {
             end={item.path === '/'}
             className={({ isActive }) =>
               cn(
-                'group relative flex items-center gap-3 py-3 px-4 rounded-xl transition-all duration-250 ease-premium text-body font-semibold focus-ring',
+                'group relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-body transition-all duration-200 focus-ring',
                 isActive
-                  ? 'bg-primary/5 text-primary'
-                  : 'text-on-surface-variant hover:bg-surface-container hover:text-primary',
+                  ? 'bg-primary/8 text-primary font-semibold'
+                  : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface',
               )
             }
           >
@@ -61,14 +58,14 @@ export function Sidebar({ user, onLogout, items }: SidebarProps) {
                 {isActive && (
                   <span
                     aria-hidden="true"
-                    className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-primary rounded-r-full"
+                    className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 rounded-full bg-primary"
                   />
                 )}
                 <Icon
                   name={item.icon}
-                  size="md"
+                  size="sm"
                   filled={isActive}
-                  className="transition-transform duration-250 ease-premium group-hover:scale-110"
+                  className={isActive ? 'text-primary' : 'text-on-surface-variant group-hover:text-on-surface'}
                 />
                 <span className="flex-1 truncate">{item.name}</span>
                 {(item.badge || 0) > 0 && (
@@ -82,35 +79,38 @@ export function Sidebar({ user, onLogout, items }: SidebarProps) {
         ))}
       </nav>
 
-      <div className="mt-auto px-4 space-y-3">
+      {/* User profile */}
+      <div className="px-3 py-3 border-t border-outline-variant/30 flex-shrink-0">
         <Link
           to="/profile"
-          className="p-3 bg-surface-container rounded-2xl border border-outline-variant/40 flex items-center gap-3 hover:bg-surface-container-high transition-colors focus-ring"
           aria-label="Ver perfil de usuario"
+          className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-surface-container transition-colors duration-200 group focus-ring"
         >
-          <div className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center text-on-secondary text-caption font-bold uppercase">
-            {initials}
+          <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center text-on-secondary text-caption font-bold uppercase flex-shrink-0">
+            {(user?.name?.[0] ?? 'A').toUpperCase()}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-body-sm font-semibold text-primary truncate">
-              {user?.name || 'Admin'}
-            </p>
-            <p className="text-overline text-on-surface-variant uppercase">
-              {user?.role || 'OPERATOR'}
-            </p>
+            <div className="text-on-surface text-body font-medium truncate leading-none">
+              {user?.name ?? 'Admin'}
+            </div>
+            <div className="text-on-surface-variant/60 text-caption leading-none mt-0.5 capitalize">
+              {user?.role?.toLowerCase() ?? 'admin'}
+            </div>
           </div>
-          <Icon name="chevron_right" size="sm" className="text-on-surface-variant" />
+          <Icon
+            name="chevron_right"
+            size="sm"
+            className="text-on-surface-variant/40 group-hover:text-on-surface-variant transition-colors"
+          />
         </Link>
-        <Button
-          variant="ghost"
-          size="sm"
-          fullWidth
-          leadingIcon="logout"
+        <button
+          type="button"
           onClick={onLogout}
-          className="text-error hover:bg-error/5"
+          className="w-full flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-error/5 hover:text-error text-on-surface-variant transition-colors duration-200 mt-0.5 text-body focus-ring"
         >
-          Sign Out
-        </Button>
+          <Icon name="logout" size="sm" />
+          <span>Cerrar sesión</span>
+        </button>
       </div>
     </aside>
   );
@@ -124,7 +124,7 @@ export function BottomNav({ items }: BottomNavProps) {
   return (
     <nav
       aria-label="Primary"
-      className="fixed bottom-0 left-0 right-0 h-16 flex justify-around items-center px-2 md:hidden bg-white/90 backdrop-blur-xl border-t border-outline-variant/40 z-sticky rounded-t-3xl"
+      className="fixed bottom-0 left-0 right-0 h-16 flex justify-around items-center px-2 md:hidden bg-surface-container-lowest/95 backdrop-blur-xl border-t border-outline-variant/30 z-sticky"
     >
       {items.map((item) => (
         <NavLink
@@ -134,21 +134,26 @@ export function BottomNav({ items }: BottomNavProps) {
           aria-label={item.name}
           className={({ isActive }) =>
             cn(
-              'relative flex flex-col items-center justify-center h-12 w-12 rounded-xl transition-colors focus-ring',
+              'flex flex-col items-center justify-center gap-0.5 flex-1 py-2 transition-colors duration-200 relative focus-ring rounded-lg',
               isActive ? 'text-primary' : 'text-on-surface-variant',
             )
           }
         >
           {({ isActive }) => (
             <>
-              <Icon name={item.icon} size="lg" filled={isActive} />
-              {(item.badge || 0) > 0 && (
-                <span
-                  aria-label={`${item.badge} sin leer`}
-                  className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-primary text-on-primary text-overline rounded-full flex items-center justify-center border-2 border-white"
-                >
-                  {item.badge}
-                </span>
+              <div className="relative">
+                <Icon name={item.icon} size="md" filled={isActive} />
+                {(item.badge || 0) > 0 && (
+                  <span
+                    aria-label={`${item.badge} sin leer`}
+                    className="absolute -top-1 -right-1.5 min-w-[16px] h-4 bg-error text-on-error text-[10px] font-bold rounded-full flex items-center justify-center px-1"
+                  >
+                    {(item.badge ?? 0) > 99 ? '99+' : item.badge}
+                  </span>
+                )}
+              </div>
+              {isActive && (
+                <span className="text-[10px] font-semibold leading-none">{item.name}</span>
               )}
             </>
           )}

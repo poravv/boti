@@ -25,15 +25,15 @@ interface WhatsAppLine {
 const STATUS_BADGE_VARIANT: Record<WhatsAppLine['status'], 'success' | 'warning' | 'danger' | 'neutral'> = {
   CONNECTED: 'success',
   QR_PENDING: 'warning',
-  CONNECTING: 'neutral',
-  DISCONNECTED: 'danger',
+  CONNECTING: 'warning',
+  DISCONNECTED: 'neutral',
 };
 
 const STATUS_LABEL: Record<WhatsAppLine['status'], string> = {
-  CONNECTED: 'Conectada',
+  CONNECTED: 'Conectado',
   QR_PENDING: 'QR pendiente',
-  CONNECTING: 'Conectando',
-  DISCONNECTED: 'Desconectada',
+  CONNECTING: 'Conectando...',
+  DISCONNECTED: 'Desconectado',
 };
 
 const WhatsAppConnections = () => {
@@ -140,22 +140,17 @@ const WhatsAppConnections = () => {
 
   return (
     <section className="space-y-6">
-      <header className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-        <div>
-          <h1 className="text-display-sm text-primary">Connection Management</h1>
-          <p className="text-body text-on-surface-variant mt-2">
-            Gestiona tus líneas de WhatsApp y vincula nuevos dispositivos mediante QR.
-          </p>
+      <div className="mb-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-heading-lg font-bold text-on-surface">Conexiones WhatsApp</h1>
+            <p className="text-on-surface-variant text-body mt-1">Gestiona tus líneas de WhatsApp Business</p>
+          </div>
+          <Button variant="primary" onClick={() => setShowAddLine(true)} leadingIcon="add">
+            Nueva línea
+          </Button>
         </div>
-        <Button
-          variant="primary"
-          size="lg"
-          leadingIcon="add"
-          onClick={() => setShowAddLine(true)}
-        >
-          Nueva Conexión
-        </Button>
-      </header>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         <Card
@@ -235,7 +230,7 @@ const WhatsAppConnections = () => {
               className="absolute top-0 right-0 w-24 h-24 bg-success/10 rounded-full -mr-8 -mt-8 pointer-events-none"
             />
             <div className="relative flex flex-col gap-3">
-              <span className="text-overline uppercase text-on-surface-variant">System Pulse</span>
+              <span className="text-overline uppercase text-on-surface-variant">Estado del sistema</span>
               <div className="flex items-center justify-between">
                 <span className="text-display-sm text-primary">{connectedCount}</span>
                 <Icon name="hub" size="xl" className="text-success" filled />
@@ -253,7 +248,7 @@ const WhatsAppConnections = () => {
           >
             <div className="flex flex-col gap-3">
               <span className="text-overline uppercase text-on-surface-variant">
-                Uptime Average
+                Disponibilidad promedio
               </span>
               <span className="text-heading-md text-primary">99.8%</span>
               <div className="h-2 bg-surface-container rounded-full overflow-hidden">
@@ -268,7 +263,7 @@ const WhatsAppConnections = () => {
 
         <div className="lg:col-span-12 space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-heading-sm text-primary">Connected Numbers</h3>
+            <h3 className="text-heading-sm text-primary">Números conectados</h3>
             <Badge variant="neutral" size="sm">
               {lines.length} / 5
             </Badge>
@@ -283,9 +278,9 @@ const WhatsAppConnections = () => {
           ) : lines.length === 0 ? (
             <Card variant="glass" padding="lg" className="border-dashed">
               <EmptyState
-                icon="smartphone"
-                title="Sin líneas conectadas"
-                description="No tenés ninguna línea de WhatsApp vinculada. Usá el botón Nueva Conexión para empezar."
+                icon="link"
+                title="Sin líneas configuradas"
+                description="Agrega tu primera línea de WhatsApp Business para comenzar"
                 action={
                   <Button
                     variant="primary"
@@ -293,7 +288,7 @@ const WhatsAppConnections = () => {
                     leadingIcon="add"
                     onClick={() => setShowAddLine(true)}
                   >
-                    Nueva Conexión
+                    Nueva línea
                   </Button>
                 }
               />

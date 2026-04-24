@@ -2,14 +2,39 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  font-family: 'Inter', sans-serif;
-  /* Single source of truth for the fixed app header height. */
-  --app-header-h: 4rem;
-}
+@layer base {
+  :root {
+    --app-header-h: 3.75rem;
+    --sidebar-w: 16rem;
+    --color-primary: #002532;
+    --color-secondary: #006b5f;
+    --color-surface: #f8f9ff;
+    --color-on-surface: #0b1c30;
+    --radius: 0.5rem;
+  }
 
-body {
-  @apply bg-background text-on-surface;
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    background-color: #f8f9ff;
+    color: #0b1c30;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(2,37,50,0.15); border-radius: 99px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(2,37,50,0.28); }
+  * { scrollbar-width: thin; scrollbar-color: rgba(2,37,50,0.15) transparent; }
 }
 
 .material-symbols-outlined {
@@ -53,15 +78,4 @@ body {
   .focus-ring {
     @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background;
   }
-}
-
-/* Custom Scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  @apply bg-primary/10 rounded-full hover:bg-primary/20 transition-colors;
 }
