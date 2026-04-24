@@ -131,6 +131,10 @@ export class HandleInboundMessage implements HandleInboundMessageUseCase {
       // businessContext is plain text, not JSON — keep default
     }
 
+    const clientDisplayName = client.name && client.name !== fromPhone
+      ? client.name
+      : null;
+
     const SYSTEM_PROMPT = `Eres un asistente virtual de atención al cliente. Responde ÚNICAMENTE sobre los temas del negocio descritos a continuación.
 
 REGLAS ESTRICTAS:
@@ -141,7 +145,7 @@ REGLAS ESTRICTAS:
 5. Si el usuario saluda, responde cordialmente y pregunta en qué puedes ayudarle (relacionado al negocio).
 6. NUNCA menciones que eres un modelo de lenguaje, que usas IA, o que eres ChatGPT/OpenAI.
 
-CONTEXTO DEL NEGOCIO:
+${clientDisplayName ? `El cliente se llama ${clientDisplayName}. Cuando sea natural, dirígete a él/ella por su nombre.\n\n` : ''}CONTEXTO DEL NEGOCIO:
 `;
 
     const aiMessages = [

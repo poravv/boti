@@ -42,7 +42,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
       {/* Left panel — branding (desktop only) */}
       <div className="hidden lg:flex lg:w-1/2 xl:w-2/5 flex-col justify-between bg-primary p-10 relative overflow-hidden">
         {/* Background decoration */}
-        <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary-container to-secondary opacity-90" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,_#0d3b4c_0%,_#002532_50%,_#001a22_100%)]" />
         <div className="absolute top-0 right-0 w-96 h-96 bg-secondary/20 rounded-full -translate-y-1/2 translate-x-1/3 blur-3xl" />
         <div className="absolute bottom-0 left-0 w-64 h-64 bg-primary-container/30 rounded-full translate-y-1/3 -translate-x-1/4 blur-2xl" />
 
@@ -50,7 +50,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
           {/* Logo */}
           <div className="flex items-center gap-3 mb-16">
             <div className="w-10 h-10 rounded-xl bg-white/10 backdrop-blur flex items-center justify-center">
-              <span className="material-symbols-outlined text-white text-[22px]" style={{ fontVariationSettings: "'FILL' 1" }}>smart_toy</span>
+              <span className="material-symbols-rounded text-white text-[22px]" style={{ fontVariationSettings: "'FILL' 1" }}>smart_toy</span>
             </div>
             <span className="text-white font-bold text-xl tracking-tight">Boti</span>
           </div>
@@ -75,7 +75,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
           ].map(f => (
             <div key={f.icon} className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center flex-shrink-0">
-                <span className="material-symbols-outlined text-white/80 text-[16px]">{f.icon}</span>
+                <span className="material-symbols-rounded text-white/80 text-[16px]">{f.icon}</span>
               </div>
               <span className="text-on-primary/70 text-sm">{f.text}</span>
             </div>
@@ -89,7 +89,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
           {/* Mobile logo */}
           <div className="flex lg:hidden flex-col items-center gap-3 text-center">
             <div className="w-12 h-12 rounded-2xl bg-primary flex items-center justify-center shadow-glass">
-              <span className="material-symbols-outlined text-white text-2xl" style={{ fontVariationSettings: "'FILL' 1" }}>smart_toy</span>
+              <span className="material-symbols-rounded text-white text-2xl" style={{ fontVariationSettings: "'FILL' 1" }}>smart_toy</span>
             </div>
             <div>
               <div className="font-bold text-on-surface text-xl tracking-tight">Boti Platform</div>

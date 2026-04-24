@@ -37,7 +37,7 @@ export const Icon = forwardRef<HTMLSpanElement, IconProps>(function Icon(
     <span
       ref={ref}
       aria-hidden={ariaHidden ?? true}
-      className={cn('material-symbols-outlined select-none', SIZE_CLASS[size], className)}
+      className={cn('material-symbols-rounded select-none', SIZE_CLASS[size], className)}
       style={{
         fontVariationSettings: `'FILL' ${filled ? 1 : 0}, 'wght' 400, 'GRAD' 0, 'opsz' ${OPTICAL_SIZE[size]}`,
         ...style,

@@ -24,7 +24,7 @@ export function Sidebar({ user, onLogout, items }: SidebarProps) {
   return (
     <aside
       aria-label="Primary"
-      className="fixed left-0 top-0 bottom-0 hidden md:flex flex-col w-64 z-sticky bg-surface-container-lowest/95 backdrop-blur-xl border-r border-outline-variant/30"
+      className="fixed left-0 top-0 bottom-0 hidden md:flex flex-col w-64 z-sticky bg-gradient-to-b from-surface-container-lowest to-surface-container-low backdrop-blur-xl border-r border-outline-variant/30"
     >
       {/* Logo */}
       <div className="flex items-center gap-3 px-4 py-5 border-b border-outline-variant/30 flex-shrink-0">
@@ -124,7 +124,7 @@ export function BottomNav({ items }: BottomNavProps) {
   return (
     <nav
       aria-label="Primary"
-      className="fixed bottom-0 left-0 right-0 h-16 flex justify-around items-center px-2 md:hidden bg-surface-container-lowest/95 backdrop-blur-xl border-t border-outline-variant/30 z-sticky"
+      className="fixed bottom-0 left-0 right-0 h-16 flex justify-around items-center px-2 md:hidden bg-surface-container-lowest/95 backdrop-blur-xl border-t border-outline-variant/20 z-sticky"
     >
       {items.map((item) => (
         <NavLink

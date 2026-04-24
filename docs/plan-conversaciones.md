@@ -244,3 +244,90 @@ La lógica de reapertura en la Fase 4 garantiza que cuando el AI procesa un mens
 | `apps/backend/src/index.ts` | 5, 6 |
 | `apps/frontend/src/components/MessageCenter.tsx` | 7 |
 | `apps/frontend/src/components/pages/Dashboard.tsx` | 7 |
+
+---
+
+## Análisis: Baileys y recursos por conversación
+
+### ¿Se consumen recursos por conversación abierta?
+
+**Conexión WebSocket a WhatsApp**: Baileys mantiene **1 conexión persistente por LÍNEA**, no por conversación. Tener 100 conversaciones activas en una línea usa los mismos recursos de red que tener 1.
+
+**Lo que SÍ consume recursos por conversación activa:**
+
+| Recurso | Por qué escala con conversaciones |
+|---------|----------------------------------|
+| `ConversationContext` en DB | Cada conversación guarda historial de mensajes (JSON field) + resumen |
+| Redis (si se usa caché de contexto) | El contexto activo puede estar en memoria |
+| Workers de BullMQ | Cada mensaje inbound encola un job |
+| IA API calls | Cada mensaje genera una llamada al proveedor (costo del cliente) |
+
+**Conclusión**: El plan de cerrar conversaciones sigue siendo válido por dos razones:
+1. **Recursos DB**: El campo `messages` JSON en `ConversationContext` acumula historial — conversaciones cerradas no reciben nuevos mensajes, no crecen más
+2. **Límite de plan**: El modelo de negocio limita conversaciones activas por plan (100/1000/ilimitadas)
+3. **UX de operadores**: Saber qué conversaciones están resueltas vs pendientes es fundamental para gestión
+
+**No es necesario** cerrar conversaciones para liberar conexiones WebSocket — esas son por línea, no por conversación.
+
+---
+
+## Fase 9 — Registro y Gestión de Clientes (estimado: 2h)
+
+### Problema actual
+- El nombre del cliente viene de `msg.pushName` de WhatsApp, que puede estar vacío o cambiar
+- Si `pushName` es null/undefined, el sistema guarda el número de teléfono como nombre
+- No hay forma de editar el nombre manualmente desde el panel
+- El chatbot no usa el nombre del cliente para personalizar respuestas
+
+### Solución
+
+**Backend — `apps/backend/src/adapters/db/PrismaRepositories.ts`**
+
+Cambiar el upsert de clientes para NO sobreescribir el nombre si ya existe uno guardado:
+```ts
+// En ClientRepository.upsert:
+// Solo actualizar el nombre si el nuevo valor es un nombre real (no el teléfono)
+const isRealName = data.name && data.name !== data.phone;
+await prisma.client.upsert({
+  where: { phone: data.phone },
+  update: isRealName ? { name: data.name } : {},  // No sobreescribir con teléfono
+  create: { ...data },
+});
+```
+
+**Backend — nuevo endpoint `PUT /api/clients/:phone`**
+
+En `apps/backend/src/http/router.ts`, agregar:
+```
+PUT /api/clients/:phone   — actualizar nombre y notas del cliente
+GET /api/clients/:phone   — obtener perfil del cliente
+```
+
+**Frontend — `MessageCenter.tsx`**
+
+En el header del chat activo, hacer el nombre del cliente clickeable/editable:
+- Click en el nombre abre un mini-formulario inline (o modal pequeño)
+- Campos: Nombre, Notas (textarea libre)
+- Guardar llama a `PUT /api/clients/:phone`
+
+**IA — `HandleInboundMessage.ts`**
+
+Inyectar el nombre del cliente en el system prompt:
+```ts
+const clientName = client.name !== client.phone ? client.name : 'el cliente';
+const SYSTEM_PROMPT = `...
+El cliente con quien hablas se llama: ${clientName}. Dirígete a él/ella por su nombre cuando sea natural.
+...` + enrichedContext;
+```
+
+**Historial con nombre**
+
+El historial ya guarda `clientPhone`. El nombre se resuelve en runtime desde la tabla `Client`. No se necesita migración de datos históricos.
+
+### Archivos afectados
+| Archivo | Cambio |
+|---------|--------|
+| `apps/backend/src/adapters/db/PrismaRepositories.ts` | Fix upsert — no sobreescribir con teléfono |
+| `apps/backend/src/http/router.ts` | GET + PUT `/api/clients/:phone` |
+| `packages/core/src/use-cases/HandleInboundMessage.ts` | Usar nombre en system prompt |
+| `apps/frontend/src/components/MessageCenter.tsx` | Nombre editable en header del chat |

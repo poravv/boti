@@ -41,6 +41,9 @@ interface Message {
   createdAt: string;
 }
 
+const displayName = (name: string, phone: string) =>
+  name && name !== phone ? name : phone.replace(/\D/g, '').slice(-10);
+
 const MessageCenter = () => {
   const [chats, setChats] = useState<Chat[]>([]);
   const [activeChat, setActiveChat] = useState<Chat | null>(null);
@@ -53,6 +56,8 @@ const MessageCenter = () => {
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [oldestId, setOldestId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState(false);
+  const [nameInput, setNameInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   // Ref kept in sync so WS handler always reads latest activeChat without re-registering.
@@ -307,12 +312,12 @@ const MessageCenter = () => {
                       )}
                     >
                       <div className="w-10 h-10 rounded-full bg-surface-container-high flex-shrink-0 flex items-center justify-center text-on-surface-variant font-semibold text-body-sm border border-outline-variant/40">
-                        {chat.name.charAt(0).toUpperCase()}
+                        {(chat.name && chat.name !== chat.phone ? chat.name : chat.phone).charAt(0).toUpperCase()}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex justify-between items-baseline gap-2">
                           <p className="text-body-sm font-semibold text-on-surface truncate">
-                            {chat.name}
+                            {displayName(chat.name, chat.phone)}
                           </p>
                           <span className="text-overline text-on-surface-variant flex-shrink-0">
                             {new Date(chat.time).toLocaleTimeString([], {
@@ -356,12 +361,38 @@ const MessageCenter = () => {
             <header className="px-4 md:px-6 py-3 bg-white/80 backdrop-blur-xl border-b border-outline-variant/40 flex justify-between items-center gap-3 z-sticky">
               <div className="flex items-center gap-3 min-w-0">
                 <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-primary to-secondary flex items-center justify-center text-on-primary font-semibold shadow-glass-sm flex-shrink-0">
-                  {activeChat.name.charAt(0).toUpperCase()}
+                  {(activeChat.name && activeChat.name !== activeChat.phone ? activeChat.name : activeChat.phone).charAt(0).toUpperCase()}
                 </div>
                 <div className="min-w-0">
-                  <p className="text-body-sm font-semibold text-on-surface truncate">
-                    {activeChat.name}
-                  </p>
+                  {editingName ? (
+                    <form onSubmit={async (e) => {
+                      e.preventDefault();
+                      if (!nameInput.trim() || !activeChat) return;
+                      try {
+                        await apiFetch(`/api/clients/${activeChat.phone}`, {
+                          method: 'PUT',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ name: nameInput.trim() }),
+                        });
+                        setChats(prev => prev.map(c => c.phone === activeChat.phone ? { ...c, name: nameInput.trim() } : c));
+                        setActiveChat(prev => prev ? { ...prev, name: nameInput.trim() } : prev);
+                        setEditingName(false);
+                      } catch { setEditingName(false); }
+                    }} className="flex items-center gap-2">
+                      <input
+                        autoFocus
+                        value={nameInput}
+                        onChange={e => setNameInput(e.target.value)}
+                        className="px-2 py-1 rounded-lg border border-outline-variant/40 bg-surface text-on-surface text-body font-semibold focus:outline-none focus:ring-2 focus:ring-primary/30 w-40"
+                      />
+                      <button type="submit" className="p-1 rounded-lg hover:bg-success/10 text-success"><Icon name="check" size="sm" /></button>
+                      <button type="button" onClick={() => setEditingName(false)} className="p-1 rounded-lg hover:bg-error/10 text-error"><Icon name="close" size="sm" /></button>
+                    </form>
+                  ) : (
+                    <button onClick={() => { setNameInput(activeChat.name || ''); setEditingName(true); }} className="font-semibold text-on-surface hover:text-primary transition-colors text-left">
+                      {displayName(activeChat.name, activeChat.phone)}
+                    </button>
+                  )}
                   <div className="flex items-center gap-2">
                     <Badge variant="success" dot />
                     <span className="text-overline text-on-surface-variant uppercase truncate">
@@ -421,7 +452,7 @@ const MessageCenter = () => {
               role="log"
               aria-live="polite"
               aria-relevant="additions"
-              aria-label={`Conversación con ${activeChat.name}`}
+              aria-label={`Conversación con ${displayName(activeChat.name, activeChat.phone)}`}
               className="flex-1 overflow-y-auto px-4 md:px-8 py-6 space-y-4 bg-surface-container-lowest"
             >
               {hasMore && !loadingMore && (

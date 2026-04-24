@@ -16,7 +16,9 @@ export class PrismaClientRepository implements IClientRepository {
   async upsert(data: Omit<Client, 'id' | 'createdAt' | 'updatedAt'>): Promise<Client> {
     return prisma.client.upsert({
       where: { phone: data.phone },
-      update: { name: data.name },
+      update: {
+        ...(data.name && data.name !== data.phone ? { name: data.name } : {}),
+      },
       create: { phone: data.phone, name: data.name },
     }) as any;
   }

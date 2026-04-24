@@ -411,6 +411,20 @@ export function createRouter(
     }
   });
 
+  router.put('/clients/:phone', authMiddleware, async (req, res) => {
+    const { name } = req.body;
+    if (!name?.trim()) return res.status(400).json({ error: 'Nombre requerido.' });
+    try {
+      const client = await prisma.client.update({
+        where: { phone: req.params.phone },
+        data: { name: name.trim() },
+      });
+      res.json({ client });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   router.get('/agents', authMiddleware, async (_req, res) => {
     try {
       const agents = await prisma.user.findMany({
