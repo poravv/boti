@@ -2,7 +2,7 @@
 // Implement the domain IRepository interfaces using Prisma
 
 import { PrismaClient } from '@prisma/client';
-import type { IClientRepository, IMessageRepository, IContextRepository, IAuditLogger, Client, Message, ConversationContext } from '@boti/core';
+import type { IClientRepository, IMessageRepository, IContextRepository, IAuditLogger, Client, Message, ConversationContext, IExternalApiRepository, ExternalApiConfig } from '@boti/core';
 
 const prisma = new PrismaClient();
 export { prisma };
@@ -60,6 +60,20 @@ export class PrismaMessageRepository implements IMessageRepository {
       where: { clientPhone: phone, direction: 'INBOUND', isRead: false },
       data: { isRead: true },
     });
+  }
+}
+
+// ─── External API Repository ──────────────────────────────────────────────────
+export class PrismaExternalApiRepository implements IExternalApiRepository {
+  async findByLineId(lineId: string): Promise<ExternalApiConfig[]> {
+    const apis = await prisma.externalApi.findMany({
+      where: { lineId, isActive: true },
+      orderBy: { createdAt: 'asc' },
+    });
+    return apis.map(a => ({
+      ...a,
+      headers: (a.headers as Record<string, string>) ?? {},
+    }));
   }
 }
 

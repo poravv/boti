@@ -54,6 +54,7 @@ model WhatsAppLine {
   maxMessages       Int       @default(10)
   createdAt         DateTime  @default(now())
   messages          Message[]
+  externalApis      ExternalApi[]
 }
 
 model ConversationContext {
@@ -86,4 +87,22 @@ model AuditLog {
   details   Json
   ipAddress String?
   createdAt DateTime @default(now())
+}
+
+model ExternalApi {
+  id          String   @id @default(uuid())
+  lineId      String
+  name        String
+  baseUrl     String
+  method      String   @default("GET")
+  headers     Json     @default("{}")
+  body        String?
+  outputKey   String?
+  username    String?
+  password    String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  line        WhatsAppLine @relation(fields: [lineId], references: [id], onDelete: Cascade)
 }

@@ -423,5 +423,110 @@ export function createRouter(
     }
   });
 
+  // ── External APIs ────────────────────────────────
+  router.get('/lines/:lineId/external-apis', authMiddleware, async (req, res) => {
+    try {
+      const apis = await prisma.externalApi.findMany({
+        where: { lineId: req.params.lineId },
+        orderBy: { createdAt: 'asc' },
+      });
+      res.json({ apis });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  router.post('/lines/:lineId/external-apis', authMiddleware, async (req, res) => {
+    const { name, baseUrl, method, headers, body, outputKey, username, password } = req.body;
+    if (!name || !baseUrl) return res.status(400).json({ error: 'name y baseUrl son requeridos.' });
+    try {
+      const api = await prisma.externalApi.create({
+        data: {
+          lineId: req.params.lineId,
+          name,
+          baseUrl,
+          method: method || 'GET',
+          headers: headers || {},
+          body: body || null,
+          outputKey: outputKey || null,
+          username: username || null,
+          password: password || null,
+        },
+      });
+      res.status(201).json({ api });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  router.put('/lines/:lineId/external-apis/:apiId', authMiddleware, async (req, res) => {
+    const { name, baseUrl, method, headers, body, outputKey, username, password, isActive } = req.body;
+    try {
+      const api = await prisma.externalApi.update({
+        where: { id: req.params.apiId },
+        data: {
+          ...(name !== undefined && { name }),
+          ...(baseUrl !== undefined && { baseUrl }),
+          ...(method !== undefined && { method }),
+          ...(headers !== undefined && { headers }),
+          ...(body !== undefined && { body }),
+          ...(outputKey !== undefined && { outputKey }),
+          ...(username !== undefined && { username }),
+          ...(password !== undefined && { password }),
+          ...(isActive !== undefined && { isActive }),
+        },
+      });
+      res.json({ api });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  router.delete('/lines/:lineId/external-apis/:apiId', authMiddleware, async (req, res) => {
+    try {
+      await prisma.externalApi.delete({ where: { id: req.params.apiId } });
+      res.json({ status: 'deleted' });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  router.post('/lines/:lineId/external-apis/:apiId/test', authMiddleware, async (req, res) => {
+    const { baseUrl, method, headers: reqHeaders, body, outputKey, username, password } = req.body;
+    if (!baseUrl) return res.status(400).json({ error: 'baseUrl es requerido.' });
+    try {
+      const headers: Record<string, string> = { ...(reqHeaders || {}) };
+      if (username && password) {
+        headers['Authorization'] = 'Basic ' + Buffer.from(`${username}:${password}`).toString('base64');
+      }
+      const bodyStr = body && body.trim() ? body : undefined;
+      const fetchOpts: RequestInit = {
+        method: method || 'GET',
+        headers,
+        ...(bodyStr ? { body: bodyStr } : {}),
+      };
+      const resp = await fetch(baseUrl, fetchOpts);
+      const text = await resp.text();
+      let parsed: any;
+      try { parsed = JSON.parse(text); } catch { parsed = text; }
+
+      let extracted: any = parsed;
+      if (outputKey && typeof parsed === 'object') {
+        for (const key of outputKey.split('.')) {
+          extracted = extracted?.[key];
+          if (extracted === undefined) break;
+        }
+      }
+      res.json({
+        status: resp.status,
+        ok: resp.ok,
+        raw: parsed,
+        extracted: outputKey ? extracted : undefined,
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   return router;
 }

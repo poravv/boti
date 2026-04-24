@@ -62,6 +62,25 @@ export interface IContextFetcher {
   fetchContextForBusiness(lineId: string): Promise<string>; // Fetches from external API or fallback JSON
 }
 
+// --- External API Integration ---
+export interface ExternalApiConfig {
+  id: string;
+  lineId: string;
+  name: string;
+  baseUrl: string;
+  method: string;
+  headers: Record<string, string>;
+  body?: string | null;
+  outputKey?: string | null;
+  username?: string | null;
+  password?: string | null;
+  isActive: boolean;
+}
+
+export interface IExternalApiRepository {
+  findByLineId(lineId: string): Promise<ExternalApiConfig[]>;
+}
+
 // --- Audit ---
 export interface IAuditLogger {
   logEvent(entry: Omit<AuditLog, 'id' | 'createdAt'>): Promise<void>;

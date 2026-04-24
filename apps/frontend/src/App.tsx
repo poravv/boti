@@ -9,6 +9,7 @@ import { ProfilePage } from './components/pages/ProfilePage';
 import { AppShell } from './components/layout';
 import type { NotificationItem, SidebarNavItem } from './components/layout';
 import { apiFetchJson } from './lib/apiClient';
+import { ExternalApisPage } from './components/pages/ExternalApisPage';
 
 interface AuthUser {
   name?: string;
@@ -181,6 +182,7 @@ const App = () => {
     { name: 'Connections', path: '/connections', icon: 'link' },
     { name: 'Messages', path: '/messages', icon: 'forum', badge: unreadTotal },
     { name: 'AI Config', path: '/ai-config', icon: 'psychology' },
+    { name: 'APIs', path: '/external-apis', icon: 'api' },
     { name: 'Perfil', path: '/profile', icon: 'account_circle' },
   ];
 
@@ -198,6 +200,7 @@ const App = () => {
         <Route path="/connections" element={<WhatsAppConnections />} />
         <Route path="/ai-config" element={<AIConfiguration />} />
         <Route path="/profile" element={<ProfilePage user={user ?? {}} />} />
+        <Route path="/external-apis" element={<ExternalApisPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </AppShell>

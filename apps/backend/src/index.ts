@@ -22,6 +22,7 @@ import {
   PrismaClientRepository,
   PrismaMessageRepository,
   PrismaContextRepository,
+  PrismaExternalApiRepository,
   prisma,
 } from './adapters/db/PrismaRepositories.js';
 
@@ -50,6 +51,7 @@ async function bootstrap() {
   const clientRepo = new PrismaClientRepository();
   const messageRepo = new PrismaMessageRepository();
   const contextRepo = new PrismaContextRepository();
+  const externalApiRepo = new PrismaExternalApiRepository();
 
   // ─── Audit Logger ────────────────────────────────────────────────────
   const auditLogger = new WinstonAuditAdapter(async (entry) => {
@@ -104,6 +106,7 @@ async function bootstrap() {
     contextFetcher,
     auditLogger,
     notifier,
+    externalApiRepo,
     maxMessages: MAX_MESSAGES,
     spamThreshold: SPAM_THRESHOLD,
   });

@@ -11,6 +11,7 @@ import type {
   IContextFetcher,
   IAuditLogger,
   INotifier,
+  IExternalApiRepository,
 } from '../ports/outbound.js';
 
 interface Deps {
@@ -22,6 +23,7 @@ interface Deps {
   contextFetcher: IContextFetcher;
   auditLogger: IAuditLogger;
   notifier: INotifier;
+  externalApiRepo: IExternalApiRepository;
   maxMessages: number; // configurable, default 10
   spamThreshold: number; // messages per minute
 }
@@ -37,7 +39,7 @@ export class HandleInboundMessage implements HandleInboundMessageUseCase {
     type: string;
   }): Promise<void> {
     const { lineId, fromPhone, fromName, content } = input;
-    const { clientRepo, messageRepo, contextRepo, queue, aiService, contextFetcher, auditLogger, notifier, maxMessages } = this.deps;
+    const { clientRepo, messageRepo, contextRepo, queue, aiService, contextFetcher, auditLogger, notifier, externalApiRepo, maxMessages } = this.deps;
 
     // 1. Upsert client
     const client = await clientRepo.upsert({ phone: fromPhone, name: fromName, isBlocked: false });
@@ -78,6 +80,46 @@ export class HandleInboundMessage implements HandleInboundMessageUseCase {
     // 5. Build the AI prompt with business context + conversation history
     const businessContext = await contextFetcher.fetchContextForBusiness(lineId);
 
+    // Call active external APIs and append their responses to context
+    let enrichedContext = businessContext;
+    try {
+      const externalApis = await externalApiRepo.findByLineId(lineId);
+      const apiResults: string[] = [];
+      for (const api of externalApis) {
+        try {
+          const headers: Record<string, string> = { ...api.headers };
+          if (api.username && api.password) {
+            headers['Authorization'] = 'Basic ' + Buffer.from(`${api.username}:${api.password}`).toString('base64');
+          }
+          const bodyStr = api.body ? api.body.replace(/\{\{message\}\}/g, content) : undefined;
+          const fetchOpts: RequestInit = {
+            method: api.method,
+            headers,
+            ...(bodyStr ? { body: bodyStr } : {}),
+          };
+          const resp = await fetch(api.baseUrl, fetchOpts);
+          if (!resp.ok) continue;
+          const json = await resp.json();
+          let extracted: any = json;
+          if (api.outputKey) {
+            for (const key of api.outputKey.split('.')) {
+              extracted = extracted?.[key];
+              if (extracted === undefined) break;
+            }
+          }
+          const resultStr = typeof extracted === 'string' ? extracted : JSON.stringify(extracted);
+          apiResults.push(`[${api.name}]: ${resultStr}`);
+        } catch {
+          // Skip failing APIs silently
+        }
+      }
+      if (apiResults.length > 0) {
+        enrichedContext = businessContext + '\n\n--- Datos en tiempo real ---\n' + apiResults.join('\n');
+      }
+    } catch {
+      // If external API enrichment fails, continue with base context
+    }
+
     // Extract business name for out-of-scope redirect message
     let businessName = 'nuestro negocio';
     try {
@@ -103,7 +145,7 @@ CONTEXTO DEL NEGOCIO:
 `;
 
     const aiMessages = [
-      { role: 'system' as const, content: SYSTEM_PROMPT + businessContext },
+      { role: 'system' as const, content: SYSTEM_PROMPT + enrichedContext },
       ...ctx.lastMessages.map((m) => ({
         role: m.direction === 'INBOUND' ? 'user' as const : 'assistant' as const,
         content: m.content,
