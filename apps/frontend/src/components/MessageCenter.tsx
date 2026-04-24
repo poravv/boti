@@ -75,6 +75,8 @@ const MessageCenter = () => {
   const [notes, setNotes] = useState<InternalNote[]>([]);
   const [noteMode, setNoteMode] = useState(false);
   const [newNote, setNewNote] = useState('');
+  // Mobile: track which panel is visible (sidebar vs conversation).
+  const [mobileShowChat, setMobileShowChat] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   // Ref kept in sync so WS handler always reads latest activeChat without re-registering.
@@ -345,10 +347,13 @@ const MessageCenter = () => {
     : chats;
 
   return (
-    <div className="flex h-[calc(100vh-6rem)] -mx-4 md:-mx-6 overflow-hidden bg-surface-container-lowest rounded-2xl border border-outline-variant/40 shadow-glass-sm">
+    <div className="flex h-[calc(100vh-4rem)] md:h-[calc(100vh-6rem)] -mx-4 md:-mx-6 overflow-hidden bg-surface-container-lowest rounded-2xl border border-outline-variant/40 shadow-glass-sm">
       <aside
         aria-label="Lista de conversaciones"
-        className="w-80 border-r border-outline-variant/40 flex flex-col bg-white"
+        className={cn(
+          'border-r border-outline-variant/40 flex-col bg-white',
+          mobileShowChat ? 'hidden md:flex md:w-80' : 'flex w-full md:w-80',
+        )}
       >
         <div className="p-3 border-b border-outline-variant/30">
           <FormInput
@@ -368,7 +373,7 @@ const MessageCenter = () => {
               className={cn(
                 'flex-1 py-1 rounded-lg text-caption font-medium transition-colors',
                 statusFilter === tab
-                  ? 'bg-primary text-on-primary'
+                  ? 'bg-primary text-white'
                   : 'text-on-surface-variant hover:bg-surface-container-low',
               )}
             >
@@ -411,7 +416,7 @@ const MessageCenter = () => {
                   >
                     <button
                       type="button"
-                      onClick={() => setActiveChat(chat)}
+                      onClick={() => { setActiveChat(chat); setMobileShowChat(true); }}
                       aria-current={isActive ? 'true' : undefined}
                       className={cn(
                         'w-full px-3 py-3 flex gap-3 items-center text-left transition-colors duration-250 ease-premium focus-ring border-l-2',
@@ -456,7 +461,7 @@ const MessageCenter = () => {
                       {unread > 0 && (
                         <span
                           aria-label={`${unread} sin leer`}
-                          className="min-w-[20px] h-5 px-1.5 rounded-full bg-primary text-on-primary text-overline flex items-center justify-center animate-pulse-soft"
+                          className="min-w-[20px] h-5 px-1.5 rounded-full bg-primary text-white text-overline flex items-center justify-center animate-pulse-soft"
                         >
                           {unread}
                         </span>
@@ -470,12 +475,20 @@ const MessageCenter = () => {
         </div>
       </aside>
 
-      <section className="flex-1 flex flex-col relative min-w-0">
+      <section className={cn('flex-1 flex-col relative min-w-0', mobileShowChat ? 'flex' : 'hidden md:flex')}>
         {activeChat ? (
           <>
             <header className="px-4 md:px-6 py-3 bg-white/80 backdrop-blur-xl border-b border-outline-variant/40 flex justify-between items-center gap-3 z-sticky">
               <div className="flex items-center gap-3 min-w-0">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-primary to-secondary flex items-center justify-center text-on-primary font-semibold shadow-glass-sm flex-shrink-0">
+                <Button
+                  variant="icon"
+                  size="sm"
+                  leadingIcon="arrow_back"
+                  className="md:hidden flex-shrink-0 -ml-1"
+                  onClick={() => setMobileShowChat(false)}
+                  aria-label="Volver"
+                />
+                <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-primary to-secondary flex items-center justify-center text-white font-semibold shadow-glass-sm flex-shrink-0">
                   {(activeChat.name && activeChat.name !== activeChat.phone ? activeChat.name : activeChat.phone).charAt(0).toUpperCase()}
                 </div>
                 <div className="min-w-0">
@@ -671,7 +684,7 @@ const MessageCenter = () => {
                     onClick={() => setNoteMode(false)}
                     className={cn(
                       'px-3 py-1 rounded-lg text-caption font-medium transition-colors',
-                      !noteMode ? 'bg-primary text-on-primary' : 'text-on-surface-variant hover:bg-surface-container-low',
+                      !noteMode ? 'bg-primary text-white' : 'text-on-surface-variant hover:bg-surface-container-low',
                     )}
                   >
                     Mensaje
@@ -764,7 +777,7 @@ const MessageBubble = ({ sent, text, time, isAi, delay }: MessageBubbleProps) =>
         className={cn(
           'px-4 py-3 rounded-2xl shadow-glass-sm border',
           sent
-            ? 'bg-primary text-on-primary border-primary rounded-tr-sm'
+            ? 'bg-primary text-white border-primary rounded-tr-sm'
             : 'bg-surface-container text-on-surface border-outline-variant/40 rounded-tl-sm',
         )}
       >
@@ -778,7 +791,7 @@ const MessageBubble = ({ sent, text, time, isAi, delay }: MessageBubbleProps) =>
         <div
           className={cn(
             'text-overline mt-2 flex items-center justify-end gap-1',
-            sent ? 'text-on-primary/70' : 'text-on-surface-variant',
+            sent ? 'text-white/70' : 'text-on-surface-variant',
           )}
         >
           {time}

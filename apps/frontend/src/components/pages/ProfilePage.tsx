@@ -70,7 +70,7 @@ export function ProfilePage({ user }: ProfilePageProps) {
       {/* User info */}
       <Card variant="glass" className="p-6">
         <div className="flex items-start gap-5">
-          <div className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center text-on-primary text-heading-md font-bold uppercase shadow-glass flex-shrink-0">
+          <div className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center text-white text-heading-md font-bold uppercase shadow-glass flex-shrink-0">
             {user?.name?.[0] ?? 'A'}
           </div>
           <div className="flex-1 min-w-0">

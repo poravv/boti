@@ -755,7 +755,7 @@ export function ExternalApisPage() {
           <Card
             variant="solid"
             padding="lg"
-            className="bg-primary text-on-primary border-none shadow-glass-xl relative overflow-hidden animate-fade-in-up"
+            className="bg-primary text-white border-none shadow-glass-xl relative overflow-hidden animate-fade-in-up"
             style={{ animationDelay: '120ms' }}
           >
             <div
@@ -764,10 +764,10 @@ export function ExternalApisPage() {
             />
             <div className="relative flex flex-col gap-3">
               <div className="flex items-center gap-2">
-                <Icon name="bolt" size="md" className="text-on-primary/80" />
-                <h4 className="text-title font-semibold uppercase text-on-primary">Cómo funciona</h4>
+                <Icon name="bolt" size="md" className="text-white/80" />
+                <h4 className="text-title font-semibold uppercase text-white">Cómo funciona</h4>
               </div>
-              <p className="text-body-sm text-on-primary/70">
+              <p className="text-body-sm text-white/70">
                 Cuando el chatbot recibe un mensaje, consulta las APIs activas y enriquece su
                 contexto antes de responder.
               </p>

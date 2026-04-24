@@ -271,7 +271,7 @@ const AIConfiguration = () => {
           <Card
             variant="solid"
             padding="lg"
-            className="bg-primary text-on-primary border-none shadow-glass-xl relative overflow-hidden animate-fade-in-up"
+            className="bg-primary text-white border-none shadow-glass-xl relative overflow-hidden animate-fade-in-up"
             style={{ animationDelay: '180ms' }}
           >
             <div
@@ -280,10 +280,10 @@ const AIConfiguration = () => {
             />
             <div className="relative flex flex-col gap-4">
               <div className="flex items-center gap-2">
-                <Icon name="verified_user" size="md" className="text-on-primary/80" />
-                <h4 className="text-title font-semibold uppercase text-on-primary">Guardar cambios</h4>
+                <Icon name="verified_user" size="md" className="text-white/80" />
+                <h4 className="text-title font-semibold uppercase text-white">Guardar cambios</h4>
               </div>
-              <p className="text-body-sm text-on-primary/70">
+              <p className="text-body-sm text-white/70">
                 Los cambios se aplicarán instantáneamente a todas las conversaciones activas en
                 esta línea.
               </p>

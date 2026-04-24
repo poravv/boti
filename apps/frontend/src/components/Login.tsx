@@ -57,10 +57,10 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
           {/* Hero text */}
           <div className="space-y-4">
-            <h1 className="text-on-primary text-4xl font-bold leading-tight">
+            <h1 className="text-white text-4xl font-bold leading-tight">
               Automatiza tu<br />atención al cliente<br />con IA
             </h1>
-            <p className="text-on-primary/60 text-base leading-relaxed max-w-sm">
+            <p className="text-white/60 text-base leading-relaxed max-w-sm">
               Plataforma WhatsApp Business con inteligencia artificial para gestionar conversaciones y escalar tu negocio.
             </p>
           </div>
@@ -77,7 +77,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
               <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center flex-shrink-0">
                 <span className="material-symbols-rounded text-white/80 text-[16px]">{f.icon}</span>
               </div>
-              <span className="text-on-primary/70 text-sm">{f.text}</span>
+              <span className="text-white/70 text-sm">{f.text}</span>
             </div>
           ))}
         </div>
