@@ -103,6 +103,7 @@ export function SuperAdminPage() {
   const [smtpSaving, setSmtpSaving] = useState(false);
   const [showTestEmailForm, setShowTestEmailForm] = useState(false);
   const [testEmailAddress, setTestEmailAddress] = useState('');
+  const [testEmailSending, setTestEmailSending] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -609,10 +610,23 @@ export function SuperAdminPage() {
                       <Button
                         variant="secondary"
                         size="md"
-                        onClick={() => {
-                          toast.show('Guardá la config primero para probar', { variant: 'warning' });
-                          setShowTestEmailForm(false);
-                          setTestEmailAddress('');
+                        loading={testEmailSending}
+                        onClick={async () => {
+                          if (!testEmailAddress) return;
+                          setTestEmailSending(true);
+                          try {
+                            await apiFetchJson('/api/admin/config/test-email', {
+                              method: 'POST',
+                              body: JSON.stringify({ to: testEmailAddress }),
+                            });
+                            toast.show(`Email de prueba enviado a ${testEmailAddress}`, { variant: 'success' });
+                            setShowTestEmailForm(false);
+                            setTestEmailAddress('');
+                          } catch (err: any) {
+                            toast.show(err.message ?? 'Error al enviar el email', { variant: 'error' });
+                          } finally {
+                            setTestEmailSending(false);
+                          }
                         }}
                       >
                         Enviar

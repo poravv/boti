@@ -1474,6 +1474,31 @@ export function createRouter(
     }
   });
 
+  // POST /admin/config/test-email — send a test email using current SMTP config
+  router.post('/admin/config/test-email', authMiddleware, requireSuperAdmin, async (req, res) => {
+    const { to } = req.body as { to?: string };
+    if (!to || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) {
+      return res.status(400).json({ error: 'Email de destino inválido.' });
+    }
+    try {
+      await emailService.sendMail({
+        to,
+        subject: 'Boti — Email de prueba',
+        html: `
+          <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;color:#0b1c30">
+            <h2 style="color:#006b5f">Configuración SMTP funcionando</h2>
+            <p>Este es un email de prueba enviado desde el panel de administración de <strong>Boti</strong>.</p>
+            <p>Si estás viendo esto, la configuración SMTP está correcta.</p>
+            <hr style="border:none;border-top:1px solid #e5eeff;margin:24px 0"/>
+            <p style="font-size:12px;color:#71787c">Enviado: ${new Date().toLocaleString('es-PY', { timeZone: 'America/Asuncion' })}</p>
+          </div>`,
+      });
+      res.json({ ok: true });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // GET /admin/stats — global SaaS stats
   router.get('/admin/stats', authMiddleware, requireSuperAdmin, async (req, res) => {
     try {
