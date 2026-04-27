@@ -11,6 +11,7 @@ import { PrismaMessageRepository, PrismaClientRepository } from '../adapters/db/
 import { AuthService } from '../lib/AuthService.js';
 import { orgScope } from '../lib/orgScope.js';
 import type { WebSocketManager } from '../lib/WebSocketManager.js';
+import type { SalesService } from '../services/SalesService.js';
 
 const messageRepo = new PrismaMessageRepository();
 const clientRepo = new PrismaClientRepository();
@@ -21,6 +22,7 @@ export function createRouter(
   blockClient: BlockClient,
   prisma: PrismaClient,
   wsManager: WebSocketManager,
+  salesService?: SalesService,
 ): Router {
   const router = Router();
   const authService = new AuthService(prisma);
@@ -708,6 +710,188 @@ export function createRouter(
         extracted: outputKey ? extracted : undefined,
       });
     } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ── Ventas Autónomas ─────────────────────────────
+
+  // GET /lines/:lineId/sales-config
+  router.get('/lines/:lineId/sales-config', authMiddleware, async (req, res) => {
+    try {
+      const { lineId } = req.params;
+      const line = await prisma.whatsAppLine.findUnique({
+        where: { id: lineId },
+        select: {
+          autonomousSalesEnabled: true,
+          pagoParConfig: {
+            select: { id: true, publicKey: true, sandboxMode: true, callbackUrl: true },
+          },
+          facturadorConfig: {
+            select: {
+              id: true, baseUrl: true, accessKey: true, apiKey: true,
+              bodyTemplate: true, successExample: true, isActive: true,
+            },
+          },
+        },
+      });
+
+      if (!line) return res.status(404).json({ error: 'Línea no encontrada.' });
+
+      res.json({
+        autonomousSalesEnabled: line.autonomousSalesEnabled,
+        pagoParConfig: line.pagoParConfig
+          ? {
+              id: line.pagoParConfig.id,
+              publicKey: line.pagoParConfig.publicKey,
+              hasPrivateKey: true, // never expose privateKey
+              sandboxMode: line.pagoParConfig.sandboxMode,
+              callbackUrl: line.pagoParConfig.callbackUrl,
+            }
+          : null,
+        facturadorConfig: line.facturadorConfig
+          ? {
+              id: line.facturadorConfig.id,
+              baseUrl: line.facturadorConfig.baseUrl,
+              accessKey: line.facturadorConfig.accessKey,
+              hasSecretKey: true, // never expose secretKey
+              apiKey: line.facturadorConfig.apiKey,
+              bodyTemplate: line.facturadorConfig.bodyTemplate,
+              successExample: line.facturadorConfig.successExample,
+              isActive: line.facturadorConfig.isActive,
+            }
+          : null,
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // PUT /lines/:lineId/sales-config — updates toggle + PagoPar config + Facturador config
+  router.put('/lines/:lineId/sales-config', authMiddleware, async (req, res) => {
+    try {
+      const { lineId } = req.params;
+      const line = await prisma.whatsAppLine.findUnique({ where: { id: lineId } });
+      if (!line || line.orgId !== (req as any).user.orgId) {
+        return res.status(403).json({ error: 'Acceso denegado.' });
+      }
+
+      const { autonomousSalesEnabled, pagoParConfig, facturadorConfig } = req.body;
+
+      // Update toggle
+      if (autonomousSalesEnabled !== undefined) {
+        await prisma.whatsAppLine.update({
+          where: { id: lineId },
+          data: { autonomousSalesEnabled },
+        });
+      }
+
+      // Upsert PagoPar config — only update privateKey if provided and non-empty
+      if (pagoParConfig) {
+        const { publicKey, privateKey, sandboxMode, callbackUrl } = pagoParConfig;
+        const existing = await prisma.pagoParConfig.findUnique({ where: { lineId } });
+
+        const data: Record<string, unknown> = {};
+        if (publicKey !== undefined) data.publicKey = publicKey;
+        if (sandboxMode !== undefined) data.sandboxMode = sandboxMode;
+        if (callbackUrl !== undefined) data.callbackUrl = callbackUrl;
+        if (privateKey !== undefined && privateKey !== '') data.privateKey = privateKey;
+
+        if (existing) {
+          await prisma.pagoParConfig.update({ where: { lineId }, data });
+        } else if (publicKey && privateKey) {
+          await prisma.pagoParConfig.create({
+            data: { lineId, publicKey, privateKey, sandboxMode: sandboxMode ?? true, callbackUrl: callbackUrl ?? null },
+          });
+        }
+      }
+
+      // Upsert Facturador config — only update secretKey if provided and non-empty
+      if (facturadorConfig) {
+        const { baseUrl, accessKey, secretKey, apiKey, bodyTemplate, successExample, isActive } = facturadorConfig;
+        const existing = await prisma.facturadorConfig.findUnique({ where: { lineId } });
+
+        const data: Record<string, unknown> = {};
+        if (baseUrl !== undefined) data.baseUrl = baseUrl;
+        if (accessKey !== undefined) data.accessKey = accessKey;
+        if (apiKey !== undefined) data.apiKey = apiKey;
+        if (bodyTemplate !== undefined) data.bodyTemplate = bodyTemplate;
+        if (successExample !== undefined) data.successExample = successExample;
+        if (isActive !== undefined) data.isActive = isActive;
+        if (secretKey !== undefined && secretKey !== '') data.secretKey = secretKey;
+
+        if (existing) {
+          await prisma.facturadorConfig.update({ where: { lineId }, data });
+        } else if (baseUrl && accessKey && secretKey && bodyTemplate) {
+          await prisma.facturadorConfig.create({
+            data: {
+              lineId,
+              baseUrl,
+              accessKey,
+              secretKey,
+              apiKey: apiKey ?? null,
+              bodyTemplate,
+              successExample: successExample ?? null,
+              isActive: isActive ?? true,
+            },
+          });
+        }
+      }
+
+      res.json({ status: 'ok' });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // GET /lines/:lineId/sales — sale records for a line
+  router.get('/lines/:lineId/sales', authMiddleware, async (req, res) => {
+    try {
+      const sales = await prisma.saleRecord.findMany({
+        where: { lineId: req.params.lineId },
+        orderBy: { createdAt: 'desc' },
+        take: 50,
+      });
+      res.json({ sales });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /webhook/pagopar/:lineId — PagoPar payment notification (no auth: called by PagoPar)
+  router.post('/webhook/pagopar/:lineId', async (req, res) => {
+    try {
+      const { lineId } = req.params;
+      const payload = req.body;
+
+      // Validate token
+      const config = await prisma.pagoParConfig.findUnique({ where: { lineId } });
+      if (!config) return res.status(404).json({ error: 'Config not found' });
+
+      const { PagoParAdapter } = await import('../adapters/payments/PagoParAdapter.js');
+      const pagopar = new PagoParAdapter(config.publicKey, config.privateKey, config.sandboxMode);
+
+      const result = payload?.resultado?.[0];
+      const hashPedido = result?.hash_pedido;
+      const receivedToken = result?.token;
+      const pagado = result?.pagado;
+
+      // Reject invalid or unverified notifications
+      if (!hashPedido || !receivedToken || !pagopar.validateWebhookToken(hashPedido, receivedToken)) {
+        return res.status(400).json({ error: 'Token inválido' });
+      }
+
+      if (pagado && salesService) {
+        await salesService.handlePaymentConfirmation(lineId, hashPedido);
+
+        // Notify operators via WebSocket
+        wsManager.broadcast('sale:paid', { lineId, hashPedido });
+      }
+
+      // PagoPar expects the payload echoed back with HTTP 200
+      res.json(payload);
+    } catch (err: any) {
+      console.error('[Webhook PagoPar]', err.message);
       res.status(500).json({ error: err.message });
     }
   });

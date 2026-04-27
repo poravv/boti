@@ -1,0 +1,413 @@
+{
+  "empresa": {
+    "nombre": "MindTechPY",
+    "descripcion": "Empresa paraguaya especializada en desarrollo de software, automatización empresarial y soluciones tecnológicas a medida.",
+    "website": "https://mindtechpy.net",
+    "email": "andyvercha@gmail.com",
+    "whatsapp": "+595 992 756 462",
+    "ubicacion": "Paraguay",
+    "horario_atencion": "Lunes a Viernes, 8:00 a 18:00 hs (hora PY)"
+  },
+
+  "links_rapidos": {
+    "boti": "https://boti.mindtechpy.net",
+    "whatsapp_sender_pro": "https://sender.mindtechpy.net",
+    "sms_sender_pro_android": "https://play.google.com/store/apps/details?id=com.smsender.app",
+    "cuenly_app": "https://app.cuenly.com",
+    "mindtechpy_web": "https://mindtechpy.net"
+  },
+
+  "productos": [
+    {
+      "id": "boti",
+      "nombre": "Boti",
+      "categoria": "SaaS",
+      "estado": "produccion",
+      "descripcion_corta": "Plataforma de automatización de WhatsApp con inteligencia artificial para negocios.",
+      "descripcion_larga": "Boti permite conectar múltiples líneas de WhatsApp y responder a clientes 24/7 con IA configurable por línea. Incluye inbox para operadores, métricas en tiempo real, anti-spam y soporte para múltiples proveedores de IA (Gemini, GPT-4o, Claude).",
+      "casos_de_uso": [
+        "Tiendas y e-commerce que quieren responder clientes fuera de horario",
+        "Clínicas y consultorios que reciben turnos por WhatsApp",
+        "Inmobiliarias que filtran leads automáticamente",
+        "Academias y cursos con alta demanda de consultas"
+      ],
+      "nota_modelo_ia": "En todos los planes, el cliente configura su propia API key de IA (OpenAI, Gemini, Claude, Grok). Boti no asume ningún costo de tokens. El gasto de IA corre 100% por cuenta del cliente.",
+      "nota_limite": "El límite operativo es por conversaciones activas simultáneas (no mensajes/mes). Una conversación se abre cuando llega el primer mensaje y se cierra manualmente o tras 30 días de inactividad.",
+      "planes": [
+        {
+          "nombre": "Básico",
+          "precio_mensual_gs": 150000,
+          "setup_gs": 200000,
+          "lineas": 1,
+          "operadores": 1,
+          "conversaciones_activas_simultaneas": 100,
+          "proveedor_ia": "El cliente configura su propia API key (OpenAI, Gemini, Claude — a elección)",
+          "dashboard": "Básico (métricas simples)",
+          "soporte": "Email, 48h hábiles",
+          "incluye": [
+            "Conexión QR de 1 número",
+            "Respuestas automáticas con IA (con API key propia del cliente)",
+            "Historial completo de conversaciones",
+            "Cierre manual de conversaciones desde el panel",
+            "1 prompt de sistema"
+          ],
+          "no_incluye": [
+            "Asignación de operadores",
+            "Contexto JSON personalizado",
+            "APIs externas",
+            "Pausa de IA por contacto"
+          ]
+        },
+        {
+          "nombre": "Growth",
+          "precio_mensual_gs": 380000,
+          "setup_gs": 350000,
+          "lineas": 5,
+          "operadores": 5,
+          "conversaciones_activas_simultaneas": 1000,
+          "proveedor_ia": "El cliente configura su propia API key (todos los proveedores: OpenAI, Gemini, Claude, Grok)",
+          "dashboard": "Completo (métricas + auditoría)",
+          "soporte": "WhatsApp directo, 24h hábiles",
+          "incluye": [
+            "Todo lo del plan Básico",
+            "Múltiples líneas y operadores",
+            "Asignación de conversaciones a operadores",
+            "Pausa de IA por contacto para atención manual",
+            "Contexto de negocio en JSON (FAQs, precios, horarios)",
+            "Selección de proveedor y modelo de IA por línea",
+            "APIs externas (hasta 3 integraciones por línea)",
+            "Dashboard completo con tráfico por hora y auditoría"
+          ],
+          "no_incluye": [
+            "APIs externas ilimitadas",
+            "Soporte prioritario",
+            "Informes exportables"
+          ]
+        },
+        {
+          "nombre": "Enterprise",
+          "precio_mensual_gs": "Desde 1.500.000",
+          "setup_gs": "Desde 500.000",
+          "lineas": "Ilimitadas",
+          "operadores": "Ilimitados",
+          "conversaciones_activas_simultaneas": "Ilimitadas",
+          "proveedor_ia": "Todos (OpenAI, Gemini, Claude, Grok — API key del cliente)",
+          "dashboard": "Completo + reportes exportables",
+          "soporte": "Soporte directo con SLA definido",
+          "incluye": [
+            "Todo lo del plan Growth",
+            "Conversaciones y líneas sin tope",
+            "APIs externas ilimitadas por línea",
+            "Features custom a medida según contrato",
+            "Reportes y exportación de conversaciones",
+            "Capacitación incluida",
+            "Infraestructura dedicada disponible (costo adicional)"
+          ]
+        }
+      ],
+      "setup_unico": {
+        "basico": { "precio_gs": 200000, "incluye": "Conexión del número + configuración de API key + prompt de sistema" },
+        "completo": { "precio_gs": 350000, "incluye": "Todo lo anterior + carga de FAQs + contexto JSON + configuración de APIs externas" },
+        "enterprise": { "precio_gs": "Desde 500.000", "incluye": "Todo lo anterior + integración con sistemas del cliente + capacitación del equipo" }
+      },
+      "url": "https://boti.mindtechpy.net"
+    },
+    {
+      "id": "whatsapp-sender-pro",
+      "nombre": "WhatsApp Sender Pro",
+      "categoria": "SaaS / Herramienta",
+      "estado": "produccion",
+      "descripcion_corta": "Sistema profesional de envío masivo de mensajes WhatsApp para campañas y comunicación a escala.",
+      "descripcion_larga": "WhatsApp Sender Pro permite enviar mensajes masivos desde archivos CSV, gestionar contactos, crear campañas, y responder mensajes desde un inbox centralizado. Incluye chatbot con IA, API pública con webhooks y arquitectura multi-cliente.",
+      "caracteristicas_principales": [
+        "Envío masivo desde CSV (texto, imágenes, audio)",
+        "Inbox con historial completo de conversaciones",
+        "Chatbot con IA integrada (OpenAI, etc.)",
+        "Plantillas de mensajes con variables personalizables",
+        "API pública REST v1 con autenticación y webhooks",
+        "Dashboard con estadísticas de campañas",
+        "Soporte dual SIM",
+        "Deployment en la nube del cliente"
+      ],
+      "casos_de_uso": [
+        "Campañas de marketing masivo",
+        "Notificaciones a base de clientes",
+        "Ventas y prospección a escala",
+        "Comunicación interna de empresas"
+      ],
+      "precio": "A cotizar según requerimientos. Contactar para presupuesto.",
+      "nota": "Sistema multi-cliente, se instala y configura por cliente. Preguntar por disponibilidad.",
+      "url": "https://sender.mindtechpy.net"
+    },
+    {
+      "id": "sms-sender-pro",
+      "nombre": "SMS Sender Pro",
+      "categoria": "App Desktop / Android",
+      "estado": "produccion",
+      "descripcion_corta": "Aplicación profesional para envío masivo de SMS directo desde tu SIM, sin servidores intermediarios.",
+      "descripcion_larga": "SMS Sender Pro funciona en Windows, macOS (versión escritorio vía módem USB GSM) y Android (usando la SIM del teléfono). Permite enviar SMS masivos desde CSV, gestionar contactos en grupos, usar plantillas con variables y ver estadísticas en tiempo real.",
+      "plataformas": ["Windows", "macOS", "Android"],
+      "caracteristicas_principales": [
+        "Envío masivo desde CSV con personalización por destinatario",
+        "Soporte para SMS largos (hasta 459 caracteres)",
+        "Gestión de contactos y grupos",
+        "Plantillas con variables {nombre} y {sustantivo}",
+        "Soporte multi-país (22 países de LATAM, NA y Europa)",
+        "Dashboard de métricas en tiempo real",
+        "Seguridad biométrica (Android)",
+        "Mensajes se envían desde tu SIM (sin intermediarios)"
+      ],
+      "planes": [
+        {
+          "nombre": "Trial",
+          "precio": "Gratis",
+          "duracion": "15 días",
+          "descripcion": "Acceso completo a todas las funciones durante 15 días"
+        },
+        {
+          "nombre": "Mensual",
+          "precio": "A consultar",
+          "descripcion": "Suscripción mensual con acceso completo"
+        },
+        {
+          "nombre": "Anual",
+          "precio": "A consultar",
+          "descripcion": "Suscripción anual con descuento respecto al plan mensual"
+        },
+        {
+          "nombre": "Ilimitado",
+          "precio": "A consultar",
+          "descripcion": "Acceso de por vida sin renovaciones"
+        }
+      ],
+      "contacto_precios": "andyvercha@gmail.com",
+      "url_android": "https://play.google.com/store/apps/details?id=com.smsender.app",
+      "package_id": "com.smsender.app"
+    },
+    {
+      "id": "cuenly-app",
+      "nombre": "CuenlyApp",
+      "categoria": "SaaS",
+      "estado": "produccion",
+      "descripcion_corta": "Automatiza la extracción de datos de facturas desde tus correos y los consolida en Excel con IA.",
+      "descripcion_larga": "CuenlyApp se conecta a tu cuenta de correo (IMAP), descarga facturas adjuntas (XML y PDF), extrae los datos usando IA (GPT-4o Vision) y genera reportes en Excel. Procesa facturas electrónicas nativas (XML), PDFs e incluso enlaces externos en correos.",
+      "caracteristicas_principales": [
+        "Conexión automática a correos vía IMAP",
+        "Soporte para facturas XML (electrónicas) y PDF",
+        "Extracción con IA (GPT-4o Vision como respaldo)",
+        "Exportación a Excel con plantillas personalizables",
+        "Control de duplicados automático",
+        "Dashboard con estadísticas de facturas procesadas",
+        "Sistema de roles: admin y usuario",
+        "Integración de pagos con Pagopar/Bancard"
+      ],
+      "casos_de_uso": [
+        "Contadores y estudios contables",
+        "Empresas con alto volumen de facturas",
+        "PyMES que quieren automatizar su contabilidad",
+        "Comercios con facturación electrónica"
+      ],
+      "planes": [
+        {
+          "nombre": "Free / Trial",
+          "precio_mensual_gs": 0,
+          "limite_facturas_mes": 50,
+          "descripcion": "Ideal para conocer el sistema"
+        },
+        {
+          "nombre": "Basic",
+          "precio_mensual_gs": 50000,
+          "limite_facturas_mes": 200,
+          "descripcion": "Para contadores o empresas pequeñas con bajo volumen"
+        },
+        {
+          "nombre": "Pro",
+          "precio_mensual_gs": 150000,
+          "limite_facturas_mes": 1000,
+          "descripcion": "Para empresas medianas con alto volumen mensual"
+        },
+        {
+          "nombre": "Premium",
+          "precio_mensual_gs": 300000,
+          "limite_facturas_mes": "Ilimitado",
+          "descripcion": "Sin límites, ideal para estudios contables o grandes empresas"
+        }
+      ],
+      "url": "https://app.cuenly.com"
+    }
+  ],
+
+  "servicios": [
+    {
+      "id": "desarrollo-a-medida",
+      "nombre": "Desarrollo a Medida",
+      "categoria": "Servicio Profesional",
+      "estado": "activo",
+      "descripcion": "Desarrollamos software personalizado según las necesidades específicas de tu empresa: sistemas de gestión, aplicaciones web, aplicaciones móviles, integraciones con sistemas existentes.",
+      "especialidades": [
+        "Punto de Venta (POS) con integración SIFEN (facturación electrónica paraguaya)",
+        "Middleware de Facturación Electrónica (Java 21 + Spring Boot 3.4 + Hexagonal)",
+        "Apps móviles Flutter + Capacitor (iOS/Android)",
+        "Plataformas web React, Angular, NestJS",
+        "Backends Node.js, Spring Boot 3, FastAPI, Java 21",
+        "DevOps: Docker, Kubernetes, GitHub CI/CD",
+        "Apps desktop con Electron (Windows/macOS)",
+        "Seguridad OWASP Top 10, Keycloak SSO"
+      ],
+      "proceso": [
+        "Análisis de requerimientos sin costo",
+        "Propuesta técnica y presupuesto",
+        "Desarrollo iterativo con entregas parciales (sprints de 2 semanas)",
+        "Implementación y puesta en marcha",
+        "Capacitación al equipo",
+        "90 días de soporte post-lanzamiento incluidos"
+      ],
+      "tecnologias": ["Node.js", "React 19", "Angular", "Flutter", "Java 21", "Spring Boot 3.4", "Python", "NestJS", "PostgreSQL", "MongoDB", "Redis", "Kubernetes"],
+      "precio": "A cotizar según alcance. Presupuesto sin costo.",
+      "tiempo_entrega": "Variable según complejidad del proyecto"
+    },
+    {
+      "id": "web-express",
+      "nombre": "Web Express — Páginas Web por Suscripción",
+      "categoria": "Servicio Mensual",
+      "estado": "activo",
+      "descripcion": "Tu página web profesional con dominio, hosting, SSL y correo corporativo incluido, lista en 48 horas. Sin inversión inicial.",
+      "incluye": [
+        "Dominio + hosting + SSL incluido",
+        "Correo corporativo empresarial",
+        "Diseño profesional responsivo",
+        "Lista en 48 horas",
+        "Soporte técnico incluido"
+      ],
+      "precio_desde": "Desde 250.000 Gs/mes",
+      "tiempo_entrega": "48 horas",
+      "url_detalle": "https://mindtechpy.net/web-express"
+    },
+    {
+      "id": "desarrollo-web-medida",
+      "nombre": "Desarrollo de Páginas Web a Medida",
+      "categoria": "Servicio Profesional",
+      "estado": "activo",
+      "descripcion": "Diseñamos y desarrollamos sitios web profesionales: landing pages, sitios corporativos, portfolios, tiendas online y sistemas web a medida.",
+      "tipos": [
+        "Landing pages de alta conversión",
+        "Sitios corporativos",
+        "E-commerce",
+        "Portfolios profesionales",
+        "Sistemas web con panel de administración"
+      ],
+      "precio": "A cotizar según complejidad. Presupuesto sin costo.",
+      "tiempo_entrega": "1 a 4 semanas según el tipo de proyecto"
+    },
+    {
+      "id": "soporte-mantenimiento",
+      "nombre": "Soporte y Mantenimiento",
+      "categoria": "Servicio Profesional",
+      "estado": "activo",
+      "descripcion": "Brindamos soporte técnico integral para empresas: mantenimiento preventivo y correctivo de equipos informáticos, soporte de software, recuperación de datos y optimización de sistemas.",
+      "incluye": [
+        "Mantenimiento preventivo y correctivo de equipos",
+        "Soporte de software y sistemas operativos",
+        "Recuperación de datos",
+        "Optimización de rendimiento",
+        "Asistencia remota y presencial"
+      ],
+      "precio": "Planes mensuales a cotizar según necesidad. Consultar para presupuesto."
+    }
+  ],
+
+  "proyectos_propios": [
+    {
+      "id": "el-impostor",
+      "nombre": "El Impostor",
+      "categoria": "Juego Multijugador",
+      "estado": "produccion",
+      "descripcion_corta": "Juego de deducción social multijugador en tiempo real para 3–15 jugadores.",
+      "descripcion_larga": "Juego con salas de código, sistema de palabras con 9 categorías y dificultad progresiva, votación en vivo, leaderboard global, notificaciones push y monetización con AdMob. Disponible en web y Android con sincronización WebSocket, autenticación con Google y deep linking.",
+      "rol_mindtech": "Desarrollo completo, infraestructura, producto propio",
+      "url_web": "https://impostor.mindtechpy.net",
+      "url_android": "https://play.google.com/store/apps/details?id=net.mindtechpy.impostor"
+    },
+    {
+      "id": "capa-store",
+      "nombre": "Capa Store",
+      "categoria": "E-Commerce",
+      "estado": "produccion",
+      "descripcion_corta": "E-commerce completo para tienda de indumentaria en Paraguay.",
+      "descripcion_larga": "Catálogo con variantes (talle, color, SKU), carrito persistente en Redis, checkout multi-paso con zonas de envío geoespaciales (PostGIS), cupones, flash sales, reseñas, notificaciones en tiempo real vía WebSocket y panel administrativo con analíticas de ventas e inventario.",
+      "rol_mindtech": "Desarrollo full-stack, infraestructura, producto propio",
+      "url": "https://capa.mindtechpy.net"
+    }
+  ],
+
+  "productos_beta": [
+    {
+      "id": "zyra",
+      "nombre": "Zyra",
+      "categoria": "Gestión de Operadores",
+      "estado": "beta",
+      "descripcion_corta": "Plataforma de gestión de operadores para servicios digitales.",
+      "descripcion_larga": "Sistema de comisiones quincenal, integración con Google Maps, chat de soporte en tiempo real, Firebase Remote Config y panel administrativo completo para la gestión operativa.",
+      "rol_mindtech": "Desarrollo full-stack, infraestructura, producto propio",
+      "url": "https://zyra-admin.mindtechpy.net"
+    },
+    {
+      "id": "bie",
+      "nombre": "BIE — Verificación de Identidad",
+      "categoria": "Motor Biométrico / KYC",
+      "estado": "beta",
+      "descripcion_corta": "Motor biométrico de verificación de identidad con detección de vivacidad facial.",
+      "descripcion_larga": "Captura y verificación de documentos (cédula paraguaya), detección de liveness facial, verificación multi-tenant con notificaciones webhook y autenticación por API key. Integrado con Zyra para gate de KYC.",
+      "rol_mindtech": "Desarrollo full-stack, infraestructura, producto propio",
+      "url": "https://bie-admin.mindtechpy.net"
+    },
+    {
+      "nombre": "Sender Impostor",
+      "estado": "beta",
+      "descripcion": "Herramienta interna de pruebas para simular envío de mensajes. No disponible al público en general.",
+      "acceso": "Solo para uso interno del equipo MindTechPY",
+      "url": "https://impostor.mindtechpy.net"
+    }
+  ],
+
+  "faq": [
+    {
+      "pregunta": "¿Puedo probar Boti antes de pagar?",
+      "respuesta": "Sí. Ofrecemos una demo guiada sin costo. Contactá al equipo para coordinarla."
+    },
+    {
+      "pregunta": "¿Cómo funciona el límite de Boti?",
+      "respuesta": "El límite es por conversaciones activas simultáneas, no por mensajes. El plan Básico permite 100 conversaciones abiertas al mismo tiempo, Growth 1.000 y Enterprise es ilimitado. Una conversación se cierra manualmente desde el panel o sola a los 30 días sin actividad. Podés cambiar de plan cuando quieras."
+    },
+    {
+      "pregunta": "¿Boti cobra por los tokens de IA?",
+      "respuesta": "No. En todos los planes, vos configurás tu propia API key de IA (OpenAI, Gemini, Claude, Grok). El costo de tokens corre por tu cuenta directamente con el proveedor. Boti cobra solo por el uso de la plataforma."
+    },
+    {
+      "pregunta": "¿WhatsApp Sender Pro es diferente a Boti?",
+      "respuesta": "Sí. WhatsApp Sender Pro está enfocado en envío masivo de campañas (marketing, notificaciones). Boti está enfocado en automatización de atención al cliente con IA respondiendo en tiempo real a cada mensaje."
+    },
+    {
+      "pregunta": "¿SMS Sender Pro necesita internet?",
+      "respuesta": "Solo para autenticación y licencia. El envío de SMS se hace directo desde tu SIM o módem USB, sin servidores intermediarios."
+    },
+    {
+      "pregunta": "¿CuenlyApp funciona con facturas electrónicas paraguayas?",
+      "respuesta": "Sí. Tiene soporte prioritario para XML de facturación electrónica (prioridad máxima, sin consumir crédito de IA)."
+    },
+    {
+      "pregunta": "¿Hacen soporte en fines de semana?",
+      "respuesta": "El soporte por email es en días hábiles. Para clientes Enterprise o con plan Growth hay disponibilidad ampliada vía WhatsApp."
+    },
+    {
+      "pregunta": "¿Los precios están en guaraníes?",
+      "respuesta": "Sí, todos los precios están en Guaraníes (Gs.). También podemos cotizar en USD si el cliente lo prefiere."
+    }
+  ],
+
+  "contacto_ventas": {
+    "email": "andyvercha@gmail.com",
+    "whatsapp": "+595 992 756 462",
+    "mensaje_cierre": "Para una cotización personalizada o una demo, podés escribirle directamente al equipo en andyvercha@gmail.com o al +595 992 756 462."
+  }
+}

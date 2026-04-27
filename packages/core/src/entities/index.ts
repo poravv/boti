@@ -62,3 +62,20 @@ export interface User {
   isActive: boolean;
   createdAt: Date;
 }
+
+export interface SaleRecord {
+  id: string;
+  lineId: string;
+  clientPhone: string;
+  hashPedido?: string;
+  pagoParOrderId?: string;
+  paymentLinkUrl?: string;
+  amount: number;
+  currency: string;
+  status: 'PENDING' | 'PAID' | 'INVOICED' | 'FAILED';
+  items: unknown[];
+  invoiceId?: string;
+  paidAt?: Date;
+  invoicedAt?: Date;
+  createdAt: Date;
+}

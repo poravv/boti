@@ -47,24 +47,77 @@ model Message {
 }
 
 model WhatsAppLine {
-  id                String    @id @default(uuid())
-  name              String
-  phone             String?
-  status            String    @default("DISCONNECTED")
-  systemPrompt      String?
-  assignedAiProvider String?
-  aiApiKey          String?
-  aiModel           String?
-  contextUrl        String?
-  contextHeaders    Json?
-  businessContext   Json?
-  maxMessages       Int       @default(10)
-  createdAt         DateTime  @default(now())
-  messages          Message[]
-  externalApis      ExternalApi[]
-  orgId             String?
+  id                     String    @id @default(uuid())
+  name                   String
+  phone                  String?
+  status                 String    @default("DISCONNECTED")
+  systemPrompt           String?
+  assignedAiProvider     String?
+  aiApiKey               String?
+  aiModel                String?
+  contextUrl             String?
+  contextHeaders         Json?
+  businessContext        Json?
+  maxMessages            Int       @default(10)
+  autonomousSalesEnabled Boolean   @default(false)
+  createdAt              DateTime  @default(now())
+  messages               Message[]
+  externalApis           ExternalApi[]
+  pagoParConfig          PagoParConfig?
+  facturadorConfig       FacturadorConfig?
+  saleRecords            SaleRecord[]
+  orgId                  String?
 
   @@index([orgId])
+}
+
+model PagoParConfig {
+  id          String       @id @default(uuid())
+  lineId      String       @unique
+  line        WhatsAppLine @relation(fields: [lineId], references: [id], onDelete: Cascade)
+  publicKey   String
+  privateKey  String
+  sandboxMode Boolean      @default(true)
+  callbackUrl String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model FacturadorConfig {
+  id             String       @id @default(uuid())
+  lineId         String       @unique
+  line           WhatsAppLine @relation(fields: [lineId], references: [id], onDelete: Cascade)
+  baseUrl        String
+  accessKey      String
+  secretKey      String
+  apiKey         String?
+  bodyTemplate   Json
+  successExample Json?
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
+
+model SaleRecord {
+  id             String       @id @default(uuid())
+  lineId         String
+  line           WhatsAppLine @relation(fields: [lineId], references: [id], onDelete: Cascade)
+  clientPhone    String
+  hashPedido     String?
+  pagoParOrderId String?
+  paymentLinkUrl String?
+  amount         Int
+  currency       String       @default("PYG")
+  status         String       @default("PENDING")
+  items          Json
+  invoiceId      String?
+  paidAt         DateTime?
+  invoicedAt     DateTime?
+  createdAt      DateTime     @default(now())
+
+  @@index([lineId])
+  @@index([hashPedido])
+  @@index([clientPhone])
 }
 
 model ConversationContext {

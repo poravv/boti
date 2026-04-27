@@ -29,6 +29,7 @@ import {
 
 import { HandleInboundMessage, SendMessage, BlockClient } from '@boti/core';
 import { createRouter } from './http/router.js';
+import { SalesService } from './services/SalesService.js';
 
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
 const MAX_MESSAGES = parseInt(process.env.CONTEXT_MAX_MESSAGES ?? '10', 10);
@@ -63,6 +64,10 @@ async function bootstrap() {
   // --- AI Service ------------------------------------------------------
   const aiService = createAIService(prisma);
   const authService = new AuthService(prisma);
+
+  // --- Sales Service ---------------------------------------------------
+  const BACKEND_BASE_URL = process.env.BACKEND_BASE_URL ?? `http://localhost:${PORT}`;
+  const salesService = new SalesService(prisma, BACKEND_BASE_URL);
 
   // --- Seed Default Org + Admin User ---
   const DEFAULT_ORG_ID = '00000000-0000-0000-0000-000000000001';
@@ -113,6 +118,7 @@ async function bootstrap() {
     auditLogger,
     notifier,
     externalApiRepo,
+    salesService,
     maxMessages: MAX_MESSAGES,
     spamThreshold: SPAM_THRESHOLD,
   });
@@ -197,7 +203,7 @@ async function bootstrap() {
   });
 
   // ─── HTTP Routes ─────────────────────────────────────────────────────
-  app.use('/api', createRouter(whatsApp, sendMessageUseCase, blockClientUseCase, prisma, wsManager));
+  app.use('/api', createRouter(whatsApp, sendMessageUseCase, blockClientUseCase, prisma, wsManager, salesService));
 
   // ─── Autostart Lines ────────────────────────────────────────────────
   try {

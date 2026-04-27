@@ -53,8 +53,36 @@ export interface AIMessage {
   content: string;
 }
 
+export interface AIToolDef {
+  name: string;
+  description: string;
+  parameters: Record<string, unknown>; // JSON Schema object
+}
+
+export type AIReplyResult =
+  | { type: 'text'; content: string }
+  | { type: 'tool_call'; toolCallId: string; name: string; args: Record<string, unknown> };
+
 export interface IAIService {
   generateReply(messages: AIMessage[], options?: { lineId?: string }): Promise<string>;
+  generateReplyWithTools?(
+    messages: AIMessage[],
+    tools: AIToolDef[],
+    options?: { lineId?: string },
+  ): Promise<AIReplyResult>;
+}
+
+// --- Sales / Autonomous Selling ---
+export interface ISalesService {
+  isEnabledForLine(lineId: string): Promise<boolean>;
+  getToolDefinitions(): AIToolDef[];
+  executeTool(
+    lineId: string,
+    clientPhone: string,
+    clientName: string,
+    toolName: string,
+    args: Record<string, unknown>,
+  ): Promise<string>;
 }
 
 // --- Context Manager ---

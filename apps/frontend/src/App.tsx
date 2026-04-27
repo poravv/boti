@@ -11,6 +11,7 @@ import type { NotificationItem, SidebarNavItem } from './components/layout';
 import { apiFetchJson } from './lib/apiClient';
 import { ExternalApisPage } from './components/pages/ExternalApisPage';
 import { TeamPage } from './components/pages/TeamPage';
+import { AutonomousSalesPage } from './components/pages/AutonomousSalesPage';
 
 interface AuthUser {
   userId?: string;
@@ -188,6 +189,7 @@ const App = () => {
     { name: 'Messages', path: '/messages', icon: 'forum', badge: unreadTotal },
     ...(isAdmin ? [{ name: 'AI Config', path: '/ai-config', icon: 'psychology' }] : []),
     ...(isAdmin ? [{ name: 'APIs', path: '/external-apis', icon: 'api' }] : []),
+    ...(isAdmin ? [{ name: 'Ventas', path: '/sales', icon: 'storefront' }] : []),
     ...(isAdmin ? [{ name: 'Equipo', path: '/settings/team', icon: 'group' }] : []),
     { name: 'Perfil', path: '/profile', icon: 'account_circle' },
   ];
@@ -207,6 +209,7 @@ const App = () => {
         <Route path="/ai-config" element={<AIConfiguration />} />
         <Route path="/profile" element={<ProfilePage user={user ?? {}} />} />
         <Route path="/external-apis" element={<ExternalApisPage />} />
+        <Route path="/sales" element={<AutonomousSalesPage />} />
         <Route path="/settings/team" element={<TeamPage currentUserId={user?.userId} />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

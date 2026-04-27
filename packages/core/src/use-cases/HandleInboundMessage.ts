@@ -12,6 +12,7 @@ import type {
   IAuditLogger,
   INotifier,
   IExternalApiRepository,
+  ISalesService,
 } from '../ports/outbound.js';
 
 interface Deps {
@@ -24,6 +25,7 @@ interface Deps {
   auditLogger: IAuditLogger;
   notifier: INotifier;
   externalApiRepo: IExternalApiRepository;
+  salesService?: ISalesService;
   maxMessages: number; // configurable, default 10
   spamThreshold: number; // messages per minute
 }
@@ -39,7 +41,7 @@ export class HandleInboundMessage implements HandleInboundMessageUseCase {
     type: string;
   }): Promise<void> {
     const { lineId, fromPhone, fromName, content } = input;
-    const { clientRepo, messageRepo, contextRepo, queue, aiService, contextFetcher, auditLogger, notifier, externalApiRepo, maxMessages } = this.deps;
+    const { clientRepo, messageRepo, contextRepo, queue, aiService, contextFetcher, auditLogger, notifier, externalApiRepo, salesService, maxMessages } = this.deps;
 
     // 1. Upsert client
     const client = await clientRepo.upsert({ phone: fromPhone, name: fromName, isBlocked: false });
@@ -165,8 +167,40 @@ ${clientDisplayName ? `El cliente se llama ${clientDisplayName}. Cuando sea natu
 
     let replyText: string;
     try {
-      replyText = await aiService.generateReply(aiMessages, { lineId } as any);
-      
+      // Tool calling path: only when salesService is configured and enabled for this line
+      const salesEnabled = salesService ? await salesService.isEnabledForLine(lineId) : false;
+
+      if (salesEnabled && aiService.generateReplyWithTools) {
+        const tools = salesService!.getToolDefinitions();
+        const result = await aiService.generateReplyWithTools(aiMessages, tools, { lineId });
+
+        if (result.type === 'tool_call') {
+          // Execute the tool (e.g. generate_payment_link via PagoPar)
+          const toolResult = await salesService!.executeTool(
+            lineId,
+            fromPhone,
+            fromName,
+            result.name,
+            result.args,
+          );
+
+          // Feed the tool result back to the AI so it crafts a natural message with the link
+          const followUpMessages = [
+            ...aiMessages,
+            { role: 'assistant' as const, content: `[Herramienta ${result.name} ejecutada]` },
+            {
+              role: 'user' as const,
+              content: `Resultado de la herramienta "${result.name}": ${toolResult}. Ahora redacta un mensaje amigable para el cliente informándole el link de pago. El link debe aparecer tal cual, sin modificarlo.`,
+            },
+          ];
+          replyText = await aiService.generateReply(followUpMessages, { lineId });
+        } else {
+          replyText = result.content;
+        }
+      } else {
+        replyText = await aiService.generateReply(aiMessages, { lineId } as any);
+      }
+
       // Filtro de humanización: si ya saludamos antes, removemos saludos repetidos
       const hasGreeted = ctx.lastMessages.some(m => m.direction === 'OUTBOUND' && /hola|buenas|buenos/i.test(m.content));
       if (hasGreeted) {
