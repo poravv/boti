@@ -105,13 +105,17 @@ export class SalesService implements ISalesService {
     return result.paymentUrl;
   }
 
-  // Called from the PagoPar webhook handler in router.ts
-  async handlePaymentConfirmation(lineId: string, hashPedido: string): Promise<void> {
+  // Called from the PagoPar webhook handler in router.ts.
+  // Returns the confirmed sale so the caller can send a WhatsApp confirmation.
+  async handlePaymentConfirmation(
+    lineId: string,
+    hashPedido: string,
+  ): Promise<{ clientPhone: string; amount: number; productName: string; invoiceId?: string } | null> {
     const sale = await this.prisma.saleRecord.findFirst({
       where: { hashPedido, lineId },
     });
 
-    if (!sale || sale.status !== 'PENDING') return;
+    if (!sale || sale.status !== 'PENDING') return null;
 
     await this.prisma.saleRecord.update({
       where: { id: sale.id },
@@ -122,7 +126,13 @@ export class SalesService implements ISalesService {
       where: { lineId },
     });
 
-    if (!facturadorConfig || !facturadorConfig.isActive) return;
+    const items = Array.isArray(sale.items) ? sale.items as any[] : [];
+    const productName: string = items[0]?.nombre ?? 'Venta WhatsApp';
+    let invoiceId: string | undefined;
+
+    if (!facturadorConfig || !facturadorConfig.isActive) {
+      return { clientPhone: sale.clientPhone, amount: sale.amount, productName };
+    }
 
     const facturador = new FacturadorAdapter({
       baseUrl: facturadorConfig.baseUrl,
@@ -132,7 +142,6 @@ export class SalesService implements ISalesService {
       bodyTemplate: facturadorConfig.bodyTemplate as Record<string, unknown>,
     });
 
-    const items = Array.isArray(sale.items) ? sale.items as any[] : [];
     const now = new Date().toISOString().replace('Z', '-03:00');
 
     const replacements: Record<string, string> = {
@@ -141,13 +150,14 @@ export class SalesService implements ISalesService {
       FECHA_EMISION: now,
       MONTO_TOTAL: String(sale.amount),
       CLIENTE_TELEFONO: sale.clientPhone,
-      PRODUCTO: items[0]?.nombre ?? 'Venta WhatsApp',
+      PRODUCTO: productName,
       CANTIDAD: String(items[0]?.cantidad ?? 1),
       PRECIO_UNITARIO: String(items[0]?.precioUnitario ?? sale.amount),
     };
 
     try {
       const invoiceResult = await facturador.createInvoice(replacements);
+      invoiceId = invoiceResult.invoiceId;
 
       await this.prisma.saleRecord.update({
         where: { id: sale.id },
@@ -160,5 +170,7 @@ export class SalesService implements ISalesService {
     } catch (err: any) {
       console.error(`[SalesService] Facturador error for sale ${sale.id}:`, err.message);
     }
+
+    return { clientPhone: sale.clientPhone, amount: sale.amount, productName, invoiceId };
   }
 }

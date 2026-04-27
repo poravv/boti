@@ -397,7 +397,7 @@ export const AutonomousSalesPage = () => {
                   label="Base URL (endpoint POST de facturación)"
                   value={facturador.baseUrl}
                   onChange={(e) => setFacturador((f) => ({ ...f, baseUrl: e.target.value }))}
-                  placeholder="http://localhost:8081/api/v1/facturas"
+                  placeholder="https://facturador.tuempresa.com/api/v1/facturas"
                  
                 />
                 <div className="grid grid-cols-2 gap-4">

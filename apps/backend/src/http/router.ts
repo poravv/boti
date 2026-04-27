@@ -882,10 +882,28 @@ export function createRouter(
       }
 
       if (pagado && salesService) {
-        await salesService.handlePaymentConfirmation(lineId, hashPedido);
+        const confirmed = await salesService.handlePaymentConfirmation(lineId, hashPedido);
 
-        // Notify operators via WebSocket
-        wsManager.broadcast('sale:paid', { lineId, hashPedido });
+        if (confirmed) {
+          // Notify operators via WebSocket
+          wsManager.broadcast('sale:paid', { lineId, hashPedido, ...confirmed });
+
+          // Send WhatsApp confirmation to the client
+          const { clientPhone, amount, productName, invoiceId } = confirmed;
+          const amountFormatted = amount.toLocaleString('es-PY');
+          let confirmMsg =
+            `✅ *¡Pago confirmado!*\n\n` +
+            `Producto: ${productName}\n` +
+            `Monto: Gs. ${amountFormatted}\n`;
+          if (invoiceId) confirmMsg += `Factura: ${invoiceId}\n`;
+          confirmMsg += `\n¡Gracias por tu compra! 🎉`;
+
+          try {
+            await whatsApp.sendTextMessage(lineId, clientPhone, confirmMsg);
+          } catch (err: any) {
+            console.error('[Webhook PagoPar] Error sending WA confirmation:', err.message);
+          }
+        }
       }
 
       // PagoPar expects the payload echoed back with HTTP 200
