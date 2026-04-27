@@ -77,15 +77,17 @@ export class AuthService {
       data: { email, name: displayName, passwordHash: null, role, isActive: true, orgId: org.id },
     });
 
-    // Assign trial plan (superadmin gets Enterprise auto-assigned via seed)
+    // Assign plan: superadmin gets Pro (unlimited), everyone else gets Trial
     if (isSuperAdmin) {
-      const enterprise = await this.prisma.plan.findUnique({ where: { slug: 'enterprise' } });
-      if (enterprise) {
-        await this.prisma.organization.update({
-          where: { id: org.id },
-          data: { planId: enterprise.id, planStartedAt: new Date(), isActive: true },
-        });
-      }
+      const pro = await this.prisma.plan.findFirst({ where: { slug: 'pro', isActive: true } });
+      await this.prisma.organization.update({
+        where: { id: org.id },
+        data: {
+          planId: pro?.id ?? null,
+          planStartedAt: new Date(),
+          isActive: true,
+        },
+      });
     } else {
       await this.assignTrialPlan(org.id);
     }

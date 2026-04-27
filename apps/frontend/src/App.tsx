@@ -1,3 +1,4 @@
+// build: 2026-04-27
 import { useCallback, useEffect, useState } from 'react';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import MessageCenter from './components/MessageCenter';
