@@ -23,6 +23,8 @@ interface LineState {
   qrCode: string | null;
   status: 'CONNECTED' | 'DISCONNECTED' | 'CONNECTING' | 'QR_PENDING';
   messageStatusCallbacks: Map<string, (status: 'SUCCESS' | 'FAILED') => void>;
+  // ephemeral expiration (seconds) per JID — populated from chat events
+  ephemeralByJid: Map<string, number>;
   clearAuth?: () => Promise<void>;
 }
 
@@ -94,11 +96,12 @@ export class BaileysWhatsAppAdapter implements IWhatsAppProvider {
       defaultQueryTimeoutMs: 60000,
     });
 
-    const lineState: LineState = { 
-      socket: sock, 
-      qrCode: null, 
-      status: 'CONNECTING', 
+    const lineState: LineState = {
+      socket: sock,
+      qrCode: null,
+      status: 'CONNECTING',
       messageStatusCallbacks: new Map(),
+      ephemeralByJid: new Map(),
       clearAuth
     };
     this.lines.set(lineId, lineState);
@@ -240,6 +243,30 @@ export class BaileysWhatsAppAdapter implements IWhatsAppProvider {
       }
     });
 
+    sock.ev.on('chats.upsert', (chats) => {
+      for (const chat of chats) {
+        const jid = chat.id ?? '';
+        if (!jid) continue;
+        if (chat.ephemeralExpiration) {
+          lineState.ephemeralByJid.set(jid, chat.ephemeralExpiration);
+        } else if (chat.ephemeralExpiration === 0 || chat.ephemeralExpiration === null) {
+          lineState.ephemeralByJid.delete(jid);
+        }
+      }
+    });
+
+    sock.ev.on('chats.update', (updates) => {
+      for (const upd of updates) {
+        const jid = upd.id ?? '';
+        if (!jid) continue;
+        if (upd.ephemeralExpiration) {
+          lineState.ephemeralByJid.set(jid, upd.ephemeralExpiration);
+        } else if (upd.ephemeralExpiration === 0 || upd.ephemeralExpiration === null) {
+          lineState.ephemeralByJid.delete(jid);
+        }
+      }
+    });
+
     return waitForInit;
   }
 
@@ -254,9 +281,13 @@ export class BaileysWhatsAppAdapter implements IWhatsAppProvider {
 
   async sendTextMessage(lineId: string, to: string, text: string): Promise<string> {
     const line = this.getLineOrThrow(lineId);
-    // Sanitize JID: remove device suffixes and ensure @s.whatsapp.net
     const cleanTo = to.includes('@') ? to : `${to.split(':')[0]}@s.whatsapp.net`;
-    const result = await line.socket.sendMessage(cleanTo, { text });
+    const ephemeralExpiration = line.ephemeralByJid.get(cleanTo);
+    const result = await line.socket.sendMessage(
+      cleanTo,
+      { text },
+      ephemeralExpiration ? { ephemeralExpiration } : undefined,
+    );
     return result?.key.id ?? '';
   }
 
@@ -265,12 +296,14 @@ export class BaileysWhatsAppAdapter implements IWhatsAppProvider {
     const buffer = fs.readFileSync(mediaPath);
     const filename = path.basename(mediaPath);
     const cleanTo = to.includes('@') ? to : `${to.split(':')[0]}@s.whatsapp.net`;
+    const ephemeralExpiration = line.ephemeralByJid.get(cleanTo);
+    const sendOpts = ephemeralExpiration ? { ephemeralExpiration } : undefined;
 
     let result;
     if (type === 'IMAGE') {
-      result = await line.socket.sendMessage(cleanTo, { image: buffer });
+      result = await line.socket.sendMessage(cleanTo, { image: buffer }, sendOpts);
     } else {
-      result = await line.socket.sendMessage(cleanTo, { document: buffer, fileName: filename, mimetype: 'application/pdf' });
+      result = await line.socket.sendMessage(cleanTo, { document: buffer, fileName: filename, mimetype: 'application/pdf' }, sendOpts);
     }
     return result?.key.id ?? '';
   }

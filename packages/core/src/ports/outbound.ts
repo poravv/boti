@@ -72,6 +72,34 @@ export interface IAIService {
   ): Promise<AIReplyResult>;
 }
 
+// --- Calendar / Appointments ---
+export interface Appointment {
+  id: string;
+  lineId: string;
+  clientPhone?: string | null;
+  clientName?: string | null;
+  title: string;
+  notes?: string | null;
+  startAt: Date;
+  endAt: Date;
+  googleEventId?: string | null;
+  status: string;
+}
+
+export interface ICalendarService {
+  isConnectedForLine(lineId: string): Promise<boolean>;
+  getToolDefinitions(): AIToolDef[];
+  executeTool(
+    lineId: string,
+    clientPhone: string,
+    clientName: string,
+    toolName: string,
+    args: Record<string, unknown>,
+  ): Promise<string>;
+  getAppointments(lineId: string, from: Date, to: Date): Promise<Appointment[]>;
+  cancelAppointment(lineId: string, appointmentId: string): Promise<void>;
+}
+
 // --- Sales / Autonomous Selling ---
 export interface ISalesService {
   isEnabledForLine(lineId: string): Promise<boolean>;

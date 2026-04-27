@@ -66,6 +66,8 @@ model WhatsAppLine {
   pagoParConfig          PagoParConfig?
   facturadorConfig       FacturadorConfig?
   saleRecords            SaleRecord[]
+  calendarConfig         CalendarConfig?
+  appointments           Appointment[]
   orgId                  String?
 
   @@index([orgId])
@@ -135,9 +137,9 @@ model ConversationContext {
 model User {
   id           String    @id @default(uuid())
   email        String    @unique
-  passwordHash String
+  passwordHash String?   // null for Firebase-only users
   name         String
-  role         String    @default("OPERATOR") // ADMIN | OPERATOR
+  role         String    @default("OPERATOR") // SUPERADMIN | ADMIN | OPERATOR
   isActive     Boolean   @default(true)
   assignedClients     Client[]
   closedConversations Client[]       @relation("ClosedConversations")
@@ -187,10 +189,71 @@ model InternalNote {
   @@index([clientPhone])
 }
 
+model CalendarConfig {
+  id           String       @id @default(cuid())
+  lineId       String       @unique
+  line         WhatsAppLine @relation(fields: [lineId], references: [id], onDelete: Cascade)
+  accessToken  String
+  refreshToken String
+  tokenExpiry  DateTime?
+  calendarId   String       @default("primary")
+  timezone     String       @default("America/Asuncion")
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+}
+
+model Appointment {
+  id            String       @id @default(cuid())
+  lineId        String
+  line          WhatsAppLine @relation(fields: [lineId], references: [id], onDelete: Cascade)
+  clientPhone   String?
+  clientName    String?
+  title         String
+  notes         String?
+  startAt       DateTime
+  endAt         DateTime
+  googleEventId String?
+  status        String       @default("SCHEDULED") // SCHEDULED | CANCELLED | COMPLETED
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@index([lineId])
+  @@index([startAt])
+}
+
+model Plan {
+  id                       String         @id @default(uuid())
+  name                     String
+  slug                     String         @unique
+  price                    Float          @default(0)
+  maxLines                 Int            @default(1)      // -1 = unlimited
+  maxUsers                 Int            @default(2)      // -1 = unlimited
+  maxConversationsPerMonth Int            @default(200)    // -1 = unlimited
+  trialDays                Int            @default(0)
+  aiEnabled                Boolean        @default(true)
+  isActive                 Boolean        @default(true)
+  organizations            Organization[]
+  createdAt                DateTime       @default(now())
+  updatedAt                DateTime       @updatedAt
+}
+
 model Organization {
-  id        String   @id @default(uuid())
-  name      String
-  slug      String   @unique
-  createdAt DateTime @default(now())
+  id                      String    @id @default(uuid())
+  name                    String
+  slug                    String    @unique
+  planId                  String?
+  plan                    Plan?     @relation(fields: [planId], references: [id])
+  planStartedAt           DateTime?
+  trialEndsAt             DateTime?
+  isActive                Boolean   @default(true)
+  conversationsThisMonth  Int       @default(0)
+  usageResetAt            DateTime?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+}
+
+model SystemConfig {
+  key       String   @id
+  value     String
   updatedAt DateTime @updatedAt
 }

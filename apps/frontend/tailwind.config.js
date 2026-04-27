@@ -66,6 +66,15 @@ export default {
         'on-info': '#ffffff',
         'info-container': '#dbeafe',
         'on-info-container': '#1e3a8a',
+        // shadcn-style aliases — map to existing MD3 tokens so components using these names work correctly
+        'foreground': '#0b1c30',
+        'card': '#ffffff',
+        'card-foreground': '#0b1c30',
+        'border': '#c1c7cc',
+        'muted': '#e5eeff',
+        'muted-foreground': '#2f3539',
+        'primary-foreground': '#ffffff',
+        'warning-foreground': '#78350f',
       },
       borderRadius: {
         DEFAULT: '0.5rem',

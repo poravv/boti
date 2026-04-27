@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Navigate, Route, Routes, useNavigate } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import MessageCenter from './components/MessageCenter';
 import WhatsAppConnections from './components/WhatsAppConnections';
 import AIConfiguration from './components/AIConfiguration';
@@ -12,6 +12,11 @@ import { apiFetchJson } from './lib/apiClient';
 import { ExternalApisPage } from './components/pages/ExternalApisPage';
 import { TeamPage } from './components/pages/TeamPage';
 import { AutonomousSalesPage } from './components/pages/AutonomousSalesPage';
+import { CalendarPage } from './components/pages/CalendarPage';
+import { SuperAdminPage } from './components/pages/SuperAdminPage';
+import { LandingPage } from './components/pages/LandingPage';
+import { ContactsPage } from './components/pages/ContactsPage';
+import { HelpPage } from './components/pages/HelpPage';
 
 interface AuthUser {
   userId?: string;
@@ -49,6 +54,7 @@ const App = () => {
   const [unreadTotal, setUnreadTotal] = useState(0);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const navigate = useNavigate();
+  const location = useLocation();
 
   const fetchUnreadCount = useCallback(async () => {
     if (!token) return;
@@ -146,7 +152,7 @@ const App = () => {
     localStorage.setItem('token', newToken);
     setToken(newToken);
     setUser(userData);
-    navigate('/');
+    navigate('/dashboard');
   };
 
   const handleLogout = () => {
@@ -177,23 +183,41 @@ const App = () => {
   if (!token) {
     return (
       <Routes>
+        <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<Login onLogin={handleLogin} />} />
-        <Route path="*" element={<Navigate to="/login" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     );
   }
 
-  const isAdmin = user?.role === 'ADMIN';
+  // Public routes accessible even when authenticated — render without AppShell
+  if (location.pathname === '/' || location.pathname === '/login') {
+    return (
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/login" element={<Login onLogin={handleLogin} />} />
+      </Routes>
+    );
+  }
+
+  const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPERADMIN';
+  const isSuperAdmin = user?.role === 'SUPERADMIN';
 
   const navItems: SidebarNavItem[] = [
-    { name: 'Dashboard', path: '/', icon: 'dashboard' },
-    ...(isAdmin ? [{ name: 'Connections', path: '/connections', icon: 'link' }] : []),
-    { name: 'Messages', path: '/messages', icon: 'forum', badge: unreadTotal },
-    ...(isAdmin ? [{ name: 'AI Config', path: '/ai-config', icon: 'psychology' }] : []),
-    ...(isAdmin ? [{ name: 'APIs', path: '/external-apis', icon: 'api' }] : []),
-    ...(isAdmin ? [{ name: 'Ventas', path: '/sales', icon: 'storefront' }] : []),
-    ...(isAdmin ? [{ name: 'Equipo', path: '/settings/team', icon: 'group' }] : []),
-    { name: 'Perfil', path: '/profile', icon: 'account_circle' },
+    { name: 'Dashboard',   path: '/dashboard',     icon: 'dashboard',              mobileNav: true },
+    { name: 'Mensajes',    path: '/messages',       icon: 'forum',   badge: unreadTotal, section: 'Conversaciones', mobileNav: true },
+    { name: 'Contactos',   path: '/contacts',       icon: 'contacts',               section: 'Conversaciones' },
+    ...(isAdmin ? [
+      { name: 'Conexiones', path: '/connections',   icon: 'link',        section: 'Configuración', mobileNav: true },
+      { name: 'IA',         path: '/ai-config',     icon: 'psychology',  section: 'Configuración' },
+      { name: 'APIs',       path: '/external-apis', icon: 'api',         section: 'Configuración' },
+      { name: 'Ventas',     path: '/sales',         icon: 'storefront',  section: 'Configuración' },
+      { name: 'Calendario', path: '/calendar',      icon: 'calendar_month', section: 'Configuración' },
+      { name: 'Equipo',     path: '/settings/team', icon: 'group',       section: 'Cuenta' },
+    ] as SidebarNavItem[] : []),
+    { name: 'Perfil',      path: '/profile',        icon: 'account_circle', section: 'Cuenta', mobileNav: true },
+    { name: 'Ayuda',       path: '/help',           icon: 'help',           section: 'Cuenta' },
+    ...(isSuperAdmin ? [{ name: 'Super Admin', path: '/super-admin', icon: 'admin_panel_settings', section: 'Admin' }] as SidebarNavItem[] : []),
   ];
 
   return (
@@ -205,15 +229,19 @@ const App = () => {
       onClearNotifications={() => setNotifications([])}
     >
       <Routes>
-        <Route path="/" element={<Dashboard />} />
+        <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/messages" element={<MessageCenter />} />
         <Route path="/connections" element={<WhatsAppConnections />} />
         <Route path="/ai-config" element={<AIConfiguration />} />
         <Route path="/profile" element={<ProfilePage user={user ?? {}} />} />
         <Route path="/external-apis" element={<ExternalApisPage />} />
         <Route path="/sales" element={<AutonomousSalesPage />} />
+        <Route path="/calendar" element={<CalendarPage />} />
         <Route path="/settings/team" element={<TeamPage currentUserId={user?.userId} />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="/contacts" element={<ContactsPage />} />
+        <Route path="/help" element={<HelpPage />} />
+        {isSuperAdmin && <Route path="/super-admin" element={<SuperAdminPage />} />}
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </AppShell>
   );

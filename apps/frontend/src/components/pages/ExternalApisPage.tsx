@@ -127,7 +127,7 @@ function ApiCard({ api, onEdit, onDelete, onToggleActive }: ApiCardProps) {
             aria-label={api.isActive ? 'Desactivar API' : 'Activar API'}
             className={cn(
               'relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-250 focus-ring',
-              api.isActive ? 'bg-primary' : 'bg-outline-variant',
+              api.isActive ? 'bg-primary text-white' : 'bg-outline-variant',
             )}
           >
             <span
@@ -421,7 +421,7 @@ function ApiFormPanel({ open, onClose, onSaved, lineId, editing }: ApiFormPanelP
             onClick={() => updateForm('isActive', !form.isActive)}
             className={cn(
               'relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-250 focus-ring',
-              form.isActive ? 'bg-primary' : 'bg-outline-variant',
+              form.isActive ? 'bg-primary text-white' : 'bg-outline-variant',
             )}
           >
             <span
@@ -752,10 +752,8 @@ export function ExternalApisPage() {
 
         {/* Sidebar tips */}
         <div className="col-span-12 lg:col-span-4 space-y-6 lg:sticky lg:top-24">
-          <Card
-            variant="solid"
-            padding="lg"
-            className="bg-primary text-white border-none shadow-glass-xl relative overflow-hidden animate-fade-in-up"
+          <div
+            className="bg-primary text-white rounded-2xl p-6 shadow-glass-xl relative overflow-hidden animate-fade-in-up"
             style={{ animationDelay: '120ms' }}
           >
             <div
@@ -772,7 +770,7 @@ export function ExternalApisPage() {
                 contexto antes de responder.
               </p>
             </div>
-          </Card>
+          </div>
 
           <Card
             variant="glass"

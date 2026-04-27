@@ -258,7 +258,7 @@ export const AutonomousSalesPage = () => {
               <button
                 onClick={() => setSalesEnabled((v) => !v)}
                 className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none ${
-                  salesEnabled ? 'bg-primary' : 'bg-muted'
+                  salesEnabled ? 'bg-primary text-white' : 'bg-muted'
                 }`}
                 role="switch"
                 aria-checked={salesEnabled}
@@ -333,7 +333,7 @@ export const AutonomousSalesPage = () => {
                 <button
                   onClick={() => setPagopar((p) => ({ ...p, sandboxMode: !p.sandboxMode }))}
                   className={`relative inline-flex h-5 w-10 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
-                    pagopar.sandboxMode ? 'bg-warning' : 'bg-primary'
+                    pagopar.sandboxMode ? 'bg-warning' : 'bg-primary text-white'
                   }`}
                   role="switch"
                   aria-checked={!pagopar.sandboxMode}
@@ -374,7 +374,7 @@ export const AutonomousSalesPage = () => {
                   <button
                     onClick={() => setFacturador((f) => ({ ...f, isActive: !f.isActive }))}
                     className={`relative inline-flex h-5 w-10 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
-                      facturador.isActive ? 'bg-primary' : 'bg-muted'
+                      facturador.isActive ? 'bg-primary text-white' : 'bg-muted'
                     }`}
                     role="switch"
                     aria-checked={facturador.isActive}

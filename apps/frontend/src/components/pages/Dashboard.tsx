@@ -9,6 +9,7 @@ import {
   Modal,
   SkeletonCard,
   cn,
+  useToast,
 } from '../ui';
 
 interface Stats {
@@ -182,6 +183,8 @@ export function Dashboard() {
             onOpenAudit={() => setShowLogModal(true)}
             delay={300}
           />
+
+          <PlanUsageCard />
         </div>
       )}
 
@@ -475,6 +478,209 @@ function ActivityCard({ logs, total, onOpenAudit, delay }: ActivityCardProps) {
           Ver historial de auditoría
         </Button>
       </Card.Footer>
+    </Card>
+  );
+}
+
+interface PlanData {
+  plan: {
+    name: string;
+    maxLines: number;
+    maxUsers: number;
+    maxConversationsPerMonth: number;
+    aiEnabled: boolean;
+    price: number;
+  } | null;
+  org: {
+    name: string;
+    trialEndsAt: string | null;
+    conversationsThisMonth: number;
+    planStartedAt: string | null;
+    isActive: boolean;
+    planId: string | null;
+  };
+  linesCount: number;
+  usersCount: number;
+}
+
+const PLAN_UPGRADE_OPTIONS = ['Starter', 'Pro', 'Enterprise'] as const;
+type UpgradePlanOption = typeof PLAN_UPGRADE_OPTIONS[number];
+
+function PlanUsageCard() {
+  const toast = useToast();
+  const [data, setData] = useState<PlanData | null>(null);
+  const [loadingState, setLoadingState] = useState<'loading' | 'loaded' | 'forbidden'>('loading');
+  const [showUpgradeForm, setShowUpgradeForm] = useState(false);
+  const [desiredPlan, setDesiredPlan] = useState<UpgradePlanOption>('Starter');
+  const [upgradeNotes, setUpgradeNotes] = useState('');
+  const [submittingUpgrade, setSubmittingUpgrade] = useState(false);
+
+  useEffect(() => {
+    apiFetchJson<PlanData>('/api/org/plan')
+      .then(d => { setData(d); setLoadingState('loaded'); })
+      .catch((err: unknown) => {
+        const status = err instanceof Error && err.message.includes('403') ? 'forbidden' : 'loaded';
+        setLoadingState(status);
+      });
+  }, []);
+
+  const submitUpgrade = async () => {
+    setSubmittingUpgrade(true);
+    try {
+      await apiFetchJson('/api/org/plan/request-upgrade', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ desiredPlan, notes: upgradeNotes }),
+      });
+      toast.show('¡Solicitud enviada! Te contactaremos pronto.', { variant: 'success' });
+      setShowUpgradeForm(false);
+      setUpgradeNotes('');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error al enviar solicitud';
+      toast.show(msg, { variant: 'error' });
+    } finally {
+      setSubmittingUpgrade(false);
+    }
+  };
+
+  if (loadingState === 'loading') {
+    return <SkeletonCard className="col-span-12 h-auto" />;
+  }
+
+  if (loadingState === 'forbidden') {
+    return (
+      <Card variant="glass" padding="md" className="col-span-12">
+        <div className="flex items-center gap-3 text-warning">
+          <Icon name="warning" size="sm" />
+          <span className="text-body-sm font-medium text-on-surface">
+            Trial vencido — contactá al administrador
+          </span>
+        </div>
+      </Card>
+    );
+  }
+
+  if (!data) return null;
+
+  const { plan, org, linesCount, usersCount } = data;
+  const planName = plan?.name ?? 'Sin plan';
+  const isTrial = !plan || plan.name.toLowerCase().includes('trial');
+  const showUpgradeButton = isTrial || !org.planId;
+  const conversations = org.conversationsThisMonth;
+  const maxConversations = plan?.maxConversationsPerMonth ?? -1;
+  const maxLines = plan?.maxLines ?? -1;
+  const maxUsers = plan?.maxUsers ?? -1;
+
+  const trialDaysLeft = (() => {
+    if (!org.trialEndsAt) return null;
+    const ms = new Date(org.trialEndsAt).getTime() - Date.now();
+    const days = Math.ceil(ms / (1000 * 60 * 60 * 24));
+    return days > 0 ? days : 0;
+  })();
+
+  const showTrialWarning = trialDaysLeft !== null && trialDaysLeft <= 7;
+
+  const fmt = (n: number) => (n === -1 ? 'ilimitado' : String(n));
+  const fmtBar = (used: number, max: number) => max === -1 ? null : Math.min((used / max) * 100, 100);
+  const convProgress = fmtBar(conversations, maxConversations);
+
+  return (
+    <Card variant="glass" padding="md" className="col-span-12 space-y-3">
+      {showTrialWarning && (
+        <div className="flex items-center justify-between gap-3 bg-warning-container text-on-warning-container rounded-xl px-4 py-2.5">
+          <div className="flex items-center gap-2">
+            <Icon name="schedule" size="sm" />
+            <span className="text-body-sm font-medium">
+              Tu trial vence en {trialDaysLeft} día{trialDaysLeft === 1 ? '' : 's'}
+            </span>
+          </div>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => setShowUpgradeForm(true)}
+          >
+            Solicitar plan
+          </Button>
+        </div>
+      )}
+
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+            <Icon name="workspace_premium" size="sm" />
+          </div>
+          <div>
+            <p className="text-overline uppercase tracking-wider text-on-surface-variant">Uso del plan</p>
+            <p className="text-body font-semibold text-on-surface">{planName}</p>
+          </div>
+        </div>
+        {showUpgradeButton && !showUpgradeForm && (
+          <Button variant="secondary" size="sm" onClick={() => setShowUpgradeForm(true)}>
+            {isTrial ? 'Solicitar upgrade' : 'Cambiar plan'}
+          </Button>
+        )}
+      </div>
+
+      <div className="grid grid-cols-3 gap-3 text-sm">
+        <div className="space-y-1">
+          <p className="text-caption text-on-surface-variant">Conversaciones/mes</p>
+          <p className="text-body-sm font-semibold text-on-surface">
+            {conversations} / {fmt(maxConversations)}
+          </p>
+          {convProgress !== null && (
+            <div className="h-1.5 bg-outline-variant/30 rounded-full overflow-hidden">
+              <div
+                className={cn('h-full rounded-full transition-all', convProgress >= 90 ? 'bg-error' : convProgress >= 70 ? 'bg-warning' : 'bg-primary')}
+                style={{ width: `${convProgress}%` }}
+              />
+            </div>
+          )}
+        </div>
+        <div>
+          <p className="text-caption text-on-surface-variant">Líneas</p>
+          <p className="text-body-sm font-semibold text-on-surface">{linesCount} / {fmt(maxLines)}</p>
+        </div>
+        <div>
+          <p className="text-caption text-on-surface-variant">Usuarios</p>
+          <p className="text-body-sm font-semibold text-on-surface">{usersCount} / {fmt(maxUsers)}</p>
+        </div>
+      </div>
+
+      {showUpgradeForm && (
+        <div className="border-t border-outline-variant/40 pt-3 space-y-3">
+          <p className="text-body-sm font-semibold text-on-surface">Solicitar upgrade de plan</p>
+          <div>
+            <label className="text-caption text-on-surface-variant block mb-1">Plan deseado</label>
+            <select
+              value={desiredPlan}
+              onChange={e => setDesiredPlan(e.target.value as UpgradePlanOption)}
+              className="w-full border border-outline-variant/60 rounded-xl px-3 py-2 text-body text-on-surface bg-white/70 focus:ring-2 focus:ring-primary/30 outline-none text-sm"
+            >
+              {PLAN_UPGRADE_OPTIONS.map(p => (
+                <option key={p} value={p}>{p}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="text-caption text-on-surface-variant block mb-1">Notas adicionales (opcional)</label>
+            <textarea
+              value={upgradeNotes}
+              onChange={e => setUpgradeNotes(e.target.value)}
+              rows={2}
+              placeholder="¿Algo que quieras contarnos sobre tu caso de uso?"
+              className="w-full border border-outline-variant/60 rounded-xl px-3 py-2 text-body text-on-surface bg-white/70 focus:ring-2 focus:ring-primary/30 outline-none resize-none text-sm"
+            />
+          </div>
+          <div className="flex gap-2">
+            <Button variant="primary" size="sm" onClick={submitUpgrade} loading={submittingUpgrade}>
+              Enviar solicitud
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => { setShowUpgradeForm(false); setUpgradeNotes(''); }}>
+              Cancelar
+            </Button>
+          </div>
+        </div>
+      )}
     </Card>
   );
 }

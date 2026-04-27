@@ -76,7 +76,7 @@ export class SalesService implements ISalesService {
     const pagopar = new PagoParAdapter(config.publicKey, config.privateKey, config.sandboxMode);
 
     const orderId = `BOTI-${lineId.slice(0, 8)}-${Date.now()}`;
-    const callbackUrl = `${this.backendBaseUrl}/webhook/pagopar/${lineId}`;
+    const callbackUrl = `${this.backendBaseUrl}/api/webhook/pagopar/${lineId}`;
 
     const result = await pagopar.createPaymentOrder({
       orderId,

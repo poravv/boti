@@ -30,6 +30,8 @@ import {
 import { HandleInboundMessage, SendMessage, BlockClient } from '@boti/core';
 import { createRouter } from './http/router.js';
 import { SalesService } from './services/SalesService.js';
+import { CalendarService } from './services/CalendarService.js';
+import { EmailService } from './services/EmailService.js';
 
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
 const MAX_MESSAGES = parseInt(process.env.CONTEXT_MAX_MESSAGES ?? '10', 10);
@@ -69,6 +71,9 @@ async function bootstrap() {
   const BACKEND_BASE_URL = process.env.BACKEND_BASE_URL ?? `http://localhost:${PORT}`;
   const salesService = new SalesService(prisma, BACKEND_BASE_URL);
 
+  // --- Calendar Service ------------------------------------------------
+  const calendarService = new CalendarService(prisma);
+
   // --- Seed Default Org + Admin User ---
   const DEFAULT_ORG_ID = '00000000-0000-0000-0000-000000000001';
   // Ensure default org exists
@@ -89,6 +94,18 @@ async function bootstrap() {
   } else if (!existingAdmin.orgId) {
     await prisma.user.update({ where: { email: adminEmail }, data: { orgId: DEFAULT_ORG_ID } });
   }
+
+  // --- Seed Default Plans (idempotent — runs every start, never overwrites) ---
+  const planSeeds = [
+    { slug: 'trial',  name: 'Trial',  price: 0,      maxLines: 1, maxUsers: 2,  maxConversationsPerMonth: 100, trialDays: 15, aiEnabled: true },
+    { slug: 'basico', name: 'Básico', price: 150000,  maxLines: 1, maxUsers: 5,  maxConversationsPerMonth: 500, trialDays: 0,  aiEnabled: true },
+    { slug: 'pro',    name: 'Pro',    price: 350000,  maxLines: 3, maxUsers: 10, maxConversationsPerMonth: -1,  trialDays: 0,  aiEnabled: true },
+  ];
+  for (const seed of planSeeds) {
+    await prisma.plan.upsert({ where: { slug: seed.slug }, update: {}, create: seed });
+  }
+  // Deactivate obsolete plans so they no longer appear publicly
+  await prisma.plan.updateMany({ where: { slug: { in: ['starter', 'enterprise'] } }, data: { isActive: false } });
 
   // ─── Context Fetcher ─────────────────────────────────────────────────
   const contextFetcher = new ContextFetcherAdapter(prisma);
@@ -119,6 +136,7 @@ async function bootstrap() {
     notifier,
     externalApiRepo,
     salesService,
+    calendarService,
     maxMessages: MAX_MESSAGES,
     spamThreshold: SPAM_THRESHOLD,
   });
@@ -190,8 +208,35 @@ async function bootstrap() {
       pending.delete(key);
       const lineOrgId = await resolveOrgIdFromLine(prisma, lineId);
       baseClientRepo.currentOrgId = lineOrgId;
+
+      // Plan enforcement: block processing if trial expired or conversation limit reached
+      if (lineOrgId) {
+        const org = await prisma.organization.findUnique({
+          where: { id: lineOrgId },
+          select: { isActive: true, trialEndsAt: true, conversationsThisMonth: true, plan: { select: { maxConversationsPerMonth: true } } },
+        });
+        if (!org || !org.isActive) { baseClientRepo.currentOrgId = undefined; return; }
+        if (org.trialEndsAt && org.trialEndsAt < new Date()) { baseClientRepo.currentOrgId = undefined; return; }
+        if (org.plan && org.plan.maxConversationsPerMonth > 0 && org.conversationsThisMonth >= org.plan.maxConversationsPerMonth) {
+          baseClientRepo.currentOrgId = undefined; return;
+        }
+      }
+
+      // Snapshot updatedAt before processing to detect new session (>6h since last activity)
+      const SIX_HOURS = 6 * 60 * 60 * 1000;
+      const existingClient = await prisma.client.findUnique({ where: { phone: fromPhone }, select: { updatedAt: true } });
+      const isNewSession = !existingClient || (Date.now() - existingClient.updatedAt.getTime()) > SIX_HOURS;
+
       await handleInbound.execute({ lineId, fromPhone, fromName, content: accumulated, type });
       baseClientRepo.currentOrgId = undefined;
+
+      // Increment monthly conversation counter once per session, non-blocking
+      if (isNewSession && lineOrgId) {
+        prisma.organization.update({
+          where: { id: lineOrgId },
+          data: { conversationsThisMonth: { increment: 1 } },
+        }).catch(() => {});
+      }
     }, debounceMs);
 
     pending.set(key, { content: accumulated, fromName, lineId, timer });
@@ -203,7 +248,7 @@ async function bootstrap() {
   });
 
   // ─── HTTP Routes ─────────────────────────────────────────────────────
-  app.use('/api', createRouter(whatsApp, sendMessageUseCase, blockClientUseCase, prisma, wsManager, salesService));
+  app.use('/api', createRouter(whatsApp, sendMessageUseCase, blockClientUseCase, prisma, wsManager, salesService, calendarService));
 
   // ─── Autostart Lines ────────────────────────────────────────────────
   try {
@@ -222,6 +267,52 @@ async function bootstrap() {
   server.listen(PORT, () => {
     logger.info({ port: PORT }, '🚀 Boti backend running');
   });
+
+  // Reset monthly conversation counters for orgs whose reset date has passed — runs every hour
+  setInterval(async () => {
+    try {
+      const now = new Date();
+      const result = await prisma.organization.updateMany({
+        where: { usageResetAt: { lte: now } },
+        data: {
+          conversationsThisMonth: 0,
+          usageResetAt: new Date(now.getFullYear(), now.getMonth() + 1, 1),
+        },
+      });
+      if (result.count > 0) {
+        logger.info({ count: result.count }, 'Reset usage counters for organizations');
+      }
+    } catch (err) {
+      logger.error({ err }, 'Usage reset cron failed');
+    }
+  }, 60 * 60 * 1000);
+
+  // ─── Trial Expiry Warning Cron ────────────────────────────────────────
+  // Runs every hour. Sends a warning email when trialEndsAt is ~3 days away
+  // (within a 2h window centered on 72h) so the email fires exactly once.
+  const emailService = new EmailService(prisma);
+  setInterval(async () => {
+    try {
+      const now = new Date();
+      const lower = new Date(now.getTime() + 71 * 60 * 60 * 1000); // 71h from now
+      const upper = new Date(now.getTime() + 73 * 60 * 60 * 1000); // 73h from now
+      const expiringOrgs = await prisma.organization.findMany({
+        where: { trialEndsAt: { gte: lower, lte: upper }, isActive: true },
+      });
+      for (const org of expiringOrgs) {
+        if (!org.trialEndsAt) continue;
+        const admin = await prisma.user.findFirst({
+          where: { orgId: org.id, role: 'ADMIN', isActive: true },
+          select: { email: true, name: true },
+        });
+        if (!admin) continue;
+        await emailService.sendTrialExpiring(admin.email, admin.name, org.name, org.trialEndsAt).catch(() => {});
+        logger.info({ orgId: org.id, email: admin.email }, 'Trial expiry warning email sent');
+      }
+    } catch (err) {
+      logger.error({ err }, 'Trial warning cron failed');
+    }
+  }, 60 * 60 * 1000);
 
   // ─── Graceful Shutdown ────────────────────────────────────────────────
   const shutdown = async (signal: string) => {

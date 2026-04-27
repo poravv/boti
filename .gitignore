@@ -13,9 +13,19 @@ out
 # Environment
 .env
 .env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env.*.local
+.env.development
+.env.production
+.env.staging
+
+# Secrets / credentials — never commit these
+*.service-account.json
+serviceAccount.json
+firebase-service-account.json
+*-service-account.json
+google-credentials.json
+credentials.json
+secrets.json
 
 # WhatsApp Sessions (Baileys)
 .baileys-auth

@@ -12,3 +12,4 @@ data:
   SPAM_THRESHOLD: "50"
   SPAM_BLOCK_DURATION_MS: "86400000"
   CONTEXT_MAX_MESSAGES: "10"
+  BACKEND_BASE_URL: "https://boti.mindtechpy.net"
