@@ -544,20 +544,36 @@ export function SuperAdminPage() {
                   />
                 </div>
 
-                <div className="flex items-center gap-3">
-                  <label className="text-sm font-medium text-foreground">SSL/TLS</label>
-                  <button
-                    type="button"
-                    onClick={() => setSmtpConfig(c => ({ ...c, smtp_secure: c.smtp_secure === 'true' ? 'false' : 'true' }))}
-                    className={`relative w-11 h-6 rounded-full transition-colors ${smtpConfig.smtp_secure === 'true' ? 'bg-primary' : 'bg-muted-foreground/30'}`}
-                    aria-checked={smtpConfig.smtp_secure === 'true'}
-                    role="switch"
-                  >
-                    <span className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform shadow ${smtpConfig.smtp_secure === 'true' ? 'translate-x-6' : 'translate-x-1'}`} />
-                  </button>
-                  <span className="text-sm text-muted-foreground">
-                    {smtpConfig.smtp_secure === 'true' ? 'Activado' : 'Desactivado'}
-                  </span>
+                <div className="flex items-center justify-between rounded-xl border border-outline-variant/30 bg-surface-container px-4 py-3">
+                  <div>
+                    <p className="text-sm font-medium text-on-surface">SSL/TLS</p>
+                    <p className="text-xs text-on-surface-variant mt-0.5">
+                      Cifrado seguro para la conexión al servidor de correo
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${
+                      smtpConfig.smtp_secure === 'true'
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        : 'bg-surface-container-high text-on-surface-variant border-outline-variant/40'
+                    }`}>
+                      {smtpConfig.smtp_secure === 'true' ? 'Activado' : 'Desactivado'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setSmtpConfig(c => ({ ...c, smtp_secure: c.smtp_secure === 'true' ? 'false' : 'true' }))}
+                      className={`relative w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary/30 ${
+                        smtpConfig.smtp_secure === 'true' ? 'bg-primary' : 'bg-outline-variant'
+                      }`}
+                      aria-checked={smtpConfig.smtp_secure === 'true'}
+                      role="switch"
+                      aria-label="Activar SSL/TLS"
+                    >
+                      <span className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform duration-200 shadow-sm ${
+                        smtpConfig.smtp_secure === 'true' ? 'translate-x-6' : 'translate-x-1'
+                      }`} />
+                    </button>
+                  </div>
                 </div>
 
                 <FormInput
@@ -670,14 +686,26 @@ export function SuperAdminPage() {
               className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background text-foreground focus:ring-2 focus:ring-primary/30 outline-none"
             />
           </div>
-          <div className="flex items-center gap-3">
-            <label className="text-sm font-medium text-foreground">Activa</label>
-            <button
-              onClick={() => setOrgPatch(p => ({ ...p, isActive: !p.isActive }))}
-              className={`relative w-11 h-6 rounded-full transition-colors ${orgPatch.isActive ? 'bg-primary text-white' : 'bg-muted-foreground/30'}`}
-            >
-              <span className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform shadow ${orgPatch.isActive ? 'translate-x-6' : 'translate-x-1'}`} />
-            </button>
+          <div className="flex items-center justify-between rounded-xl border border-outline-variant/30 bg-surface-container px-4 py-3">
+            <label className="text-sm font-medium text-on-surface">Organización activa</label>
+            <div className="flex items-center gap-3">
+              <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${
+                orgPatch.isActive
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                  : 'bg-red-50 text-red-600 border-red-200'
+              }`}>
+                {orgPatch.isActive ? 'Activa' : 'Inactiva'}
+              </span>
+              <button
+                type="button"
+                onClick={() => setOrgPatch(p => ({ ...p, isActive: !p.isActive }))}
+                className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${orgPatch.isActive ? 'bg-primary' : 'bg-outline-variant'}`}
+                role="switch"
+                aria-checked={orgPatch.isActive}
+              >
+                <span className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform duration-200 shadow-sm ${orgPatch.isActive ? 'translate-x-6' : 'translate-x-1'}`} />
+              </button>
+            </div>
           </div>
           <div className="flex gap-2 pt-2">
             <Button variant="secondary" size="sm" className="flex-1" onClick={() => setEditOrg(null)}>Cancelar</Button>
@@ -698,11 +726,26 @@ export function SuperAdminPage() {
             </div>
             <FormInput label="Conv/mes (-1=∞)" type="number" value={String(editPlan.maxConversationsPerMonth)} onChange={e => setEditPlan(p => p ? { ...p, maxConversationsPerMonth: Number(e.target.value) } : p)} />
             <FormInput label="Días de trial" type="number" value={String(editPlan.trialDays)} onChange={e => setEditPlan(p => p ? { ...p, trialDays: Number(e.target.value) } : p)} />
-            <div className="flex items-center gap-3">
-              <label className="text-sm font-medium text-foreground">IA habilitada</label>
-              <button onClick={() => setEditPlan(p => p ? { ...p, aiEnabled: !p.aiEnabled } : p)} className={`relative w-11 h-6 rounded-full transition-colors ${editPlan.aiEnabled ? 'bg-primary text-white' : 'bg-muted-foreground/30'}`}>
-                <span className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform shadow ${editPlan.aiEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
-              </button>
+            <div className="flex items-center justify-between rounded-xl border border-outline-variant/30 bg-surface-container px-4 py-3">
+              <label className="text-sm font-medium text-on-surface">IA habilitada</label>
+              <div className="flex items-center gap-3">
+                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${
+                  editPlan.aiEnabled
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                    : 'bg-surface-container-high text-on-surface-variant border-outline-variant/40'
+                }`}>
+                  {editPlan.aiEnabled ? 'Habilitada' : 'Deshabilitada'}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setEditPlan(p => p ? { ...p, aiEnabled: !p.aiEnabled } : p)}
+                  className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${editPlan.aiEnabled ? 'bg-primary' : 'bg-outline-variant'}`}
+                  role="switch"
+                  aria-checked={editPlan.aiEnabled}
+                >
+                  <span className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform duration-200 shadow-sm ${editPlan.aiEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                </button>
+              </div>
             </div>
             <div className="flex gap-2 pt-2">
               <Button variant="secondary" size="sm" className="flex-1" onClick={() => setEditPlan(null)}>Cancelar</Button>
