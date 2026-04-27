@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Badge, Button, Card, FormInput, Icon } from '../ui';
+import { SOUND_PREF_KEY } from '../../App';
 
 interface ProfileUser {
   name?: string;
@@ -18,6 +19,15 @@ export function ProfilePage({ user }: ProfilePageProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  const [soundEnabled, setSoundEnabled] = useState(
+    () => localStorage.getItem(SOUND_PREF_KEY) !== 'false',
+  );
+
+  const toggleSound = () => {
+    const next = !soundEnabled;
+    setSoundEnabled(next);
+    localStorage.setItem(SOUND_PREF_KEY, String(next));
+  };
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,6 +92,49 @@ export function ProfilePage({ user }: ProfilePageProps) {
               </Badge>
             </div>
           </div>
+        </div>
+      </Card>
+
+      {/* Preferences */}
+      <Card variant="glass" className="p-6">
+        <div className="flex items-center gap-3 mb-5 pb-4 border-b border-outline-variant/30">
+          <div className="w-9 h-9 rounded-xl bg-primary/8 flex items-center justify-center">
+            <Icon name="tune" size="sm" className="text-primary" />
+          </div>
+          <div>
+            <h3 className="text-heading-sm font-semibold text-on-surface">Preferencias</h3>
+            <p className="text-on-surface-variant text-body-sm">Ajustes locales de la aplicación</p>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Icon
+              name={soundEnabled ? 'volume_up' : 'volume_off'}
+              size="sm"
+              className={soundEnabled ? 'text-primary' : 'text-on-surface-variant'}
+            />
+            <div>
+              <p className="text-body font-medium text-on-surface">Sonido de notificaciones</p>
+              <p className="text-body-sm text-on-surface-variant">
+                {soundEnabled ? 'Activo — suena al recibir mensajes' : 'Silenciado'}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={toggleSound}
+            role="switch"
+            aria-checked={soundEnabled}
+            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+              soundEnabled ? 'bg-primary' : 'bg-outline-variant'
+            }`}
+          >
+            <span
+              className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform transition-transform ${
+                soundEnabled ? 'translate-x-5' : 'translate-x-0'
+              }`}
+            />
+          </button>
         </div>
       </Card>
 

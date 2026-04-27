@@ -28,8 +28,10 @@ interface WSEventDetail {
 }
 
 const NOTIFICATION_SOUND_URL = '/sounds/notification.mp3';
+export const SOUND_PREF_KEY = 'boti:sound-enabled';
 
 const playNotificationSound = () => {
+  if (localStorage.getItem(SOUND_PREF_KEY) === 'false') return;
   try {
     const audio = new Audio(NOTIFICATION_SOUND_URL);
     audio.volume = 0.5;
