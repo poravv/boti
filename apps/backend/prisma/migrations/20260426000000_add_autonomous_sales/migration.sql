@@ -2,10 +2,10 @@
 -- Adds autonomous sales toggle, PagoPar config, Facturador config, and SaleRecord
 
 -- autonomousSalesEnabled toggle on WhatsAppLine
-ALTER TABLE "WhatsAppLine" ADD COLUMN "autonomousSalesEnabled" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "WhatsAppLine" ADD COLUMN IF NOT EXISTS "autonomousSalesEnabled" BOOLEAN NOT NULL DEFAULT false;
 
 -- PagoPar config (one-to-one per line)
-CREATE TABLE "PagoParConfig" (
+CREATE TABLE IF NOT EXISTS "PagoParConfig" (
     "id"          TEXT NOT NULL,
     "lineId"      TEXT NOT NULL,
     "publicKey"   TEXT NOT NULL,
@@ -18,15 +18,16 @@ CREATE TABLE "PagoParConfig" (
     CONSTRAINT "PagoParConfig_pkey" PRIMARY KEY ("id")
 );
 
-CREATE UNIQUE INDEX "PagoParConfig_lineId_key" ON "PagoParConfig"("lineId");
+CREATE UNIQUE INDEX IF NOT EXISTS "PagoParConfig_lineId_key" ON "PagoParConfig"("lineId");
 
+ALTER TABLE "PagoParConfig" DROP CONSTRAINT IF EXISTS "PagoParConfig_lineId_fkey";
 ALTER TABLE "PagoParConfig"
     ADD CONSTRAINT "PagoParConfig_lineId_fkey"
     FOREIGN KEY ("lineId") REFERENCES "WhatsAppLine"("id")
     ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- Facturador config (one-to-one per line)
-CREATE TABLE "FacturadorConfig" (
+CREATE TABLE IF NOT EXISTS "FacturadorConfig" (
     "id"             TEXT NOT NULL,
     "lineId"         TEXT NOT NULL,
     "baseUrl"        TEXT NOT NULL,
@@ -42,15 +43,16 @@ CREATE TABLE "FacturadorConfig" (
     CONSTRAINT "FacturadorConfig_pkey" PRIMARY KEY ("id")
 );
 
-CREATE UNIQUE INDEX "FacturadorConfig_lineId_key" ON "FacturadorConfig"("lineId");
+CREATE UNIQUE INDEX IF NOT EXISTS "FacturadorConfig_lineId_key" ON "FacturadorConfig"("lineId");
 
+ALTER TABLE "FacturadorConfig" DROP CONSTRAINT IF EXISTS "FacturadorConfig_lineId_fkey";
 ALTER TABLE "FacturadorConfig"
     ADD CONSTRAINT "FacturadorConfig_lineId_fkey"
     FOREIGN KEY ("lineId") REFERENCES "WhatsAppLine"("id")
     ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- Sale records
-CREATE TABLE "SaleRecord" (
+CREATE TABLE IF NOT EXISTS "SaleRecord" (
     "id"             TEXT NOT NULL,
     "lineId"         TEXT NOT NULL,
     "clientPhone"    TEXT NOT NULL,
@@ -69,10 +71,11 @@ CREATE TABLE "SaleRecord" (
     CONSTRAINT "SaleRecord_pkey" PRIMARY KEY ("id")
 );
 
-CREATE INDEX "SaleRecord_lineId_idx"      ON "SaleRecord"("lineId");
-CREATE INDEX "SaleRecord_hashPedido_idx"  ON "SaleRecord"("hashPedido");
-CREATE INDEX "SaleRecord_clientPhone_idx" ON "SaleRecord"("clientPhone");
+CREATE INDEX IF NOT EXISTS "SaleRecord_lineId_idx"      ON "SaleRecord"("lineId");
+CREATE INDEX IF NOT EXISTS "SaleRecord_hashPedido_idx"  ON "SaleRecord"("hashPedido");
+CREATE INDEX IF NOT EXISTS "SaleRecord_clientPhone_idx" ON "SaleRecord"("clientPhone");
 
+ALTER TABLE "SaleRecord" DROP CONSTRAINT IF EXISTS "SaleRecord_lineId_fkey";
 ALTER TABLE "SaleRecord"
     ADD CONSTRAINT "SaleRecord_lineId_fkey"
     FOREIGN KEY ("lineId") REFERENCES "WhatsAppLine"("id")
