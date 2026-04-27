@@ -244,6 +244,20 @@ export function createRouter(
         where: { id: resolved.userId },
         select: { id: true, email: true, name: true, role: true, orgId: true },
       });
+
+      // Fire-and-forget notifications on first Google sign-up
+      if (resolved.isNew && resolved.role !== 'SUPERADMIN') {
+        try {
+          const trialPlan = await prisma.plan.findFirst({ where: { slug: 'trial' }, select: { trialDays: true } }).catch(() => null);
+          const trialDays = trialPlan?.trialDays ?? 15;
+          const adminEmail = process.env.ADMIN_EMAIL || 'andyvercha@gmail.com';
+          const waMsg = `🆕 *Nueva org en Boti (Google)*\n\n👤 *Usuario:* ${resolved.name}\n📧 *Email:* ${resolved.email}\n⏱ *Trial:* ${trialDays} días\n🕐 ${new Date().toLocaleString('es-PY', { timeZone: 'America/Asuncion' })}`;
+          notifyAdmin(waMsg).catch(() => {});
+          emailService.sendWelcome(resolved.email, resolved.name, resolved.name, trialDays).catch(() => {});
+          emailService.sendAdminNewOrg(adminEmail, resolved.name, resolved.name, resolved.email, trialDays).catch(() => {});
+        } catch (_) {}
+      }
+
       return res.json({ token, user });
     } catch (err: any) {
       return res.status(500).json({ error: err.message });

@@ -33,22 +33,23 @@ export class AuthService {
     }
   }
 
-  async verifyFirebaseAndResolveUser(token: string): Promise<{ userId: string; email: string; role: string; orgId: string } | null> {
+  async verifyFirebaseAndResolveUser(token: string): Promise<{ userId: string; email: string; name: string; role: string; orgId: string; isNew: boolean } | null> {
     const decoded = await verifyFirebaseToken(token);
     if (!decoded?.email) return null;
 
     const email = decoded.email;
     const existing = await this.prisma.user.findUnique({
       where: { email },
-      select: { id: true, email: true, role: true, orgId: true, isActive: true },
+      select: { id: true, email: true, name: true, role: true, orgId: true, isActive: true },
     });
 
     if (existing) {
       if (!existing.isActive) return null;
-      return { userId: existing.id, email: existing.email, role: existing.role, orgId: existing.orgId ?? '' };
+      return { userId: existing.id, email: existing.email, name: existing.name ?? email, role: existing.role, orgId: existing.orgId ?? '', isNew: false };
     }
 
-    return this.provisionFirebaseUser(email, decoded.name ?? email.split('@')[0], decoded.uid);
+    const provisioned = await this.provisionFirebaseUser(email, decoded.name ?? email.split('@')[0], decoded.uid);
+    return { ...provisioned, isNew: true };
   }
 
   async assignTrialPlan(orgId: string): Promise<void> {
@@ -62,7 +63,7 @@ export class AuthService {
     });
   }
 
-  private async provisionFirebaseUser(email: string, displayName: string, uid: string): Promise<{ userId: string; email: string; role: string; orgId: string }> {
+  private async provisionFirebaseUser(email: string, displayName: string, uid: string): Promise<{ userId: string; email: string; name: string; role: string; orgId: string }> {
     const isSuperAdmin = email === SUPERADMIN_EMAIL;
     const role = isSuperAdmin ? 'SUPERADMIN' : 'ADMIN';
 
@@ -95,6 +96,6 @@ export class AuthService {
     // Set Firebase custom claims so Firestore rules can check role
     await setFirebaseCustomClaims(uid, { role, orgId: org.id }).catch(() => {});
 
-    return { userId: user.id, email: user.email, role: user.role, orgId: user.orgId ?? '' };
+    return { userId: user.id, email: user.email, name: user.name ?? displayName, role: user.role, orgId: user.orgId ?? '' };
   }
 }
