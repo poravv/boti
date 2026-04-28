@@ -15,7 +15,7 @@ npx prisma db push
 echo "Running org backfill..."
 npx tsx prisma/seed-default-org.ts || echo "Backfill skipped (tsx unavailable — index.ts seed will handle it)"
 
-# build: 2026-04-28
+# build: 2026-04-28b
 # Start the application
 echo "Starting application..."
 npm run start
