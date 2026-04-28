@@ -421,8 +421,8 @@ export function SuperAdminPage() {
       {tab === 'plans' && (
         <div className="space-y-4">
           <div className="flex justify-end">
-            <Button variant="primary" size="sm" onClick={() => setShowNewPlan(true)}>
-              <Icon name="add" size="sm" /> Nuevo plan
+            <Button variant="primary" size="sm" onClick={() => setShowNewPlan(true)} leadingIcon="add">
+              Nuevo plan
             </Button>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -501,8 +501,8 @@ export function SuperAdminPage() {
                       size="sm"
                       onClick={() => revokeAdmin(admin.id)}
                       className="text-error hover:bg-error/10"
+                      leadingIcon="remove_moderator"
                     >
-                      <Icon name="remove_moderator" size="sm" />
                       Revocar
                     </Button>
                   </li>
@@ -562,15 +562,15 @@ export function SuperAdminPage() {
                     <button
                       type="button"
                       onClick={() => setSmtpConfig(c => ({ ...c, smtp_secure: c.smtp_secure === 'true' ? 'false' : 'true' }))}
-                      className={`relative w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary/30 ${
+                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary/30 ${
                         smtpConfig.smtp_secure === 'true' ? 'bg-primary' : 'bg-outline-variant'
                       }`}
                       aria-checked={smtpConfig.smtp_secure === 'true'}
                       role="switch"
                       aria-label="Activar SSL/TLS"
                     >
-                      <span className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform duration-200 shadow-sm ${
-                        smtpConfig.smtp_secure === 'true' ? 'translate-x-6' : 'translate-x-1'
+                      <span className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-sm transform transition-transform duration-200 ${
+                        smtpConfig.smtp_secure === 'true' ? 'translate-x-5' : 'translate-x-0'
                       }`} />
                     </button>
                   </div>
@@ -699,11 +699,11 @@ export function SuperAdminPage() {
               <button
                 type="button"
                 onClick={() => setOrgPatch(p => ({ ...p, isActive: !p.isActive }))}
-                className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${orgPatch.isActive ? 'bg-primary' : 'bg-outline-variant'}`}
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary/30 ${orgPatch.isActive ? 'bg-primary' : 'bg-outline-variant'}`}
                 role="switch"
                 aria-checked={orgPatch.isActive}
               >
-                <span className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform duration-200 shadow-sm ${orgPatch.isActive ? 'translate-x-6' : 'translate-x-1'}`} />
+                <span className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-sm transform transition-transform duration-200 ${orgPatch.isActive ? 'translate-x-5' : 'translate-x-0'}`} />
               </button>
             </div>
           </div>
@@ -739,11 +739,11 @@ export function SuperAdminPage() {
                 <button
                   type="button"
                   onClick={() => setEditPlan(p => p ? { ...p, aiEnabled: !p.aiEnabled } : p)}
-                  className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${editPlan.aiEnabled ? 'bg-primary' : 'bg-outline-variant'}`}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary/30 ${editPlan.aiEnabled ? 'bg-primary' : 'bg-outline-variant'}`}
                   role="switch"
                   aria-checked={editPlan.aiEnabled}
                 >
-                  <span className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform duration-200 shadow-sm ${editPlan.aiEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                  <span className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-sm transform transition-transform duration-200 ${editPlan.aiEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
                 </button>
               </div>
             </div>
