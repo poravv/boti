@@ -39,6 +39,7 @@ export interface FirebaseDecodedToken {
   uid: string;
   email?: string;
   name?: string;
+  email_verified?: boolean;
 }
 
 // ─── Token verification (no service account needed) ──────────────────────────
@@ -70,6 +71,7 @@ export async function verifyFirebaseToken(idToken: string): Promise<FirebaseDeco
       uid: decoded.sub as string,
       email: decoded.email as string | undefined,
       name: decoded.name as string | undefined,
+      email_verified: decoded.email_verified as boolean | undefined,
     };
   } catch (e) {
     console.error('[firebase] verifyFirebaseToken failed:', e instanceof Error ? e.message : String(e));

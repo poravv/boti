@@ -101,7 +101,11 @@ export default function Login({ onLogin }: LoginProps) {
         onLogin(data.token, data.user);
       } else {
         // Email with Firebase
-        await signInWithEmail(loginIdentifier, password);
+        const firebaseUser = await signInWithEmail(loginIdentifier, password);
+        if (!firebaseUser.emailVerified) {
+          await firebaseSignOut();
+          throw new Error('Verificá tu email antes de ingresar. Revisá tu bandeja de entrada.');
+        }
         const { token, user } = await resolveFirebaseSession();
         onLogin(token, user);
       }
@@ -136,8 +140,10 @@ export default function Login({ onLogin }: LoginProps) {
         onLogin(data.token, data.user);
       } else {
         await registerWithEmail(email, password);
-        const { token, user } = await resolveFirebaseSession();
-        onLogin(token, user);
+        // Sign out immediately — session is blocked until email is verified
+        await firebaseSignOut();
+        toast.show('Te enviamos un email de verificación. Confirmá tu cuenta e ingresá.', { variant: 'success' });
+        switchView('login');
       }
     } catch (err: any) {
       const msg = err.code === 'auth/email-already-in-use'
