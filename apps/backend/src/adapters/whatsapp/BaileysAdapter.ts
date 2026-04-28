@@ -54,7 +54,10 @@ export class BaileysWhatsAppAdapter implements IWhatsAppProvider {
     this.onMessageCallback = cb;
   }
 
-  async connectLine(lineId: string): Promise<string | null> {
+  // forceNewQr=true (default): used by API calls — wipes existing creds so Baileys emits a fresh QR.
+  // forceNewQr=false: used by internal auto-reconnect — preserves creds so Baileys can resume a
+  //   session (e.g. after a 515 stream restart following a successful pairing).
+  async connectLine(lineId: string, forceNewQr = true): Promise<string | null> {
     // Cancel any pending auto-reconnect timer for this line.
     const pendingTimer = this.reconnectTimers.get(lineId);
     if (pendingTimer) {
@@ -70,8 +73,7 @@ export class BaileysWhatsAppAdapter implements IWhatsAppProvider {
       return null;
     }
 
-    // Force a fresh start for any non-connected line
-    baileysLogger.info({ lineId }, 'Ensuring fresh session for connection attempt');
+    baileysLogger.info({ lineId, forceNewQr }, 'Ensuring fresh session for connection attempt');
 
     // 1. Close existing socket if any — mark intentional so the close handler skips auto-reconnect.
     if (existingLine) {
@@ -80,9 +82,9 @@ export class BaileysWhatsAppAdapter implements IWhatsAppProvider {
       this.lines.delete(lineId);
     }
 
-    // 2. Clear stale auth BEFORE loading state so socket starts with empty creds → forces new QR.
-    //    Loading then clearing leaves stale creds in memory and Baileys reuses old session.
-    if (existingLine) {
+    // 2. Only wipe Redis auth when the caller explicitly wants a fresh QR (user-triggered connect).
+    //    Auto-reconnect (forceNewQr=false) must preserve creds so Baileys can resume the session.
+    if (forceNewQr && existingLine) {
       baileysLogger.info({ lineId }, 'Clearing stale Redis auth to force fresh QR');
       const { clear } = await useRedisAuthState(lineId, this.redis);
       await clear();
@@ -182,9 +184,11 @@ export class BaileysWhatsAppAdapter implements IWhatsAppProvider {
 
           if (shouldReconnect) {
             // Track the timer so a subsequent connectLine call can cancel it.
+            // Pass forceNewQr=false: auth was already cleared above for 401/408/conflict,
+            // and for other codes (e.g. 515 stream restart) we must keep the saved creds.
             const timer = setTimeout(() => {
               this.reconnectTimers.delete(lineId);
-              this.connectLine(lineId);
+              this.connectLine(lineId, false);
             }, 5000);
             this.reconnectTimers.set(lineId, timer);
           }

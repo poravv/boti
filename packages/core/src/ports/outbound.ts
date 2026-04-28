@@ -3,7 +3,7 @@ import type { Client, Message, WhatsAppLine, ConversationContext, AuditLog, User
 
 // --- WhatsApp ---
 export interface IWhatsAppProvider {
-  connectLine(lineId: string): Promise<string | null>;
+  connectLine(lineId: string, forceNewQr?: boolean): Promise<string | null>;
   disconnectLine(lineId: string): Promise<void>;
   sendTextMessage(lineId: string, to: string, text: string): Promise<string>; // returns message ID
   sendMediaMessage(lineId: string, to: string, mediaPath: string, type: 'IMAGE' | 'PDF'): Promise<string>;
