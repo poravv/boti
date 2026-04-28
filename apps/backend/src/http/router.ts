@@ -68,6 +68,9 @@ export function createRouter(
 
     // SUPERADMIN bypasses org checks — they manage all orgs
     const orgId = (decoded as any).orgId as string | undefined;
+    if (!orgId && (decoded as any).role !== 'SUPERADMIN') {
+      return res.status(403).json({ error: 'Usuario sin organización asignada. Contactá al administrador.' });
+    }
     if (orgId && (decoded as any).role !== 'SUPERADMIN') {
       try {
         const org = await prisma.organization.findUnique({
@@ -133,11 +136,12 @@ export function createRouter(
   const requireLineOwnership = async (req: Request, res: Response, next: () => void) => {
     const { lineId } = req.params;
     if (!lineId) return next();
-    const userOrgId = (req as any).user?.orgId;
+    if ((req as any).user?.role === 'SUPERADMIN') return next();
+    const userOrgId = (req as any).user?.orgId as string | undefined;
     try {
       const line = await prisma.whatsAppLine.findUnique({ where: { id: lineId }, select: { orgId: true } });
       if (!line) return res.status(404).json({ error: 'Línea no encontrada.' });
-      if (line.orgId && userOrgId && line.orgId !== userOrgId) {
+      if (!line.orgId || !userOrgId || line.orgId !== userOrgId) {
         return res.status(403).json({ error: 'Acceso denegado.' });
       }
       next();
@@ -286,9 +290,9 @@ export function createRouter(
   // Stats
   router.get('/stats', authMiddleware, async (req, res) => {
     try {
-      const orgId = (req as any).user.orgId as string | undefined;
-      const lineFilter = orgId ? { orgId } : {};
-      const clientFilter = orgId ? { orgId } : {};
+      const orgId = (req as any).user.orgId as string;
+      const lineFilter = { orgId };
+      const clientFilter = { orgId };
 
       const [totalMessages, allLines, totalLeads, messagesToday] = await Promise.all([
         prisma.message.count({ where: { line: lineFilter } }),
@@ -603,10 +607,9 @@ export function createRouter(
 
   router.get('/messages/unread-count', authMiddleware, async (req, res) => {
     try {
-      const orgId = (req as any).user.orgId as string | undefined;
-      const lineFilter = orgId ? { orgId } : {};
+      const orgId = (req as any).user.orgId as string;
       const count = await prisma.message.count({
-        where: { direction: 'INBOUND', isRead: false, line: lineFilter }
+        where: { direction: 'INBOUND', isRead: false, line: { orgId } }
       });
       res.json({ count });
     } catch (err: any) {
@@ -618,7 +621,7 @@ export function createRouter(
     try {
       const limit = Math.min(Number(req.query.limit) || 30, 100);
       const cl = await prisma.client.findUnique({ where: { phone: req.params.phone } });
-      if (cl && cl.orgId && cl.orgId !== (req as any).user.orgId) {
+      if (!cl || cl.orgId !== (req as any).user.orgId) {
         return res.status(403).json({ error: 'Acceso denegado.' });
       }
       const beforeId = req.query.before as string | undefined;
