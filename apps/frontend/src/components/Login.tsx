@@ -8,6 +8,7 @@ import {
   resetPassword,
   getIdToken,
   firebaseSignOut,
+  resendVerificationEmail,
 } from '../lib/firebase';
 import { apiFetchJson } from '../lib/apiClient';
 
@@ -104,8 +105,9 @@ export default function Login({ onLogin }: LoginProps) {
         // Email with Firebase
         const firebaseUser = await signInWithEmail(loginIdentifier, password);
         if (!firebaseUser.emailVerified) {
+          await resendVerificationEmail(firebaseUser).catch(() => {});
           await firebaseSignOut();
-          throw new Error('Verificá tu email antes de ingresar. Revisá tu bandeja de entrada.');
+          throw new Error(`Email no verificado. Te reenviamos el link a ${firebaseUser.email}. Revisá tu bandeja (y spam).`);
         }
         const { token, user } = await resolveFirebaseSession();
         onLogin(token, user);

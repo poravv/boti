@@ -68,6 +68,10 @@ export async function registerWithEmail(email: string, password: string): Promis
   return result.user;
 }
 
+export async function resendVerificationEmail(user: User): Promise<void> {
+  await sendEmailVerification(user);
+}
+
 export async function resetPassword(email: string): Promise<void> {
   if (!auth) throw new Error('Firebase no configurado.');
   await sendPasswordResetEmail(auth, email);
