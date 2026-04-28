@@ -10,6 +10,7 @@ import { ProfilePage } from './components/pages/ProfilePage';
 import { AppShell } from './components/layout';
 import type { NotificationItem, SidebarNavItem } from './components/layout';
 import { apiFetchJson } from './lib/apiClient';
+import { firebaseSignOut } from './lib/firebase';
 import { ExternalApisPage } from './components/pages/ExternalApisPage';
 import { TeamPage } from './components/pages/TeamPage';
 import { AutonomousSalesPage } from './components/pages/AutonomousSalesPage';
@@ -157,6 +158,7 @@ const App = () => {
   };
 
   const handleLogout = () => {
+    firebaseSignOut().catch(() => {});
     localStorage.removeItem('token');
     setToken(null);
     setUser(null);

@@ -50,6 +50,7 @@ export const isFirebaseEnabled = !!firebaseConfig.apiKey;
 export async function signInWithGoogle(): Promise<User> {
   if (!auth) throw new Error('Firebase no configurado.');
   const provider = new GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: 'select_account' });
   const result = await signInWithPopup(auth, provider);
   return result.user;
 }
