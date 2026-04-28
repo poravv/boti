@@ -137,6 +137,21 @@ const MessageCenter = () => {
     }
   }, []);
 
+  // Silent variant — used for background syncs triggered by WS events.
+  // Does NOT set loadingMessages to avoid showing the spinner mid-conversation.
+  const fetchMessagesBackground = useCallback(async (phone: string) => {
+    try {
+      const data = await apiFetchJson<{ messages: Message[]; hasMore: boolean }>(`/api/messages/${phone}?limit=30`);
+      const msgs = data.messages || [];
+      setMessages(msgs);
+      setHasMore(data.hasMore ?? false);
+      setOldestId(msgs.length > 0 ? msgs[0].id : null);
+      setTimeout(scrollToBottom, 100);
+    } catch {
+      // Preserve existing messages on error.
+    }
+  }, []);
+
   const loadMoreMessages = useCallback(async (phone: string) => {
     if (!oldestId || loadingMore) return;
     setLoadingMore(true);
@@ -224,11 +239,54 @@ const MessageCenter = () => {
           phone = phone.split('@')[0].split(':')[0];
           const current = activeChatRef.current;
           if (current && phone === current.phone) {
-            fetchMessages(current.phone);
             if (detail.event === 'message:new') {
+              const isOutbound = body.direction === 'OUTBOUND';
+
+              if (isOutbound) {
+                // Outbound AI reply: BullMQ broadcasts AFTER the DB write, so fetch is safe.
+                fetchMessages(current.phone);
+              } else {
+                // Inbound: backend broadcasts BEFORE the DB write (3s debounce).
+                // fetchMessages() would return stale data — inject the message from the WS
+                // payload directly so the user sees it instantly.
+                if (body.content !== undefined) {
+                  const incomingContent = String(body.content);
+                  setMessages(prev => {
+                    // Skip if same content arrived within last 5s (dedup guard).
+                    const alreadyPresent = prev.some(
+                      m => m.content === incomingContent &&
+                        m.direction === 'INBOUND' &&
+                        Date.now() - new Date(m.createdAt).getTime() < 5000,
+                    );
+                    if (alreadyPresent) return prev;
+                    return [
+                      ...prev,
+                      {
+                        id: `ws-${Date.now()}`,
+                        content: incomingContent,
+                        direction: 'INBOUND' as const,
+                        type: String(body.type || 'TEXT'),
+                        createdAt: new Date().toISOString(),
+                      },
+                    ];
+                  });
+                  setTimeout(scrollToBottom, 50);
+                }
+                // Fallback: if no outbound event fires (AI paused / error),
+                // sync from DB after debounce + buffer so the real ID replaces the temp one.
+                setTimeout(() => {
+                  if (activeChatRef.current?.phone === current.phone) {
+                    fetchMessagesBackground(current.phone);
+                  }
+                }, 5000);
+              }
+
               apiFetch(`/api/messages/${current.phone}/read`, { method: 'POST' })
                 .then(() => window.dispatchEvent(new CustomEvent('boti:fetch-unread')))
                 .catch(() => {});
+            } else {
+              // message:status / operator:notification — DB already up-to-date.
+              fetchMessages(current.phone);
             }
           }
         }
@@ -238,7 +296,7 @@ const MessageCenter = () => {
     // Registered once — activeChatRef ensures always-fresh activeChat without re-registration.
     window.addEventListener('boti:ws-event', handleWSEvent);
     return () => window.removeEventListener('boti:ws-event', handleWSEvent);
-  }, [fetchChats, fetchMessages]);
+  }, [fetchChats, fetchMessages, fetchMessagesBackground]);
 
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !activeChat) return;
