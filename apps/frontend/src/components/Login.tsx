@@ -7,6 +7,7 @@ import {
   registerWithEmail,
   resetPassword,
   getIdToken,
+  firebaseSignOut,
 } from '../lib/firebase';
 import { apiFetchJson } from '../lib/apiClient';
 
