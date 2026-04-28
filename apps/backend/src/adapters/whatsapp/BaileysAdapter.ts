@@ -35,6 +35,8 @@ export class BaileysWhatsAppAdapter implements IWhatsAppProvider {
   private seenIds = new Map<string, number>();
   // One pending reconnect timer per line — cancel before reconnecting to prevent accumulation.
   private reconnectTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  // Backoff attempt counter per line — reset to 0 on successful connection.
+  private reconnectAttempts = new Map<string, number>();
 
   constructor(
     private readonly redis: Redis,
@@ -58,12 +60,13 @@ export class BaileysWhatsAppAdapter implements IWhatsAppProvider {
   // forceNewQr=false: used by internal auto-reconnect — preserves creds so Baileys can resume a
   //   session (e.g. after a 515 stream restart following a successful pairing).
   async connectLine(lineId: string, forceNewQr = true): Promise<string | null> {
-    // Cancel any pending auto-reconnect timer for this line.
+    // Cancel any pending auto-reconnect timer and reset backoff counter.
     const pendingTimer = this.reconnectTimers.get(lineId);
     if (pendingTimer) {
       clearTimeout(pendingTimer);
       this.reconnectTimers.delete(lineId);
     }
+    this.reconnectAttempts.delete(lineId);
 
     const existingLine = this.lines.get(lineId);
 
@@ -149,6 +152,7 @@ export class BaileysWhatsAppAdapter implements IWhatsAppProvider {
         if (connection === 'open') {
           lineState.status = 'CONNECTED';
           lineState.qrCode = null;
+          this.reconnectAttempts.delete(lineId); // reset backoff on successful connection
           baileysLogger.info({ lineId }, 'WhatsApp connection opened successfully');
           this.onStatusChange?.(lineId, 'CONNECTED');
           if (!resolved) {
@@ -176,20 +180,28 @@ export class BaileysWhatsAppAdapter implements IWhatsAppProvider {
           // Skip auto-reconnect if this close was triggered by connectLine itself.
           if (lineState.intentionalClose) return;
 
-          // If conflict or stream error, clear auth before retry
-          if (statusCode === 401 || statusCode === 408 || lastDisconnect?.error?.message?.includes('conflict')) {
-            baileysLogger.info({ lineId }, 'Conflict or timeout detected, wiping Redis session and retrying...');
+          // Only wipe creds on definitive session-invalidation signals.
+          // 401 = explicitly logged out by WhatsApp.
+          // conflict = another device took the session.
+          // 408 is a transient timeout — do NOT wipe creds, just reconnect.
+          const isSessionInvalid =
+            statusCode === 401 ||
+            lastDisconnect?.error?.message?.includes('conflict');
+          if (isSessionInvalid) {
+            baileysLogger.info({ lineId, statusCode }, 'Session invalidated — wiping Redis auth');
             await clearAuth();
           }
 
           if (shouldReconnect) {
-            // Track the timer so a subsequent connectLine call can cancel it.
-            // Pass forceNewQr=false: auth was already cleared above for 401/408/conflict,
-            // and for other codes (e.g. 515 stream restart) we must keep the saved creds.
+            // Exponential backoff: 5s → 10s → 20s → 40s → 60s (cap).
+            const attempt = (this.reconnectAttempts.get(lineId) ?? 0) + 1;
+            this.reconnectAttempts.set(lineId, attempt);
+            const delay = Math.min(5000 * Math.pow(2, attempt - 1), 60000);
+            baileysLogger.info({ lineId, attempt, delay }, 'Scheduling reconnect');
             const timer = setTimeout(() => {
               this.reconnectTimers.delete(lineId);
               this.connectLine(lineId, false);
-            }, 5000);
+            }, delay);
             this.reconnectTimers.set(lineId, timer);
           }
         }
