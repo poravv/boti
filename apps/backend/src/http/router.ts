@@ -1163,7 +1163,10 @@ export function createRouter(
     try {
       const users = await prisma.user.findMany({
         where: { ...orgScope(req) },
-        select: { id: true, name: true, email: true, username: true, role: true, isActive: true },
+        select: {
+          id: true, name: true, email: true, username: true, role: true, isActive: true,
+          lineId: true, line: { select: { id: true, name: true } },
+        },
         orderBy: { createdAt: 'asc' },
       });
       res.json({ users });
@@ -1173,7 +1176,7 @@ export function createRouter(
   });
 
   router.post('/users', authMiddleware, requireAdmin, checkPlanLimit('users'), async (req, res) => {
-    const { name, username, password, role } = req.body;
+    const { name, username, password, role, lineId } = req.body;
     if (!name?.trim() || !username?.trim() || !password || !role) {
       return res.status(400).json({ error: 'name, username, password y role son requeridos.' });
     }
@@ -1189,8 +1192,18 @@ export function createRouter(
 
       const passwordHash = await authService.hashPassword(password);
       const user = await prisma.user.create({
-        data: { name: name.trim(), username: username.trim().toLowerCase(), passwordHash, role, orgId: (req as any).user.orgId },
-        select: { id: true, name: true, username: true, role: true, isActive: true },
+        data: {
+          name: name.trim(),
+          username: username.trim().toLowerCase(),
+          passwordHash,
+          role,
+          orgId: (req as any).user.orgId,
+          lineId: lineId || null,
+        },
+        select: {
+          id: true, name: true, username: true, role: true, isActive: true,
+          lineId: true, line: { select: { id: true, name: true } },
+        },
       });
       res.status(201).json({ user });
     } catch (err: any) {
@@ -1201,7 +1214,7 @@ export function createRouter(
   router.put('/users/:id', authMiddleware, requireAdmin, async (req, res) => {
     const { id } = req.params;
     const requesterId = (req as any).user.userId;
-    const { name, role, isActive } = req.body;
+    const { name, role, isActive, lineId } = req.body;
 
     if (id === requesterId) {
       if (role !== undefined) return res.status(400).json({ error: 'No puedes cambiar tu propio rol.' });
@@ -1217,11 +1230,15 @@ export function createRouter(
       if (name !== undefined) data.name = name.trim();
       if (role !== undefined) data.role = role;
       if (isActive !== undefined) data.isActive = isActive;
+      if (lineId !== undefined) data.lineId = lineId || null;
 
       const user = await prisma.user.update({
         where: { id },
         data,
-        select: { id: true, name: true, email: true, username: true, role: true, isActive: true },
+        select: {
+          id: true, name: true, email: true, username: true, role: true, isActive: true,
+          lineId: true, line: { select: { id: true, name: true } },
+        },
       });
       res.json({ user });
     } catch (err: any) {
@@ -1229,25 +1246,41 @@ export function createRouter(
     }
   });
 
+  // PATCH /users/:id/deactivate — soft delete (keep record, block login)
+  router.patch('/users/:id/deactivate', authMiddleware, requireAdmin, async (req, res) => {
+    const { id } = req.params;
+    if (id === (req as any).user.userId) return res.status(400).json({ error: 'No puedes desactivarte a ti mismo.' });
+    try {
+      const target = await prisma.user.findUnique({ where: { id } });
+      if (!target) return res.status(404).json({ error: 'Usuario no encontrado.' });
+      if (target.orgId !== (req as any).user.orgId) return res.status(403).json({ error: 'Acceso denegado.' });
+      const user = await prisma.user.update({
+        where: { id },
+        data: { isActive: false },
+        select: { id: true, name: true, username: true, role: true, isActive: true, lineId: true, line: { select: { id: true, name: true } } },
+      });
+      res.json({ user });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // DELETE /users/:id — hard delete (removes from DB)
   router.delete('/users/:id', authMiddleware, requireAdmin, async (req, res) => {
     const { id } = req.params;
-    const requesterId = (req as any).user.userId;
-
-    if (id === requesterId) {
-      return res.status(400).json({ error: 'No puedes eliminarte a ti mismo.' });
-    }
-
+    if (id === (req as any).user.userId) return res.status(400).json({ error: 'No puedes eliminarte a ti mismo.' });
     try {
       const target = await prisma.user.findUnique({ where: { id } });
       if (!target) return res.status(404).json({ error: 'Usuario no encontrado.' });
       if (target.orgId !== (req as any).user.orgId) return res.status(403).json({ error: 'Acceso denegado.' });
 
-      const user = await prisma.user.update({
-        where: { id },
-        data: { isActive: false },
-        select: { id: true, name: true, email: true, role: true, isActive: true },
-      });
-      res.json({ user });
+      await prisma.$transaction([
+        prisma.internalNote.deleteMany({ where: { authorId: id } }),
+        prisma.client.updateMany({ where: { assignedToUserId: id }, data: { assignedToUserId: null } }),
+        prisma.client.updateMany({ where: { closedByUserId: id }, data: { closedByUserId: null } }),
+        prisma.user.delete({ where: { id } }),
+      ]);
+      res.json({ status: 'deleted' });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }

@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { Badge, Button, Card, FormInput, FormSelect, Icon, Modal } from '../ui';
 import { apiFetchJson } from '../../lib/apiClient';
 
+interface Line { id: string; name: string; }
+
 interface TeamUser {
   id: string;
   name: string;
@@ -9,6 +11,8 @@ interface TeamUser {
   username: string | null;
   role: string;
   isActive: boolean;
+  lineId: string | null;
+  line: Line | null;
 }
 
 interface TeamPageProps {
@@ -20,12 +24,14 @@ interface UserFormData {
   username: string;
   password: string;
   role: string;
+  lineId: string;
 }
 
-const EMPTY_FORM: UserFormData = { name: '', username: '', password: '', role: 'OPERATOR' };
+const EMPTY_FORM: UserFormData = { name: '', username: '', password: '', role: 'OPERATOR', lineId: '' };
 
 export function TeamPage({ currentUserId }: TeamPageProps) {
   const [users, setUsers] = useState<TeamUser[]>([]);
+  const [lines, setLines] = useState<Line[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -35,10 +41,11 @@ export function TeamPage({ currentUserId }: TeamPageProps) {
   const [isCreating, setIsCreating] = useState(false);
 
   const [editingUser, setEditingUser] = useState<TeamUser | null>(null);
-  const [editForm, setEditForm] = useState<{ name: string; role: string; isActive: boolean }>({
+  const [editForm, setEditForm] = useState<{ name: string; role: string; isActive: boolean; lineId: string }>({
     name: '',
     role: '',
     isActive: true,
+    lineId: '',
   });
   const [editError, setEditError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -47,8 +54,12 @@ export function TeamPage({ currentUserId }: TeamPageProps) {
     setIsLoading(true);
     setErrorMsg('');
     try {
-      const data = await apiFetchJson<{ users: TeamUser[] }>('/api/users');
-      setUsers(data.users);
+      const [userData, lineData] = await Promise.all([
+        apiFetchJson<{ users: TeamUser[] }>('/api/users'),
+        apiFetchJson<{ lines: { id: string; name: string }[] }>('/api/lines').catch(() => ({ lines: [] })),
+      ]);
+      setUsers(userData.users);
+      setLines(lineData.lines);
     } catch (err: any) {
       setErrorMsg(err.message || 'Error al cargar usuarios.');
     } finally {
@@ -99,7 +110,7 @@ export function TeamPage({ currentUserId }: TeamPageProps) {
 
   const openEdit = (user: TeamUser) => {
     setEditingUser(user);
-    setEditForm({ name: user.name, role: user.role, isActive: user.isActive });
+    setEditForm({ name: user.name, role: user.role, isActive: user.isActive, lineId: user.lineId ?? '' });
     setEditError('');
   };
 
@@ -136,14 +147,30 @@ export function TeamPage({ currentUserId }: TeamPageProps) {
     if (user.id === currentUserId) return;
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`/api/users/${user.id}`, {
-        method: 'DELETE',
+      const res = await fetch(`/api/users/${user.id}/deactivate`, {
+        method: 'PATCH',
         headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       });
       if (!res.ok) return;
       setUsers((prev) => prev.map((u) => (u.id === user.id ? { ...u, isActive: false } : u)));
     } catch {
-      // Non-fatal: table still shows old state
+      // Non-fatal
+    }
+  };
+
+  const handleDelete = async (user: TeamUser) => {
+    if (user.id === currentUserId) return;
+    if (!confirm(`¿Eliminar permanentemente a ${user.name}? Esta acción no se puede deshacer.`)) return;
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`/api/users/${user.id}`, {
+        method: 'DELETE',
+        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      });
+      if (!res.ok) return;
+      setUsers((prev) => prev.filter((u) => u.id !== user.id));
+    } catch {
+      // Non-fatal
     }
   };
 
@@ -167,9 +194,9 @@ export function TeamPage({ currentUserId }: TeamPageProps) {
             setCreateError('');
             setShowCreateModal(true);
           }}
+          leadingIcon="person_add"
         >
-          <Icon name="person_add" size="sm" />
-          Invitar usuario
+          Agregar operador
         </Button>
       </div>
 
@@ -195,7 +222,10 @@ export function TeamPage({ currentUserId }: TeamPageProps) {
               <thead>
                 <tr className="border-b border-outline-variant/30">
                   <th className="text-left px-6 py-3 text-caption text-on-surface-variant font-semibold">
-                    Usuario
+                    Operador
+                  </th>
+                  <th className="text-left px-4 py-3 text-caption text-on-surface-variant font-semibold">
+                    Línea asignada
                   </th>
                   <th className="text-left px-4 py-3 text-caption text-on-surface-variant font-semibold">
                     Rol
@@ -212,7 +242,7 @@ export function TeamPage({ currentUserId }: TeamPageProps) {
                     key={user.id}
                     className="border-b border-outline-variant/20 last:border-0 hover:bg-surface-container-high/30 transition-colors"
                   >
-                    {/* Avatar + name + email */}
+                    {/* Avatar + name + username */}
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-bold text-body uppercase flex-shrink-0">
@@ -233,6 +263,17 @@ export function TeamPage({ currentUserId }: TeamPageProps) {
                         </div>
                       </div>
                     </td>
+                    {/* Line */}
+                    <td className="px-4 py-4">
+                      {user.line ? (
+                        <div className="flex items-center gap-1.5">
+                          <Icon name="smartphone" size="xs" className="text-primary" />
+                          <span className="text-body-sm text-on-surface truncate max-w-[140px]">{user.line.name}</span>
+                        </div>
+                      ) : (
+                        <span className="text-body-sm text-on-surface-variant/60">Sin línea</span>
+                      )}
+                    </td>
                     {/* Role badge */}
                     <td className="px-4 py-4">
                       <Badge variant={user.role === 'ADMIN' ? 'primary' : 'secondary'}>
@@ -248,22 +289,17 @@ export function TeamPage({ currentUserId }: TeamPageProps) {
                     {/* Actions */}
                     <td className="px-4 py-4">
                       <div className="flex items-center gap-1 justify-end">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => openEdit(user)}
-                          aria-label={`Editar ${user.name}`}
-                        >
+                        <Button variant="ghost" size="sm" onClick={() => openEdit(user)} aria-label={`Editar ${user.name}`}>
                           <Icon name="edit" size="sm" />
                         </Button>
                         {!isSelf(user.id) && user.isActive && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDeactivate(user)}
-                            aria-label={`Desactivar ${user.name}`}
-                          >
-                            <Icon name="person_off" size="sm" className="text-error" />
+                          <Button variant="ghost" size="sm" onClick={() => handleDeactivate(user)} aria-label={`Inactivar ${user.name}`}>
+                            <Icon name="person_off" size="sm" className="text-warning" />
+                          </Button>
+                        )}
+                        {!isSelf(user.id) && (
+                          <Button variant="ghost" size="sm" onClick={() => handleDelete(user)} aria-label={`Eliminar ${user.name}`}>
+                            <Icon name="delete" size="sm" className="text-error" />
                           </Button>
                         )}
                       </div>
@@ -329,6 +365,16 @@ export function TeamPage({ currentUserId }: TeamPageProps) {
             <option value="OPERATOR">Operador</option>
             <option value="ADMIN">Administrador</option>
           </FormSelect>
+          <FormSelect
+            label="Línea asignada"
+            value={createForm.lineId}
+            onChange={(e) => setCreateForm((f) => ({ ...f, lineId: e.target.value }))}
+          >
+            <option value="">Sin línea</option>
+            {lines.map((l) => (
+              <option key={l.id} value={l.id}>{l.name}</option>
+            ))}
+          </FormSelect>
           <div className="flex justify-end gap-2 pt-2">
             <Button
               type="button"
@@ -386,6 +432,16 @@ export function TeamPage({ currentUserId }: TeamPageProps) {
           >
             <option value="active">Activo</option>
             <option value="inactive">Inactivo</option>
+          </FormSelect>
+          <FormSelect
+            label="Línea asignada"
+            value={editForm.lineId}
+            onChange={(e) => setEditForm((f) => ({ ...f, lineId: e.target.value }))}
+          >
+            <option value="">Sin línea</option>
+            {lines.map((l) => (
+              <option key={l.id} value={l.id}>{l.name}</option>
+            ))}
           </FormSelect>
           <div className="flex justify-end gap-2 pt-2">
             <Button

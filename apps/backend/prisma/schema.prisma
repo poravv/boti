@@ -68,6 +68,7 @@ model WhatsAppLine {
   saleRecords            SaleRecord[]
   calendarConfig         CalendarConfig?
   appointments           Appointment[]
+  operators              User[]         @relation("OperatorLine")
   orgId                  String?
 
   @@index([orgId])
@@ -147,6 +148,8 @@ model User {
   authoredNotes       InternalNote[] @relation("AuthoredNotes")
   createdAt    DateTime  @default(now())
   orgId        String?
+  lineId       String?
+  line         WhatsAppLine? @relation("OperatorLine", fields: [lineId], references: [id])
 
   @@index([orgId])
   @@index([username])
