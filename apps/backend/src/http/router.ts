@@ -1085,7 +1085,6 @@ export function createRouter(
       const { lineId } = req.params;
       const payload = req.body;
 
-      // Validate token
       const config = await prisma.pagoParConfig.findUnique({ where: { lineId } });
       if (!config) return res.status(404).json({ error: 'Config not found' });
 
@@ -1097,19 +1096,24 @@ export function createRouter(
       const receivedToken = result?.token;
       const pagado = result?.pagado;
 
-      // Reject invalid or unverified notifications
-      if (!hashPedido || !receivedToken || !pagopar.validateWebhookToken(hashPedido, receivedToken)) {
-        return res.status(400).json({ error: 'Token inválido' });
+      if (!hashPedido) return res.status(400).json({ error: 'Token inválido' });
+
+      // Check if sandbox mode is forced globally or per-line
+      const forceSandboxConfig = await prisma.systemConfig.findUnique({ where: { key: 'pagopar.force_sandbox' } });
+      const isSandbox = config.sandboxMode || forceSandboxConfig?.value === 'true';
+
+      if (!isSandbox) {
+        if (!receivedToken || !pagopar.validateWebhookToken(hashPedido, receivedToken)) {
+          return res.status(400).json({ error: 'Token inválido' });
+        }
       }
 
       if (pagado && salesService) {
         const confirmed = await salesService.handlePaymentConfirmation(lineId, hashPedido);
 
         if (confirmed) {
-          // Notify operators via WebSocket
           wsManager.broadcast('sale:paid', { lineId, hashPedido, ...confirmed });
 
-          // Send WhatsApp confirmation to the client
           const { clientPhone, amount, productName, invoiceId } = confirmed;
           const amountFormatted = amount.toLocaleString('es-PY');
           let confirmMsg =
@@ -1127,10 +1131,92 @@ export function createRouter(
         }
       }
 
-      // PagoPar expects the payload echoed back with HTTP 200
       res.json(payload);
     } catch (err: any) {
       console.error('[Webhook PagoPar]', err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /admin/simulate-payment — trigger a sandbox payment confirmation (SUPERADMIN only)
+  router.post('/admin/simulate-payment', authMiddleware, requireSuperAdmin, async (req, res) => {
+    const { lineId, hashPedido } = req.body as { lineId?: string; hashPedido?: string };
+    if (!lineId || !hashPedido) return res.status(400).json({ error: 'lineId y hashPedido son requeridos.' });
+
+    try {
+      const config = await prisma.pagoParConfig.findUnique({ where: { lineId } });
+      const forceSandboxConfig = await prisma.systemConfig.findUnique({ where: { key: 'pagopar.force_sandbox' } });
+      const isSandbox = config?.sandboxMode || forceSandboxConfig?.value === 'true';
+
+      if (!config || !isSandbox) {
+        return res.status(400).json({ error: 'La línea no existe o no está en modo sandbox.' });
+      }
+
+      if (!salesService) return res.status(503).json({ error: 'Servicio de ventas no disponible.' });
+
+      const confirmed = await salesService.handlePaymentConfirmation(lineId, hashPedido);
+      if (!confirmed) return res.status(409).json({ error: 'Venta no encontrada o ya procesada.' });
+
+      wsManager.broadcast('sale:paid', { lineId, hashPedido, ...confirmed });
+
+      const { clientPhone, amount, productName, invoiceId } = confirmed;
+      const amountFormatted = amount.toLocaleString('es-PY');
+      let confirmMsg =
+        `✅ *¡Pago confirmado!*\n\n` +
+        `Producto: ${productName}\n` +
+        `Monto: Gs. ${amountFormatted}\n`;
+      if (invoiceId) confirmMsg += `Factura: ${invoiceId}\n`;
+      confirmMsg += `\n¡Gracias por tu compra! 🎉`;
+
+      try {
+        await whatsApp.sendTextMessage(lineId, clientPhone, confirmMsg);
+      } catch (err: any) {
+        console.error('[simulate-payment] Error sending WA confirmation:', err.message);
+      }
+
+      res.json({ ok: true, clientPhone, amount, productName, invoiceId });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // GET /admin/sales/sandbox-status — read global force-sandbox flag
+  router.get('/admin/sales/sandbox-status', authMiddleware, requireSuperAdmin, async (_req, res) => {
+    try {
+      const entry = await prisma.systemConfig.findUnique({ where: { key: 'pagopar.force_sandbox' } });
+      res.json({ forceSandbox: entry?.value === 'true' });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /admin/sales/force-sandbox — toggle global sandbox mode
+  router.post('/admin/sales/force-sandbox', authMiddleware, requireSuperAdmin, async (req, res) => {
+    const { enabled } = req.body as { enabled?: boolean };
+    if (typeof enabled !== 'boolean') return res.status(400).json({ error: 'enabled (boolean) es requerido.' });
+    try {
+      await prisma.systemConfig.upsert({
+        where: { key: 'pagopar.force_sandbox' },
+        update: { value: enabled ? 'true' : 'false' },
+        create: { key: 'pagopar.force_sandbox', value: enabled ? 'true' : 'false' },
+      });
+      res.json({ ok: true, forceSandbox: enabled });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // GET /admin/sales/pending — all pending sales (SUPERADMIN only)
+  router.get('/admin/sales/pending', authMiddleware, requireSuperAdmin, async (_req, res) => {
+    try {
+      const sales = await prisma.saleRecord.findMany({
+        where: { status: 'PENDING' },
+        orderBy: { createdAt: 'desc' },
+        take: 50,
+        select: { id: true, lineId: true, clientPhone: true, hashPedido: true, amount: true, items: true, createdAt: true, pagoParOrderId: true },
+      });
+      res.json({ sales });
+    } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
   });

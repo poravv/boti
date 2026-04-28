@@ -48,7 +48,18 @@ interface SuperAdmin {
   createdAt: string;
 }
 
-type Tab = 'overview' | 'orgs' | 'plans' | 'admins' | 'config';
+interface PendingSale {
+  id: string;
+  lineId: string;
+  clientPhone: string;
+  hashPedido: string;
+  amount: number;
+  items: unknown;
+  createdAt: string;
+  pagoParOrderId: string | null;
+}
+
+type Tab = 'overview' | 'orgs' | 'plans' | 'admins' | 'config' | 'ventas';
 
 const MASKED_PASSWORD = '••••••••';
 
@@ -104,6 +115,11 @@ export function SuperAdminPage() {
   const [showTestEmailForm, setShowTestEmailForm] = useState(false);
   const [testEmailAddress, setTestEmailAddress] = useState('');
   const [testEmailSending, setTestEmailSending] = useState(false);
+
+  const [forceSandbox, setForceSandbox] = useState(false);
+  const [forceSandboxLoading, setForceSandboxLoading] = useState(false);
+  const [pendingSales, setPendingSales] = useState<PendingSale[]>([]);
+  const [pendingSalesLoading, setPendingSalesLoading] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -272,7 +288,67 @@ export function SuperAdminPage() {
     { id: 'plans', label: 'Planes', icon: 'workspace_premium' },
     { id: 'admins', label: 'Super Admins', icon: 'shield_person' },
     { id: 'config', label: 'Configuración', icon: 'settings' },
+    { id: 'ventas', label: 'Ventas', icon: 'point_of_sale' },
   ];
+
+  const loadSandboxStatus = useCallback(async () => {
+    try {
+      const data = await apiFetchJson<{ forceSandbox: boolean }>('/api/admin/sales/sandbox-status');
+      setForceSandbox(data.forceSandbox);
+    } catch (err: any) {
+      toast.show(err.message, { variant: 'error' });
+    }
+  }, []);
+
+  const loadPendingSales = useCallback(async () => {
+    setPendingSalesLoading(true);
+    try {
+      const data = await apiFetchJson<{ sales: PendingSale[] }>('/api/admin/sales/pending');
+      setPendingSales(data.sales);
+    } catch (err: any) {
+      toast.show(err.message, { variant: 'error' });
+    } finally {
+      setPendingSalesLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (tab === 'ventas') {
+      loadSandboxStatus();
+      loadPendingSales();
+    }
+  }, [tab, loadSandboxStatus, loadPendingSales]);
+
+  const toggleForceSandbox = async (enabled: boolean) => {
+    setForceSandboxLoading(true);
+    try {
+      await apiFetchJson('/api/admin/sales/force-sandbox', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled }),
+      });
+      setForceSandbox(enabled);
+      toast.show(enabled ? 'Modo sandbox forzado activado.' : 'Modo sandbox forzado desactivado.', { variant: 'success' });
+    } catch (err: any) {
+      toast.show(err.message, { variant: 'error' });
+    } finally {
+      setForceSandboxLoading(false);
+    }
+  };
+
+  const simulatePayment = async (lineId: string, hashPedido: string) => {
+    try {
+      await apiFetchJson('/api/admin/simulate-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lineId, hashPedido }),
+      });
+      toast.show('Pago simulado correctamente', { variant: 'success' });
+      loadPendingSales();
+    } catch (err: any) {
+      toast.show(err.message ?? 'Error al simular el pago', { variant: 'error' });
+    }
+  };
 
   if (loading && !stats) {
     return (
@@ -658,6 +734,112 @@ export function SuperAdminPage() {
                   )}
                 </div>
               </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── VENTAS ── */}
+      {tab === 'ventas' && (
+        <div className="space-y-6">
+          {/* Section A: Force sandbox toggle */}
+          <div className="bg-card border border-border rounded-xl p-5 space-y-4">
+            <h3 className="font-semibold text-foreground flex items-center gap-2">
+              <Icon name="bug_report" size="sm" className="text-primary" />
+              Modo sandbox global
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              Cuando está activo, todas las líneas de PagoPar operan en sandbox y se pueden simular pagos desde esta pantalla.
+            </p>
+            <div className="flex items-center justify-between rounded-xl border border-outline-variant/30 bg-surface-container px-4 py-3">
+              <label className="text-sm font-medium text-on-surface">Forzar modo sandbox en todas las líneas</label>
+              <div className="flex items-center gap-3">
+                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${
+                  forceSandbox
+                    ? 'bg-yellow-50 text-yellow-700 border-yellow-200'
+                    : 'bg-surface-container-high text-on-surface-variant border-outline-variant/40'
+                }`}>
+                  {forceSandbox ? 'Activo' : 'Inactivo'}
+                </span>
+                <button
+                  type="button"
+                  disabled={forceSandboxLoading}
+                  onClick={() => toggleForceSandbox(!forceSandbox)}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-50 ${
+                    forceSandbox ? 'bg-yellow-500' : 'bg-outline-variant'
+                  }`}
+                  role="switch"
+                  aria-checked={forceSandbox}
+                  aria-label="Forzar modo sandbox"
+                >
+                  <span className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-sm transform transition-transform duration-200 ${
+                    forceSandbox ? 'translate-x-5' : 'translate-x-0'
+                  }`} />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Section B: Pending sales table */}
+          <div className="bg-card border border-border rounded-xl overflow-hidden">
+            <div className="px-5 py-3 border-b border-border bg-muted/40 flex items-center justify-between">
+              <h3 className="font-semibold text-foreground text-sm flex items-center gap-2">
+                <Icon name="pending_actions" size="sm" className="text-primary" />
+                Ventas pendientes
+              </h3>
+              <Button variant="secondary" size="sm" onClick={loadPendingSales} leadingIcon="refresh">
+                Recargar
+              </Button>
+            </div>
+
+            {pendingSalesLoading ? (
+              <div className="flex items-center justify-center h-32">
+                <div className="w-6 h-6 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+              </div>
+            ) : (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border bg-muted/20">
+                    {['Línea', 'Cliente', 'Producto', 'Monto', 'Fecha', 'Acción'].map(h => (
+                      <th key={h} className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {pendingSales.map(sale => {
+                    const items = Array.isArray(sale.items) ? sale.items as { nombre?: string }[] : [];
+                    const productName = items[0]?.nombre ?? '—';
+                    const amountFormatted = sale.amount.toLocaleString('es-PY');
+                    return (
+                      <tr key={sale.id} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
+                        <td className="px-4 py-3 font-mono text-xs text-foreground">{sale.lineId.slice(0, 8)}</td>
+                        <td className="px-4 py-3 text-foreground">{sale.clientPhone}</td>
+                        <td className="px-4 py-3 text-foreground">{productName}</td>
+                        <td className="px-4 py-3 text-foreground">Gs. {amountFormatted}</td>
+                        <td className="px-4 py-3 text-muted-foreground text-xs">
+                          {new Date(sale.createdAt).toLocaleString('es-PY', { dateStyle: 'short', timeStyle: 'short' })}
+                        </td>
+                        <td className="px-4 py-3">
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            onClick={() => simulatePayment(sale.lineId, sale.hashPedido)}
+                          >
+                            Simular Pago
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {pendingSales.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground text-sm">
+                        No hay ventas pendientes
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             )}
           </div>
         </div>
