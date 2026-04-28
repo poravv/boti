@@ -4,6 +4,7 @@ import type { ICalendarService, AIToolDef, Appointment } from '@boti/core';
 const DEFAULT_SLOT_DURATION = 60; // minutes
 const WORK_HOURS_START = 8;
 const WORK_HOURS_END = 19; // slots can end up to 19:00 (e.g. 18:00-19:00 or 17:30-18:30)
+const TZ_OFFSET = '-04:00'; // America/Asuncion (Paraguay, no DST)
 
 export class CalendarService implements ICalendarService {
   constructor(private readonly prisma: PrismaClient) {}
@@ -39,7 +40,9 @@ export class CalendarService implements ICalendarService {
   }
 
   getToolDefinitions(): AIToolDef[] {
-    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD in server time
+    // Today's date in Paraguay local time (UTC-4)
+    const todayPY = new Date(Date.now() - 4 * 60 * 60 * 1000);
+    const today = todayPY.toISOString().slice(0, 10); // YYYY-MM-DD
     return [
       {
         name: 'check_availability',
@@ -89,7 +92,7 @@ export class CalendarService implements ICalendarService {
             },
             notas: {
               type: 'string',
-              description: 'Notas adicionales o descripción de la cita (opcional)',
+              description: 'Resumen del motivo de la reunión y contexto relevante de la conversación. Siempre incluilo aunque sea breve.',
             },
           },
           required: ['titulo', 'fecha_hora'],
@@ -119,7 +122,8 @@ export class CalendarService implements ICalendarService {
   private async checkAvailability(lineId: string, fecha: string, durationMin: number): Promise<string> {
     if (!fecha) return 'Por favor indica la fecha (formato YYYY-MM-DD).';
 
-    const date = new Date(fecha + 'T00:00:00');
+    // Parse in Paraguay timezone so day boundaries are correct.
+    const date = new Date(fecha + 'T00:00:00' + TZ_OFFSET);
     if (isNaN(date.getTime())) return 'Fecha inválida. Usa el formato YYYY-MM-DD.';
 
     const dayStart = new Date(date);
@@ -157,8 +161,10 @@ export class CalendarService implements ICalendarService {
     const durationMin = Number(args.duracion_minutos ?? DEFAULT_SLOT_DURATION);
     const notas = args.notas ? String(args.notas) : undefined;
 
-    const startAt = new Date(fechaHora);
-    if (isNaN(startAt.getTime())) return 'Fecha y hora inválida. Usa formato ISO 8601 (ej: 2026-04-28T10:00:00).';
+    // If no timezone offset in the string, assume Paraguay local time.
+    const hasOffset = /[+-]\d{2}:\d{2}$|Z$/.test(fechaHora);
+    const startAt = new Date(hasOffset ? fechaHora : fechaHora + TZ_OFFSET);
+    if (isNaN(startAt.getTime())) return 'Fecha y hora inválida. Usa formato ISO 8601 (ej: 2026-04-30T17:00:00).';
 
     const endAt = new Date(startAt.getTime() + durationMin * 60 * 1000);
 
