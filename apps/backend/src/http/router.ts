@@ -364,7 +364,7 @@ export function createRouter(
         create: {
           id: lineId,
           name: lineId,
-          systemPrompt: 'Eres un asistente útil.',
+          systemPrompt: 'Sos un asistente de WhatsApp. Respondé de forma natural, breve y amigable, como lo haría una persona real. No menciones "servicios o productos" de forma genérica. Si no sabés algo específico del negocio, preguntá en qué podés ayudar sin asumir que es una consulta de ventas.',
           businessContext: {},
           assignedAiProvider: 'gemini',
           orgId: (req as any).user.orgId,

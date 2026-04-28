@@ -12,10 +12,10 @@ export class ContextFetcherAdapter implements IContextFetcher {
       });
 
       if (!line) {
-        return 'Eres un asistente de negocio.';
+        return 'Sos un asistente de WhatsApp. Respondé de forma natural, breve y amigable, como lo haría una persona real. No menciones "servicios o productos" de forma genérica. Si no sabés algo específico del negocio, preguntá en qué podés ayudar sin asumir que es una consulta de ventas.';
       }
 
-      const systemPrompt = line.systemPrompt ?? 'Eres un asistente de negocio.';
+      const systemPrompt = line.systemPrompt ?? 'Sos un asistente de WhatsApp. Respondé de forma natural, breve y amigable, como lo haría una persona real. No menciones "servicios o productos" de forma genérica. Si no sabés algo específico del negocio, preguntá en qué podés ayudar sin asumir que es una consulta de ventas.';
 
       // Priority 1: External URL
       if (line.contextUrl) {
@@ -43,7 +43,7 @@ export class ContextFetcherAdapter implements IContextFetcher {
       return systemPrompt;
     } catch (err: any) {
       logger.error({ lineId, err: err.message }, 'Error fetching context');
-      return 'Eres un asistente de negocio.';
+      return 'Sos un asistente de WhatsApp. Respondé de forma natural, breve y amigable, como lo haría una persona real. No menciones "servicios o productos" de forma genérica. Si no sabés algo específico del negocio, preguntá en qué podés ayudar sin asumir que es una consulta de ventas.';
     }
   }
 }
