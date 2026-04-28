@@ -136,7 +136,8 @@ model ConversationContext {
 
 model User {
   id           String    @id @default(uuid())
-  email        String    @unique
+  email        String?   @unique
+  username     String?   @unique
   passwordHash String?   // null for Firebase-only users
   name         String
   role         String    @default("OPERATOR") // SUPERADMIN | ADMIN | OPERATOR
@@ -148,6 +149,7 @@ model User {
   orgId        String?
 
   @@index([orgId])
+  @@index([username])
 }
 
 model AuditLog {

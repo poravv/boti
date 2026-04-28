@@ -45,7 +45,7 @@ export class AuthService {
 
     if (existing) {
       if (!existing.isActive) return null;
-      return { userId: existing.id, email: existing.email, name: existing.name ?? email, role: existing.role, orgId: existing.orgId ?? '', isNew: false };
+      return { userId: existing.id, email: existing.email ?? email, name: existing.name ?? email, role: existing.role, orgId: existing.orgId ?? '', isNew: false };
     }
 
     const provisioned = await this.provisionFirebaseUser(email, decoded.name ?? email.split('@')[0], decoded.uid);
@@ -96,6 +96,6 @@ export class AuthService {
     // Set Firebase custom claims so Firestore rules can check role
     await setFirebaseCustomClaims(uid, { role, orgId: org.id }).catch(() => {});
 
-    return { userId: user.id, email: user.email, name: user.name ?? displayName, role: user.role, orgId: user.orgId ?? '' };
+    return { userId: user.id, email: user.email ?? email, name: user.name ?? displayName, role: user.role, orgId: user.orgId ?? '' };
   }
 }

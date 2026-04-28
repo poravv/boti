@@ -5,7 +5,8 @@ import { apiFetchJson } from '../../lib/apiClient';
 interface TeamUser {
   id: string;
   name: string;
-  email: string;
+  email: string | null;
+  username: string | null;
   role: string;
   isActive: boolean;
 }
@@ -16,12 +17,12 @@ interface TeamPageProps {
 
 interface UserFormData {
   name: string;
-  email: string;
+  username: string;
   password: string;
   role: string;
 }
 
-const EMPTY_FORM: UserFormData = { name: '', email: '', password: '', role: 'OPERATOR' };
+const EMPTY_FORM: UserFormData = { name: '', username: '', password: '', role: 'OPERATOR' };
 
 export function TeamPage({ currentUserId }: TeamPageProps) {
   const [users, setUsers] = useState<TeamUser[]>([]);
@@ -62,8 +63,12 @@ export function TeamPage({ currentUserId }: TeamPageProps) {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     setCreateError('');
-    if (!createForm.name.trim() || !createForm.email.trim() || !createForm.password) {
+    if (!createForm.name.trim() || !createForm.username.trim() || !createForm.password) {
       setCreateError('Todos los campos son requeridos.');
+      return;
+    }
+    if (!/^[a-zA-Z0-9._-]+$/.test(createForm.username)) {
+      setCreateError('username solo puede contener letras, números, puntos, guiones y guiones bajos.');
       return;
     }
     setIsCreating(true);
@@ -222,7 +227,9 @@ export function TeamPage({ currentUserId }: TeamPageProps) {
                               </span>
                             )}
                           </p>
-                          <p className="text-body-sm text-on-surface-variant truncate">{user.email}</p>
+                          <p className="text-body-sm text-on-surface-variant truncate">
+                            {user.username ? `@${user.username}` : user.email ?? ''}
+                          </p>
                         </div>
                       </div>
                     </td>
@@ -296,13 +303,14 @@ export function TeamPage({ currentUserId }: TeamPageProps) {
             autoComplete="name"
           />
           <FormInput
-            label="Email"
+            label="Nombre de usuario"
             floatingLabel
-            type="email"
-            value={createForm.email}
-            onChange={(e) => setCreateForm((f) => ({ ...f, email: e.target.value }))}
+            type="text"
+            value={createForm.username}
+            onChange={(e) => setCreateForm((f) => ({ ...f, username: e.target.value }))}
+            placeholder="ej: juan.perez"
             required
-            autoComplete="email"
+            autoComplete="username"
           />
           <FormInput
             label="Contraseña"

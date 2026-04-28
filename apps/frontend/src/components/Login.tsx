@@ -47,6 +47,7 @@ export default function Login({ onLogin }: LoginProps) {
   const [view, setView] = useState<View>('login');
 
   const [email, setEmail] = useState('');
+  const [loginIdentifier, setLoginIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [name, setName] = useState('');
@@ -82,10 +83,14 @@ export default function Login({ onLogin }: LoginProps) {
     setLoading(true);
     try {
       if (legacyMode) {
+        const isEmail = loginIdentifier.includes('@');
+        const body = isEmail
+          ? { email: loginIdentifier, password }
+          : { username: loginIdentifier, password };
         const data = await apiFetchJson<{ token: string; user: any }>('/api/auth/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password }),
+          body: JSON.stringify(body),
         });
         onLogin(data.token, data.user);
       } else {
@@ -253,11 +258,11 @@ export default function Login({ onLogin }: LoginProps) {
               {view === 'login' && (
                 <form onSubmit={handleEmailSignIn} className="space-y-4">
                   <FormInput
-                    label="Email"
-                    type="email"
-                    value={email}
-                    onChange={e => setEmail(e.target.value)}
-                    placeholder="tu@email.com"
+                    label="Email o nombre de usuario"
+                    type="text"
+                    value={loginIdentifier}
+                    onChange={e => setLoginIdentifier(e.target.value)}
+                    placeholder="tu@email.com o tu.usuario"
                     required
                   />
                   <FormInput

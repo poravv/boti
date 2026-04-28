@@ -306,7 +306,7 @@ async function bootstrap() {
           select: { email: true, name: true },
         });
         if (!admin) continue;
-        await emailService.sendTrialExpiring(admin.email, admin.name, org.name, org.trialEndsAt).catch(() => {});
+        await emailService.sendTrialExpiring(admin.email ?? '', admin.name, org.name, org.trialEndsAt).catch(() => {});
         logger.info({ orgId: org.id, email: admin.email }, 'Trial expiry warning email sent');
       }
     } catch (err) {

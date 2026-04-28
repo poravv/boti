@@ -152,17 +152,22 @@ export function createRouter(
 
   // --- Auth Endpoints ---
   router.post('/auth/login', async (req, res) => {
-    const { email, password } = req.body;
+    const { email, username, password } = req.body;
+    if (!password || (!email && !username)) {
+      return res.status(400).json({ error: 'email o username requerido, junto con password.' });
+    }
     try {
-      const user = await prisma.user.findUnique({ where: { email } });
+      const user = email
+        ? await prisma.user.findUnique({ where: { email } })
+        : await prisma.user.findUnique({ where: { username: (username as string).toLowerCase() } });
       if (!user || !user.isActive) return res.status(401).json({ error: 'Invalid credentials' });
 
       const isValid = await authService.comparePassword(password, user.passwordHash);
       if (!isValid) return res.status(401).json({ error: 'Invalid credentials' });
 
       const orgId = user.orgId ?? '';
-      const token = authService.generateToken({ userId: user.id, email: user.email, role: user.role, orgId });
-      res.json({ token, user: { id: user.id, email: user.email, name: user.name, role: user.role, orgId } });
+      const token = authService.generateToken({ userId: user.id, email: user.email ?? user.username ?? '', role: user.role, orgId });
+      res.json({ token, user: { id: user.id, email: user.email, username: user.username, name: user.name, role: user.role, orgId } });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
@@ -217,7 +222,7 @@ export function createRouter(
       // Assign trial plan automatically
       const trialPlan = await prisma.plan.findFirst({ where: { slug: 'trial' }, select: { trialDays: true } }).catch(() => null);
       await authService.assignTrialPlan(org.id).catch(() => {});
-      const token = authService.generateToken({ userId: user.id, email: user.email, role: user.role, orgId: org.id });
+      const token = authService.generateToken({ userId: user.id, email: user.email ?? '', role: user.role, orgId: org.id });
 
       // Fire-and-forget notifications — never block registration
       try {
@@ -1158,7 +1163,7 @@ export function createRouter(
     try {
       const users = await prisma.user.findMany({
         where: { ...orgScope(req) },
-        select: { id: true, name: true, email: true, role: true, isActive: true },
+        select: { id: true, name: true, email: true, username: true, role: true, isActive: true },
         orderBy: { createdAt: 'asc' },
       });
       res.json({ users });
@@ -1168,21 +1173,24 @@ export function createRouter(
   });
 
   router.post('/users', authMiddleware, requireAdmin, checkPlanLimit('users'), async (req, res) => {
-    const { name, email, password, role } = req.body;
-    if (!name?.trim() || !email?.trim() || !password || !role) {
-      return res.status(400).json({ error: 'name, email, password y role son requeridos.' });
+    const { name, username, password, role } = req.body;
+    if (!name?.trim() || !username?.trim() || !password || !role) {
+      return res.status(400).json({ error: 'name, username, password y role son requeridos.' });
     }
     if (!['ADMIN', 'OPERATOR'].includes(role)) {
       return res.status(400).json({ error: 'role debe ser ADMIN u OPERATOR.' });
     }
+    if (!/^[a-zA-Z0-9._-]+$/.test(username)) {
+      return res.status(400).json({ error: 'username solo puede contener letras, números, puntos, guiones y guiones bajos.' });
+    }
     try {
-      const existing = await prisma.user.findUnique({ where: { email } });
-      if (existing) return res.status(409).json({ error: 'Ya existe un usuario con ese email.' });
+      const existing = await prisma.user.findUnique({ where: { username: username.trim().toLowerCase() } });
+      if (existing) return res.status(409).json({ error: 'Ya existe un usuario con ese nombre de usuario.' });
 
       const passwordHash = await authService.hashPassword(password);
       const user = await prisma.user.create({
-        data: { name: name.trim(), email: email.trim(), passwordHash, role, orgId: (req as any).user.orgId },
-        select: { id: true, name: true, email: true, role: true, isActive: true },
+        data: { name: name.trim(), username: username.trim().toLowerCase(), passwordHash, role, orgId: (req as any).user.orgId },
+        select: { id: true, name: true, username: true, role: true, isActive: true },
       });
       res.status(201).json({ user });
     } catch (err: any) {
@@ -1213,7 +1221,7 @@ export function createRouter(
       const user = await prisma.user.update({
         where: { id },
         data,
-        select: { id: true, name: true, email: true, role: true, isActive: true },
+        select: { id: true, name: true, email: true, username: true, role: true, isActive: true },
       });
       res.json({ user });
     } catch (err: any) {
@@ -1319,7 +1327,7 @@ export function createRouter(
             prisma.plan.findUnique({ where: { id: planId }, select: { name: true } }),
           ]);
           if (owner && plan) {
-            emailService.sendPlanAssigned(owner.email, owner.name, plan.name).catch(() => {});
+            emailService.sendPlanAssigned(owner.email ?? '', owner.name, plan.name).catch(() => {});
           }
         } catch (_) {}
       }
@@ -1448,7 +1456,7 @@ export function createRouter(
       const waMsg = `📋 *Solicitud de upgrade*\n\n🏢 *Org:* ${org.name}\n📧 *Email:* ${user.email}\n📦 *Plan solicitado:* ${desiredPlan}\n📝 *Notas:* ${notes || '—'}`;
 
       notifyAdmin(waMsg).catch(() => {});
-      emailService.sendAdminPlanRequest(adminEmail, org.name, user.email, desiredPlan, notes || '').catch(() => {});
+      emailService.sendAdminPlanRequest(adminEmail, org.name, user.email ?? '', desiredPlan, notes || '').catch(() => {});
 
       res.json({ ok: true, message: 'Solicitud enviada. Te contactaremos pronto.' });
     } catch (err: any) {
