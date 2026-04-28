@@ -201,6 +201,11 @@ export function createRouter(
   });
 
   router.post('/auth/register-org', async (req, res) => {
+    // When Firebase is active, registration goes through Firebase (which enforces email verification).
+    // Blocking this endpoint prevents bypassing verification via direct API calls.
+    if (FIREBASE_AUTH_ENABLED) {
+      return res.status(403).json({ error: 'Registro por este método deshabilitado. Usá Google o email con verificación.' });
+    }
     const { orgName, ownerName, ownerEmail, ownerPassword } = req.body as {
       orgName?: string; ownerName?: string; ownerEmail?: string; ownerPassword?: string;
     };

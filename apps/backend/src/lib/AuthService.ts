@@ -36,8 +36,8 @@ export class AuthService {
   async verifyFirebaseAndResolveUser(token: string): Promise<{ userId: string; email: string; name: string; role: string; orgId: string; isNew: boolean } | null> {
     const decoded = await verifyFirebaseToken(token);
     if (!decoded?.email) return null;
-    // Google sign-in always has email_verified=true; email+password requires explicit verification
-    if (decoded.email_verified === false) return null;
+    // Google tokens always have email_verified=true; email+password starts as false until clicked
+    if (!decoded.email_verified) return null;
 
     const email = decoded.email;
     const existing = await this.prisma.user.findUnique({
