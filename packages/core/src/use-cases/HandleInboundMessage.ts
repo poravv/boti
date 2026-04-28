@@ -124,36 +124,18 @@ export class HandleInboundMessage implements HandleInboundMessageUseCase {
       // If external API enrichment fails, continue with base context
     }
 
-    // Extract business name for out-of-scope redirect message
-    let businessName = 'nuestro negocio';
-    try {
-      const parsed = JSON.parse(businessContext);
-      if (parsed.empresa) businessName = parsed.empresa;
-      else if (parsed.businessName) businessName = parsed.businessName;
-      else if (parsed.name) businessName = parsed.name;
-    } catch {
-      // businessContext is plain text, not JSON — keep default
-    }
-
     const clientDisplayName = client.name && client.name !== fromPhone
       ? client.name
       : null;
 
-    const SYSTEM_PROMPT = `Eres un asistente virtual de atención al cliente. Responde ÚNICAMENTE sobre los temas del negocio descritos a continuación.
-
-REGLAS ESTRICTAS:
-1. Si el usuario pide algo fuera del contexto del negocio (generar código, hacer cálculos, responder preguntas generales, escribir textos, etc.), responde SOLAMENTE: "Solo puedo ayudarte con temas relacionados a ${businessName}. ¿En qué puedo ayudarte?"
-2. NO generes código, scripts, ni contenido técnico de ningún tipo.
-3. NO respondas preguntas de cultura general, matemáticas, traducciones, ni nada que no esté directamente relacionado con los servicios/productos del negocio.
-4. Sé amable pero directo al redirigir al usuario al contexto correcto.
-5. Si el usuario saluda, responde cordialmente y pregunta en qué puedes ayudarle (relacionado al negocio).
-6. NUNCA menciones que eres un modelo de lenguaje, que usas IA, o que eres ChatGPT/OpenAI.
-
-${clientDisplayName ? `El cliente se llama ${clientDisplayName}. Cuando sea natural, dirígete a él/ella por su nombre.\n\n` : ''}CONTEXTO DEL NEGOCIO:
-`;
+    // The system message is exactly what the operator configured (systemPrompt + businessContext).
+    // We only inject the client name when known — no extra hardcoded rules that override the prompt.
+    const systemContent = clientDisplayName
+      ? `${enrichedContext}\n\nEl cliente se llama ${clientDisplayName}. Cuando sea natural, dirigite a él/ella por su nombre.`
+      : enrichedContext;
 
     const aiMessages = [
-      { role: 'system' as const, content: SYSTEM_PROMPT + enrichedContext },
+      { role: 'system' as const, content: systemContent },
       ...ctx.lastMessages.map((m) => ({
         role: m.direction === 'INBOUND' ? 'user' as const : 'assistant' as const,
         content: m.content,
