@@ -82,19 +82,26 @@ export default function Login({ onLogin }: LoginProps) {
     e.preventDefault();
     setLoading(true);
     try {
-      if (legacyMode) {
-        const isEmail = loginIdentifier.includes('@');
-        const body = isEmail
-          ? { email: loginIdentifier, password }
-          : { username: loginIdentifier, password };
+      const isEmail = loginIdentifier.includes('@');
+      if (!isEmail) {
+        // Username → always goes directly to backend
         const data = await apiFetchJson<{ token: string; user: any }>('/api/auth/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
+          body: JSON.stringify({ username: loginIdentifier, password }),
+        });
+        onLogin(data.token, data.user);
+      } else if (legacyMode) {
+        // Email in legacy mode (no Firebase)
+        const data = await apiFetchJson<{ token: string; user: any }>('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: loginIdentifier, password }),
         });
         onLogin(data.token, data.user);
       } else {
-        await signInWithEmail(email, password);
+        // Email with Firebase
+        await signInWithEmail(loginIdentifier, password);
         const { token, user } = await resolveFirebaseSession();
         onLogin(token, user);
       }
