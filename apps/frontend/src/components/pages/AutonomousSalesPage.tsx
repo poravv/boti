@@ -9,7 +9,6 @@ interface PagoParFormState {
   publicKey: string;
   privateKey: string;
   sandboxMode: boolean;
-  callbackUrl: string;
 }
 
 interface FacturadorFormState {
@@ -87,12 +86,12 @@ export const AutonomousSalesPage = () => {
   const [lines, setLines] = useState<{ id: string; name: string }[]>([]);
   const [selectedLineId, setSelectedLineId] = useState('');
   const [salesEnabled, setSalesEnabled] = useState(false);
+  const [hasFacturadorConfig, setHasFacturadorConfig] = useState(false);
   const [pagopar, setPagopar] = useState<PagoParFormState>({
     baseUrl: '',
     publicKey: '',
     privateKey: '',
     sandboxMode: true,
-    callbackUrl: '',
   });
   const [facturador, setFacturador] = useState<FacturadorFormState>({
     baseUrl: '',
@@ -133,12 +132,12 @@ export const AutonomousSalesPage = () => {
             publicKey: data.pagoParConfig.publicKey,
             privateKey: '', // never pre-filled — secret
             sandboxMode: data.pagoParConfig.sandboxMode,
-            callbackUrl: data.pagoParConfig.callbackUrl ?? '',
           });
         } else {
-          setPagopar({ baseUrl: '', publicKey: '', privateKey: '', sandboxMode: true, callbackUrl: '' });
+          setPagopar({ baseUrl: '', publicKey: '', privateKey: '', sandboxMode: true });
         }
 
+        setHasFacturadorConfig(!!data.facturadorConfig);
         if (data.facturadorConfig) {
           setFacturador({
             baseUrl: data.facturadorConfig.baseUrl,
@@ -182,6 +181,13 @@ export const AutonomousSalesPage = () => {
         }
       }
 
+      // Validate: first-time facturador config requires secretKey
+      if (!hasFacturadorConfig && (facturador.baseUrl || facturador.accessKey) && !facturador.secretKey) {
+        toast.show('Para guardar el facturador por primera vez, ingresá la X-Secret-Key.', { variant: 'error' });
+        setSaving(false);
+        return;
+      }
+
       await apiFetchJson(`/api/lines/${selectedLineId}/sales-config`, {
         method: 'PUT',
         body: JSON.stringify({
@@ -191,7 +197,6 @@ export const AutonomousSalesPage = () => {
             publicKey: pagopar.publicKey,
             ...(pagopar.privateKey ? { privateKey: pagopar.privateKey } : {}),
             sandboxMode: pagopar.sandboxMode,
-            callbackUrl: pagopar.callbackUrl || null,
           },
           facturadorConfig: {
             baseUrl: facturador.baseUrl,
@@ -330,14 +335,13 @@ export const AutonomousSalesPage = () => {
                   value={pagopar.privateKey}
                   onChange={(e) => setPagopar((p) => ({ ...p, privateKey: e.target.value }))}
                   placeholder="Dejar vacío para no cambiar"
-                 
+
                 />
-                <FormInput
-                  label="Callback URL (recibe notificación de pago)"
-                  value={pagopar.callbackUrl}
-                  onChange={(e) => setPagopar((p) => ({ ...p, callbackUrl: e.target.value }))}
-                  placeholder="https://tudominio.com/api/webhook/pagopar/{lineId}"
-                />
+              </div>
+
+              <div className="rounded-lg bg-muted/50 border border-border px-3 py-2 text-xs text-muted-foreground">
+                <Icon name="info" size="xs" className="inline mr-1 align-text-bottom" />
+                Las notificaciones de pago se envían automáticamente al servidor de Boti. No es necesario configurar una URL de callback.
               </div>
 
               <div className="flex items-center gap-3 pt-2">

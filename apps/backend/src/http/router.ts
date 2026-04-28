@@ -1054,6 +1054,8 @@ export function createRouter(
               isActive: isActive ?? true,
             },
           });
+        } else if (!existing && (baseUrl || accessKey) && !secretKey) {
+          return res.status(400).json({ error: 'Para configurar el facturador por primera vez, se requiere la X-Secret-Key.' });
         }
       }
 

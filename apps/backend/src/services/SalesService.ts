@@ -76,6 +76,8 @@ export class SalesService implements ISalesService {
     const pagopar = new PagoParAdapter(config.publicKey, config.privateKey, config.sandboxMode, config.baseUrl ?? undefined);
 
     const orderId = `BOTI-${lineId.slice(0, 8)}-${Date.now()}`;
+    // Always use the auto-generated webhook URL tied to this lineId.
+    // Prevents misconfiguration where a stored callbackUrl could point to another client's endpoint.
     const callbackUrl = `${this.backendBaseUrl}/api/webhook/pagopar/${lineId}`;
 
     const result = await pagopar.createPaymentOrder({
@@ -84,7 +86,7 @@ export class SalesService implements ISalesService {
       buyerName: clientName || clientPhone,
       buyerPhone: clientPhone,
       items: [{ name: producto, qty: 1, pricePerUnit: monto, description: descripcion }],
-      callbackUrl: config.callbackUrl ?? callbackUrl,
+      callbackUrl,
     });
 
     // Persist sale record
