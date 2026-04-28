@@ -23,9 +23,9 @@ interface LineState {
   qrCode: string | null;
   status: 'CONNECTED' | 'DISCONNECTED' | 'CONNECTING' | 'QR_PENDING';
   messageStatusCallbacks: Map<string, (status: 'SUCCESS' | 'FAILED') => void>;
-  // ephemeral expiration (seconds) per JID — populated from chat events
   ephemeralByJid: Map<string, number>;
   clearAuth?: () => Promise<void>;
+  intentionalClose?: boolean; // set before socket.end() to suppress auto-reconnect
 }
 
 export class BaileysWhatsAppAdapter implements IWhatsAppProvider {
@@ -33,6 +33,8 @@ export class BaileysWhatsAppAdapter implements IWhatsAppProvider {
   private onMessageCallback?: (lineId: string, from: string, fromName: string, content: string, type: string) => void;
   // Dedup: track seen Baileys message IDs to skip replays on reconnect.
   private seenIds = new Map<string, number>();
+  // One pending reconnect timer per line — cancel before reconnecting to prevent accumulation.
+  private reconnectTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
   constructor(
     private readonly redis: Redis,
@@ -53,8 +55,15 @@ export class BaileysWhatsAppAdapter implements IWhatsAppProvider {
   }
 
   async connectLine(lineId: string): Promise<string | null> {
+    // Cancel any pending auto-reconnect timer for this line.
+    const pendingTimer = this.reconnectTimers.get(lineId);
+    if (pendingTimer) {
+      clearTimeout(pendingTimer);
+      this.reconnectTimers.delete(lineId);
+    }
+
     const existingLine = this.lines.get(lineId);
-    
+
     // If already connected, nothing to do
     if (existingLine && existingLine.status === 'CONNECTED') {
       baileysLogger.info({ lineId }, 'Line already connected, skipping');
@@ -64,8 +73,9 @@ export class BaileysWhatsAppAdapter implements IWhatsAppProvider {
     // Force a fresh start for any non-connected line
     baileysLogger.info({ lineId }, 'Ensuring fresh session for connection attempt');
 
-    // 1. Close existing socket if any
+    // 1. Close existing socket if any — mark intentional so the close handler skips auto-reconnect.
     if (existingLine) {
+      existingLine.intentionalClose = true;
       try { existingLine.socket.end(undefined); } catch (e) {}
       this.lines.delete(lineId);
     }
@@ -149,26 +159,34 @@ export class BaileysWhatsAppAdapter implements IWhatsAppProvider {
         if (connection === 'close') {
           const statusCode = (lastDisconnect?.error as any)?.output?.statusCode;
           const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
-          
-          baileysLogger.warn({ lineId, statusCode, reason: lastDisconnect?.error?.message }, 'Connection closed');
-          
+
+          baileysLogger.warn({ lineId, statusCode, reason: lastDisconnect?.error?.message, intentional: lineState.intentionalClose }, 'Connection closed');
+
           lineState.status = 'DISCONNECTED';
           this.onStatusChange?.(lineId, 'DISCONNECTED');
-          
+
           if (!resolved) {
             resolved = true;
             clearTimeout(timeout);
             resolve(null);
           }
 
-          // If conflict or stream error, clear auth and retry
+          // Skip auto-reconnect if this close was triggered by connectLine itself.
+          if (lineState.intentionalClose) return;
+
+          // If conflict or stream error, clear auth before retry
           if (statusCode === 401 || statusCode === 408 || lastDisconnect?.error?.message?.includes('conflict')) {
             baileysLogger.info({ lineId }, 'Conflict or timeout detected, wiping Redis session and retrying...');
             await clearAuth();
           }
 
           if (shouldReconnect) {
-            setTimeout(() => this.connectLine(lineId), 5000);
+            // Track the timer so a subsequent connectLine call can cancel it.
+            const timer = setTimeout(() => {
+              this.reconnectTimers.delete(lineId);
+              this.connectLine(lineId);
+            }, 5000);
+            this.reconnectTimers.set(lineId, timer);
           }
         }
       });
@@ -270,8 +288,11 @@ export class BaileysWhatsAppAdapter implements IWhatsAppProvider {
   }
 
   async disconnectLine(lineId: string): Promise<void> {
+    const pending = this.reconnectTimers.get(lineId);
+    if (pending) { clearTimeout(pending); this.reconnectTimers.delete(lineId); }
     const line = this.lines.get(lineId);
     if (line) {
+      line.intentionalClose = true;
       await line.socket.logout();
       if (line.clearAuth) await line.clearAuth();
       this.lines.delete(lineId);
