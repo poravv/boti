@@ -183,8 +183,8 @@ export default function Login({ onLogin }: LoginProps) {
       <div className="w-full max-w-sm space-y-6">
         {/* Logo */}
         <div className="text-center space-y-2">
-          <div className="w-14 h-14 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto">
-            <Icon name="smart_toy" size="lg" className="text-primary" />
+          <div className="w-14 h-14 rounded-2xl overflow-hidden mx-auto shadow-sm">
+            <img src="/logo.png" alt="Boti" className="w-full h-full object-cover" />
           </div>
           <h1 className="text-2xl font-bold text-foreground">Boti</h1>
           <p className="text-sm text-muted-foreground">

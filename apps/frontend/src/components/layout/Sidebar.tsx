@@ -30,8 +30,8 @@ export function Sidebar({ user, onLogout, items }: SidebarProps) {
     >
       {/* Logo */}
       <div className="flex items-center gap-3 px-4 py-5 border-b border-outline-variant/30 flex-shrink-0">
-        <div className="w-8 h-8 rounded-xl bg-primary flex items-center justify-center flex-shrink-0 shadow-glass-sm">
-          <Icon name="smart_toy" size="sm" filled className="text-white" />
+        <div className="w-8 h-8 rounded-xl overflow-hidden flex-shrink-0 shadow-glass-sm bg-white">
+          <img src="/logo.png" alt="Boti" className="w-full h-full object-cover" />
         </div>
         <div className="min-w-0">
           <div className="font-bold text-on-surface text-title leading-none tracking-tight">Boti</div>

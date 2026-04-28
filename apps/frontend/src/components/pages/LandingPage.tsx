@@ -119,10 +119,8 @@ function Nav() {
     >
       <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="w-7 h-7 rounded-full bg-primary flex items-center justify-center">
-            <span className="material-symbols-rounded text-white" style={{ fontSize: '16px', fontVariationSettings: "'FILL' 1" }}>
-              smart_toy
-            </span>
+          <span className="w-7 h-7 rounded-full overflow-hidden bg-white flex-shrink-0">
+            <img src="/logo.png" alt="Boti" className="w-full h-full object-cover" />
           </span>
           <span className="font-bold text-xl text-primary tracking-tight">Boti</span>
         </div>
@@ -587,10 +585,8 @@ function Footer() {
           {/* Brand */}
           <div>
             <div className="flex items-center gap-2 mb-3">
-              <span className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
-                <span className="material-symbols-rounded text-white" style={{ fontSize: '14px', fontVariationSettings: "'FILL' 1" }}>
-                  smart_toy
-                </span>
+              <span className="w-6 h-6 rounded-full overflow-hidden bg-white flex-shrink-0">
+                <img src="/logo.png" alt="Boti" className="w-full h-full object-cover" />
               </span>
               <span className="font-bold text-lg text-white">Boti</span>
             </div>
