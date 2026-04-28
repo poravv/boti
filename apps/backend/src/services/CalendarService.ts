@@ -98,6 +98,35 @@ export class CalendarService implements ICalendarService {
           required: ['titulo', 'fecha_hora'],
         },
       },
+      {
+        name: 'reschedule_appointment',
+        description:
+          `Reagenda una cita: cancela las citas pendientes del cliente y crea una nueva en el horario indicado. ` +
+          `Úsala cuando el cliente pida cambiar, mover o reagendar su cita. ` +
+          `Hoy es ${today}. Siempre usá el año correcto.`,
+        parameters: {
+          type: 'object',
+          properties: {
+            nueva_fecha_hora: {
+              type: 'string',
+              description: 'Nueva fecha y hora en formato ISO 8601 (ej: 2026-05-01T17:00:00). Siempre incluí el año correcto.',
+            },
+            titulo: {
+              type: 'string',
+              description: 'Título de la cita (opcional — si no se especifica, mantiene el de la cita anterior)',
+            },
+            duracion_minutos: {
+              type: 'number',
+              description: 'Duración en minutos (por defecto 60)',
+            },
+            notas: {
+              type: 'string',
+              description: 'Contexto y motivo de la cita. Incluilo siempre.',
+            },
+          },
+          required: ['nueva_fecha_hora'],
+        },
+      },
     ];
   }
 
@@ -113,6 +142,9 @@ export class CalendarService implements ICalendarService {
     }
     if (toolName === 'create_appointment') {
       return this.createAppointment(lineId, clientPhone, clientName, args);
+    }
+    if (toolName === 'reschedule_appointment') {
+      return this.rescheduleAppointment(lineId, clientPhone, clientName, args);
     }
     return `Herramienta "${toolName}" no disponible.`;
   }
@@ -166,6 +198,14 @@ export class CalendarService implements ICalendarService {
     const startAt = new Date(hasOffset ? fechaHora : fechaHora + TZ_OFFSET);
     if (isNaN(startAt.getTime())) return 'Fecha y hora inválida. Usa formato ISO 8601 (ej: 2026-04-30T17:00:00).';
 
+    // Validate date is not unreasonably far in the future
+    const todayPY = new Date(Date.now() - 4 * 60 * 60 * 1000);
+    const maxDate = new Date(todayPY.getTime() + 90 * 24 * 60 * 60 * 1000);
+    if (startAt > maxDate) {
+      const todayStr = todayPY.toISOString().slice(0, 10);
+      return `La fecha ${fechaHora.slice(0, 10)} parece muy lejana. Hoy es ${todayStr}. ¿Quisiste decir otro mes? Verificá la fecha y volvé a intentarlo.`;
+    }
+
     const endAt = new Date(startAt.getTime() + durationMin * 60 * 1000);
 
     const conflict = await this.prisma.appointment.findFirst({
@@ -197,6 +237,92 @@ export class CalendarService implements ICalendarService {
     const timeStr = startAt.toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit' });
 
     return `Cita agendada exitosamente: "${titulo}" el ${dateStr} a las ${timeStr} (${durationMin} min).`;
+  }
+
+  private async rescheduleAppointment(
+    lineId: string,
+    clientPhone: string,
+    clientName: string,
+    args: Record<string, unknown>,
+  ): Promise<string> {
+    const nuevaFechaHora = String(args.nueva_fecha_hora ?? '');
+    const durationMin = Number(args.duracion_minutos ?? DEFAULT_SLOT_DURATION);
+    const titulo = args.titulo ? String(args.titulo) : undefined;
+    const notas = args.notas ? String(args.notas) : undefined;
+
+    const hasOffset = /[+-]\d{2}:\d{2}$|Z$/.test(nuevaFechaHora);
+    const newStart = new Date(hasOffset ? nuevaFechaHora : nuevaFechaHora + TZ_OFFSET);
+    if (isNaN(newStart.getTime())) {
+      return 'Fecha y hora inválida. Usá formato ISO 8601 (ej: 2026-05-01T17:00:00).';
+    }
+
+    // Date validation: max 90 days
+    const todayPY = new Date(Date.now() - 4 * 60 * 60 * 1000);
+    const maxDate = new Date(todayPY.getTime() + 90 * 24 * 60 * 60 * 1000);
+    if (newStart > maxDate) {
+      const todayStr = todayPY.toISOString().slice(0, 10);
+      return `La fecha parece muy lejana. Hoy es ${todayStr}. ¿Quisiste decir otro mes? Verificá la fecha y volvé a intentarlo.`;
+    }
+
+    const newEnd = new Date(newStart.getTime() + durationMin * 60 * 1000);
+
+    // Find existing upcoming appointments for this client
+    const existing = await this.prisma.appointment.findMany({
+      where: {
+        lineId,
+        clientPhone,
+        status: 'SCHEDULED',
+        startAt: { gte: new Date() },
+      },
+      orderBy: { startAt: 'asc' },
+    });
+
+    const finalTitle = titulo ?? (existing[0]?.title ?? 'Cita');
+
+    // Check conflict with OTHER appointments (not this client's)
+    const existingIds = existing.map(a => a.id);
+    const conflict = await this.prisma.appointment.findFirst({
+      where: {
+        lineId,
+        status: { not: 'CANCELLED' },
+        ...(existingIds.length > 0 ? { id: { notIn: existingIds } } : {}),
+        OR: [{ startAt: { lt: newEnd }, endAt: { gt: newStart } }],
+      },
+    });
+    if (conflict) {
+      return `Ese horario ya está ocupado (${conflict.title}). Por favor elegí otro horario.`;
+    }
+
+    // Cancel existing
+    if (existingIds.length > 0) {
+      await this.prisma.appointment.updateMany({
+        where: { id: { in: existingIds } },
+        data: { status: 'CANCELLED' },
+      });
+    }
+
+    // Create new
+    await this.prisma.appointment.create({
+      data: {
+        lineId,
+        clientPhone,
+        clientName: clientName || clientPhone,
+        title: finalTitle,
+        notes: notas ?? null,
+        startAt: newStart,
+        endAt: newEnd,
+        googleEventId: null,
+        status: 'SCHEDULED',
+      },
+    });
+
+    const dateStr = newStart.toLocaleDateString('es-PY', { weekday: 'long', day: 'numeric', month: 'long' });
+    const timeStr = newStart.toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit' });
+
+    const cancelMsg = existingIds.length > 0
+      ? ` (${existingIds.length} cita${existingIds.length > 1 ? 's anteriores canceladas' : ' anterior cancelada'})`
+      : '';
+    return `Cita reagendada exitosamente: "${finalTitle}" el ${dateStr} a las ${timeStr} (${durationMin} min)${cancelMsg}.`;
   }
 
   private computeFreeSlots(

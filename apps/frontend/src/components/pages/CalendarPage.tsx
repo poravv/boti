@@ -261,7 +261,7 @@ export function CalendarPage() {
                           </p>
                         )}
                         {appt.notes && (
-                          <p className="text-xs text-muted-foreground mt-1 italic truncate">{appt.notes}</p>
+                          <p className="text-xs text-muted-foreground mt-1 italic line-clamp-3">{appt.notes}</p>
                         )}
                       </div>
                       <button
