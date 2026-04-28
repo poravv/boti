@@ -3,7 +3,7 @@ import type { ICalendarService, AIToolDef, Appointment } from '@boti/core';
 
 const DEFAULT_SLOT_DURATION = 60; // minutes
 const WORK_HOURS_START = 8;
-const WORK_HOURS_END = 18;
+const WORK_HOURS_END = 19; // slots can end up to 19:00 (e.g. 18:00-19:00 or 17:30-18:30)
 
 export class CalendarService implements ICalendarService {
   constructor(private readonly prisma: PrismaClient) {}
@@ -39,18 +39,21 @@ export class CalendarService implements ICalendarService {
   }
 
   getToolDefinitions(): AIToolDef[] {
+    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD in server time
     return [
       {
         name: 'check_availability',
         description:
-          'Consulta los horarios disponibles para agendar una cita en una fecha específica. ' +
-          'Úsala cuando el cliente quiera saber qué horarios hay disponibles.',
+          `Consulta los horarios disponibles para agendar una cita en una fecha específica. ` +
+          `Úsala cuando el cliente quiera saber qué horarios hay disponibles. ` +
+          `Hoy es ${today}. Cuando el cliente diga "el jueves 30" o similar sin especificar mes, ` +
+          `inferí el mes correcto a partir de la fecha de hoy.`,
         parameters: {
           type: 'object',
           properties: {
             fecha: {
               type: 'string',
-              description: 'Fecha en formato YYYY-MM-DD (ej: 2026-04-28)',
+              description: 'Fecha en formato YYYY-MM-DD (ej: 2026-04-30). Siempre incluí el año correcto.',
             },
             duracion_minutos: {
               type: 'number',
@@ -63,8 +66,12 @@ export class CalendarService implements ICalendarService {
       {
         name: 'create_appointment',
         description:
-          'Agenda una cita para el cliente en el calendario. ' +
-          'Úsala SOLO cuando el cliente haya confirmado la fecha y hora que desea.',
+          `Agenda una cita para el cliente en el calendario. ` +
+          `Úsala cuando el cliente haya confirmado la fecha y hora que desea. ` +
+          `Si el cliente insiste en un horario específico que no aparece en check_availability, ` +
+          `igual podés crearlo — check_availability solo muestra slots sugeridos, ` +
+          `pero create_appointment acepta cualquier hora. ` +
+          `Hoy es ${today}. Siempre usá el año correcto en fecha_hora.`,
         parameters: {
           type: 'object',
           properties: {
@@ -74,7 +81,7 @@ export class CalendarService implements ICalendarService {
             },
             fecha_hora: {
               type: 'string',
-              description: 'Fecha y hora de inicio en formato ISO 8601 (ej: 2026-04-28T10:00:00)',
+              description: 'Fecha y hora de inicio en formato ISO 8601 (ej: 2026-04-30T17:30:00). Siempre incluí el año correcto.',
             },
             duracion_minutos: {
               type: 'number',
