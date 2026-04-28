@@ -80,6 +80,7 @@ model PagoParConfig {
   line        WhatsAppLine @relation(fields: [lineId], references: [id], onDelete: Cascade)
   publicKey   String
   privateKey  String
+  baseUrl     String?
   sandboxMode Boolean      @default(true)
   callbackUrl String?
   createdAt   DateTime     @default(now())

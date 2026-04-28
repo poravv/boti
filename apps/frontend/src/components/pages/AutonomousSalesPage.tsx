@@ -5,6 +5,7 @@ import { Badge, Button, Card, FormInput, Icon, useToast } from '../ui';
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 interface PagoParFormState {
+  baseUrl: string;
   publicKey: string;
   privateKey: string;
   sandboxMode: boolean;
@@ -25,6 +26,7 @@ interface SalesConfig {
   autonomousSalesEnabled: boolean;
   pagoParConfig: {
     id: string;
+    baseUrl: string | null;
     publicKey: string;
     hasPrivateKey: boolean;
     sandboxMode: boolean;
@@ -86,6 +88,7 @@ export const AutonomousSalesPage = () => {
   const [selectedLineId, setSelectedLineId] = useState('');
   const [salesEnabled, setSalesEnabled] = useState(false);
   const [pagopar, setPagopar] = useState<PagoParFormState>({
+    baseUrl: '',
     publicKey: '',
     privateKey: '',
     sandboxMode: true,
@@ -126,13 +129,14 @@ export const AutonomousSalesPage = () => {
 
         if (data.pagoParConfig) {
           setPagopar({
+            baseUrl: data.pagoParConfig.baseUrl ?? '',
             publicKey: data.pagoParConfig.publicKey,
             privateKey: '', // never pre-filled — secret
             sandboxMode: data.pagoParConfig.sandboxMode,
             callbackUrl: data.pagoParConfig.callbackUrl ?? '',
           });
         } else {
-          setPagopar({ publicKey: '', privateKey: '', sandboxMode: true, callbackUrl: '' });
+          setPagopar({ baseUrl: '', publicKey: '', privateKey: '', sandboxMode: true, callbackUrl: '' });
         }
 
         if (data.facturadorConfig) {
@@ -183,6 +187,7 @@ export const AutonomousSalesPage = () => {
         body: JSON.stringify({
           autonomousSalesEnabled: salesEnabled,
           pagoParConfig: {
+            baseUrl: pagopar.baseUrl || null,
             publicKey: pagopar.publicKey,
             ...(pagopar.privateKey ? { privateKey: pagopar.privateKey } : {}),
             sandboxMode: pagopar.sandboxMode,
@@ -307,11 +312,17 @@ export const AutonomousSalesPage = () => {
 
               <div className="grid grid-cols-1 gap-4">
                 <FormInput
+                  label="Base URL de PagoPar (opcional)"
+                  value={pagopar.baseUrl}
+                  onChange={(e) => setPagopar((p) => ({ ...p, baseUrl: e.target.value }))}
+                  placeholder="https://api.pagopar.com (dejar vacío para usar el predeterminado)"
+                />
+                <FormInput
                   label="Public Key"
                   value={pagopar.publicKey}
                   onChange={(e) => setPagopar((p) => ({ ...p, publicKey: e.target.value }))}
                   placeholder="63820974a40fe7c5c5c53c429af8b25bed599dbf"
-                 
+
                 />
                 <FormInput
                   label="Private Key"

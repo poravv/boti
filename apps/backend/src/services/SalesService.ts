@@ -73,7 +73,7 @@ export class SalesService implements ISalesService {
       return 'El monto debe ser mayor a 0.';
     }
 
-    const pagopar = new PagoParAdapter(config.publicKey, config.privateKey, config.sandboxMode);
+    const pagopar = new PagoParAdapter(config.publicKey, config.privateKey, config.sandboxMode, config.baseUrl ?? undefined);
 
     const orderId = `BOTI-${lineId.slice(0, 8)}-${Date.now()}`;
     const callbackUrl = `${this.backendBaseUrl}/api/webhook/pagopar/${lineId}`;

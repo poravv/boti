@@ -25,6 +25,7 @@ export class PagoParAdapter {
     private readonly publicKey: string,
     private readonly privateKey: string,
     private readonly sandboxMode: boolean = true,
+    private readonly customBaseUrl?: string,
   ) {}
 
   private sha1(str: string): string {
@@ -99,7 +100,8 @@ export class PagoParAdapter {
       };
     }
 
-    const resp = await fetch(`${PRODUCTION_BASE}/api/comercios/2.0/iniciar-transaccion`, {
+    const apiBase = this.customBaseUrl ?? PRODUCTION_BASE;
+    const resp = await fetch(`${apiBase}/api/comercios/2.0/iniciar-transaccion`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),

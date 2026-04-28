@@ -942,7 +942,7 @@ export function createRouter(
         select: {
           autonomousSalesEnabled: true,
           pagoParConfig: {
-            select: { id: true, publicKey: true, sandboxMode: true, callbackUrl: true },
+            select: { id: true, publicKey: true, baseUrl: true, sandboxMode: true, callbackUrl: true },
           },
           facturadorConfig: {
             select: {
@@ -961,6 +961,7 @@ export function createRouter(
           ? {
               id: line.pagoParConfig.id,
               publicKey: line.pagoParConfig.publicKey,
+              baseUrl: line.pagoParConfig.baseUrl,
               hasPrivateKey: true, // never expose privateKey
               sandboxMode: line.pagoParConfig.sandboxMode,
               callbackUrl: line.pagoParConfig.callbackUrl,
@@ -1005,20 +1006,21 @@ export function createRouter(
 
       // Upsert PagoPar config — only update privateKey if provided and non-empty
       if (pagoParConfig) {
-        const { publicKey, privateKey, sandboxMode, callbackUrl } = pagoParConfig;
+        const { publicKey, privateKey, sandboxMode, callbackUrl, baseUrl } = pagoParConfig;
         const existing = await prisma.pagoParConfig.findUnique({ where: { lineId } });
 
         const data: Record<string, unknown> = {};
         if (publicKey !== undefined) data.publicKey = publicKey;
         if (sandboxMode !== undefined) data.sandboxMode = sandboxMode;
         if (callbackUrl !== undefined) data.callbackUrl = callbackUrl;
+        if (baseUrl !== undefined) data.baseUrl = baseUrl;
         if (privateKey !== undefined && privateKey !== '') data.privateKey = privateKey;
 
         if (existing) {
           await prisma.pagoParConfig.update({ where: { lineId }, data });
         } else if (publicKey && privateKey) {
           await prisma.pagoParConfig.create({
-            data: { lineId, publicKey, privateKey, sandboxMode: sandboxMode ?? true, callbackUrl: callbackUrl ?? null },
+            data: { lineId, publicKey, privateKey, baseUrl: baseUrl ?? null, sandboxMode: sandboxMode ?? true, callbackUrl: callbackUrl ?? null },
           });
         }
       }
