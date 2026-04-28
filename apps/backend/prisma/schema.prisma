@@ -246,6 +246,7 @@ model Organization {
   id                      String    @id @default(uuid())
   name                    String
   slug                    String    @unique
+  description             String?
   planId                  String?
   plan                    Plan?     @relation(fields: [planId], references: [id])
   planStartedAt           DateTime?

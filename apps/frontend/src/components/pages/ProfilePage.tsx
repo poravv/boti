@@ -1,11 +1,23 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Badge, Button, Card, FormInput, Icon } from '../ui';
 import { SOUND_PREF_KEY } from '../../App';
+import { apiFetchJson } from '../../lib/apiClient';
 
 interface ProfileUser {
   name?: string;
   email?: string;
   role?: string;
+  orgId?: string;
+}
+
+interface OrgData {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  isActive: boolean;
+  trialEndsAt: string | null;
+  plan: { name: string; slug: string } | null;
 }
 
 interface ProfilePageProps {
@@ -22,6 +34,48 @@ export function ProfilePage({ user }: ProfilePageProps) {
   const [soundEnabled, setSoundEnabled] = useState(
     () => localStorage.getItem(SOUND_PREF_KEY) !== 'false',
   );
+
+  const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPERADMIN';
+  const [org, setOrg] = useState<OrgData | null>(null);
+  const [orgEditing, setOrgEditing] = useState(false);
+  const [orgName, setOrgName] = useState('');
+  const [orgDescription, setOrgDescription] = useState('');
+  const [orgSaving, setOrgSaving] = useState(false);
+  const [orgError, setOrgError] = useState('');
+  const [orgSuccess, setOrgSuccess] = useState('');
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    apiFetchJson<OrgData>('/api/org')
+      .then((data) => {
+        setOrg(data);
+        setOrgName(data.name);
+        setOrgDescription(data.description);
+      })
+      .catch(() => {});
+  }, [isAdmin]);
+
+  const handleOrgSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setOrgError('');
+    setOrgSuccess('');
+    if (!orgName.trim()) { setOrgError('El nombre es requerido.'); return; }
+    setOrgSaving(true);
+    try {
+      const updated = await apiFetchJson<OrgData>('/api/org', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: orgName, description: orgDescription }),
+      });
+      setOrg(updated);
+      setOrgEditing(false);
+      setOrgSuccess('Organización actualizada.');
+    } catch (err: any) {
+      setOrgError(err.message || 'Error al guardar.');
+    } finally {
+      setOrgSaving(false);
+    }
+  };
 
   const toggleSound = () => {
     const next = !soundEnabled;
@@ -137,6 +191,96 @@ export function ProfilePage({ user }: ProfilePageProps) {
           </button>
         </div>
       </Card>
+
+      {/* Organization — ADMIN only */}
+      {isAdmin && org && (
+        <Card variant="glass" className="p-6">
+          <div className="flex items-center justify-between mb-5 pb-4 border-b border-outline-variant/30">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-primary/8 flex items-center justify-center">
+                <Icon name="business" size="sm" className="text-primary" />
+              </div>
+              <div>
+                <h3 className="text-heading-sm font-semibold text-on-surface">Mi organización</h3>
+                <p className="text-on-surface-variant text-body-sm">Datos visibles de tu empresa o equipo</p>
+              </div>
+            </div>
+            {!orgEditing && (
+              <Button variant="ghost" size="sm" onClick={() => { setOrgEditing(true); setOrgSuccess(''); setOrgError(''); }}>
+                <Icon name="edit" size="sm" />
+              </Button>
+            )}
+          </div>
+
+          {orgSuccess && !orgEditing && (
+            <div role="status" className="bg-success-container text-on-success-container rounded-xl px-4 py-3 flex items-center gap-2 mb-4">
+              <Icon name="check_circle" size="sm" />
+              <span className="text-body-sm">{orgSuccess}</span>
+            </div>
+          )}
+
+          {orgEditing ? (
+            <form onSubmit={handleOrgSave} className="space-y-4" noValidate>
+              {orgError && (
+                <div role="alert" className="bg-error-container text-on-error-container rounded-xl px-4 py-3 flex items-center gap-2">
+                  <Icon name="error" size="sm" />
+                  <span className="text-body-sm">{orgError}</span>
+                </div>
+              )}
+              <FormInput
+                label="Nombre de la organización"
+                floatingLabel
+                value={orgName}
+                onChange={(e) => setOrgName(e.target.value)}
+                required
+              />
+              <FormInput
+                label="Descripción (opcional)"
+                floatingLabel
+                value={orgDescription}
+                onChange={(e) => setOrgDescription(e.target.value)}
+              />
+              <div className="flex gap-2">
+                <Button type="submit" variant="primary" size="md" loading={orgSaving} disabled={orgSaving}>
+                  Guardar
+                </Button>
+                <Button type="button" variant="ghost" size="md" onClick={() => { setOrgEditing(false); setOrgName(org.name); setOrgDescription(org.description); }}>
+                  Cancelar
+                </Button>
+              </div>
+            </form>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-start gap-3">
+                <span className="text-body-sm text-on-surface-variant w-28 shrink-0">Nombre</span>
+                <span className="text-body font-medium text-on-surface">{org.name}</span>
+              </div>
+              {org.description && (
+                <div className="flex items-start gap-3">
+                  <span className="text-body-sm text-on-surface-variant w-28 shrink-0">Descripción</span>
+                  <span className="text-body text-on-surface">{org.description}</span>
+                </div>
+              )}
+              <div className="flex items-start gap-3">
+                <span className="text-body-sm text-on-surface-variant w-28 shrink-0">Slug</span>
+                <span className="text-body-sm text-on-surface-variant font-mono">{org.slug}</span>
+              </div>
+              <div className="flex items-start gap-3">
+                <span className="text-body-sm text-on-surface-variant w-28 shrink-0">Plan</span>
+                <span className="text-body text-on-surface">{org.plan?.name ?? '—'}</span>
+              </div>
+              {org.trialEndsAt && (
+                <div className="flex items-start gap-3">
+                  <span className="text-body-sm text-on-surface-variant w-28 shrink-0">Trial hasta</span>
+                  <span className="text-body text-on-surface">
+                    {new Date(org.trialEndsAt).toLocaleDateString('es-PY', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+        </Card>
+      )}
 
       {/* Change password */}
       <Card variant="glass" className="p-6">

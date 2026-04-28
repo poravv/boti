@@ -1318,6 +1318,49 @@ export function createRouter(
     }
   });
 
+  // GET /org — current org profile
+  router.get('/org', authMiddleware, async (req, res) => {
+    const orgId = (req as any).user?.orgId as string | undefined;
+    if (!orgId) return res.status(403).json({ error: 'Sin organización.' });
+    try {
+      const org = await prisma.organization.findUnique({
+        where: { id: orgId },
+        include: { plan: true },
+      });
+      if (!org) return res.status(404).json({ error: 'Organización no encontrada.' });
+      res.json({
+        id: org.id,
+        name: org.name,
+        slug: org.slug,
+        description: org.description ?? '',
+        isActive: org.isActive,
+        trialEndsAt: org.trialEndsAt,
+        plan: org.plan ? { name: org.plan.name, slug: org.plan.slug } : null,
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // PUT /org — update org name and description (admin only)
+  router.put('/org', authMiddleware, async (req, res) => {
+    const orgId = (req as any).user?.orgId as string | undefined;
+    const role = (req as any).user?.role as string | undefined;
+    if (!orgId) return res.status(403).json({ error: 'Sin organización.' });
+    if (role !== 'ADMIN' && role !== 'SUPERADMIN') return res.status(403).json({ error: 'Solo administradores pueden editar la organización.' });
+    const { name, description } = req.body as { name?: string; description?: string };
+    if (!name?.trim()) return res.status(400).json({ error: 'El nombre es requerido.' });
+    try {
+      const org = await prisma.organization.update({
+        where: { id: orgId },
+        data: { name: name.trim(), description: description?.trim() ?? null },
+      });
+      res.json({ id: org.id, name: org.name, slug: org.slug, description: org.description ?? '' });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // ── Super-Admin endpoints ────────────────────────────────────────────────────
 
   // GET /admin/orgs — all orgs with plan + usage
