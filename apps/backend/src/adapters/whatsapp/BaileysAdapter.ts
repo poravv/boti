@@ -63,24 +63,23 @@ export class BaileysWhatsAppAdapter implements IWhatsAppProvider {
 
     // Force a fresh start for any non-connected line
     baileysLogger.info({ lineId }, 'Ensuring fresh session for connection attempt');
-    
+
     // 1. Close existing socket if any
     if (existingLine) {
-      try {
-        existingLine.socket.end(undefined);
-      } catch (e) {}
+      try { existingLine.socket.end(undefined); } catch (e) {}
       this.lines.delete(lineId);
     }
 
-    // 2. Prepare Auth State (Redis-backed)
-    const { state, saveCreds, clear: clearAuth } = await useRedisAuthState(lineId, this.redis);
-
-    // If we have an existing line but it was DISCONNECTED, we might want to clear 
-    // to force a new QR as requested by user.
+    // 2. Clear stale auth BEFORE loading state so socket starts with empty creds → forces new QR.
+    //    Loading then clearing leaves stale creds in memory and Baileys reuses old session.
     if (existingLine) {
-       baileysLogger.info({ lineId }, 'Clearing old Redis auth keys to force fresh QR');
-       await clearAuth();
+      baileysLogger.info({ lineId }, 'Clearing stale Redis auth to force fresh QR');
+      const { clear } = await useRedisAuthState(lineId, this.redis);
+      await clear();
     }
+
+    // 3. Load fresh auth state (empty if just cleared, or first-time connect)
+    const { state, saveCreds, clear: clearAuth } = await useRedisAuthState(lineId, this.redis);
 
     const sock = makeWASocket({
       version: BAILEYS_VERSION,
