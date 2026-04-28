@@ -48,9 +48,141 @@ function formatDateLabel(iso: string) {
   return new Date(iso).toLocaleDateString('es-PY', { weekday: 'short', day: 'numeric', month: 'short' });
 }
 
+function formatDateFull(iso: string) {
+  return new Date(iso).toLocaleDateString('es-PY', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+  });
+}
+
 const WEEKDAYS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 const MONTHS = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
   'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+
+// ─── Detail Modal ─────────────────────────────────────────────────────────────
+
+function AppointmentDetailModal({ appt, onClose, onCancel }: {
+  appt: Appointment;
+  onClose: () => void;
+  onCancel: (id: string) => void;
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  const durationMin = Math.round(
+    (new Date(appt.endAt).getTime() - new Date(appt.startAt).getTime()) / 60000
+  );
+
+  const statusLabel = appt.status === 'SCHEDULED'
+    ? 'Programada'
+    : appt.status === 'CANCELLED'
+      ? 'Cancelada'
+      : appt.status === 'COMPLETED'
+        ? 'Completada'
+        : appt.status;
+
+  const statusClass = appt.status === 'SCHEDULED'
+    ? 'bg-primary/10 text-primary'
+    : appt.status === 'CANCELLED'
+      ? 'bg-destructive/10 text-destructive'
+      : 'bg-muted text-muted-foreground';
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-md"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-start justify-between gap-3 p-5 border-b border-border">
+          <div className="flex items-start gap-3 min-w-0">
+            <Icon name="event" size="md" className="text-primary shrink-0 mt-0.5" />
+            <h2 className="font-semibold text-foreground text-base leading-snug">{appt.title}</h2>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-muted-foreground hover:text-foreground transition-colors shrink-0 mt-0.5"
+            aria-label="Cerrar"
+          >
+            <Icon name="close" size="sm" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="p-5 space-y-4">
+          {/* Date / time */}
+          <div className="flex items-start gap-3">
+            <Icon name="schedule" size="sm" className="text-muted-foreground shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-foreground capitalize">{formatDateFull(appt.startAt)}</p>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                {formatTime(appt.startAt)} – {formatTime(appt.endAt)}
+                <span className="ml-2 text-xs">({durationMin} min)</span>
+              </p>
+            </div>
+          </div>
+
+          {/* Client */}
+          {(appt.clientName || appt.clientPhone) && (
+            <div className="flex items-start gap-3">
+              <Icon name="person" size="sm" className="text-muted-foreground shrink-0 mt-0.5" />
+              <div>
+                {appt.clientName && (
+                  <p className="text-sm font-medium text-foreground">{appt.clientName}</p>
+                )}
+                {appt.clientPhone && (
+                  <p className="text-sm text-muted-foreground mt-0.5">{appt.clientPhone}</p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Status */}
+          <div className="flex items-center gap-3">
+            <Icon name="info" size="sm" className="text-muted-foreground shrink-0" />
+            <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${statusClass}`}>
+              {statusLabel}
+            </span>
+          </div>
+
+          {/* Notes */}
+          {appt.notes ? (
+            <div className="flex items-start gap-3">
+              <Icon name="notes" size="sm" className="text-muted-foreground shrink-0 mt-0.5" />
+              <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">{appt.notes}</p>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3">
+              <Icon name="notes" size="sm" className="text-muted-foreground shrink-0" />
+              <p className="text-sm text-muted-foreground italic">Sin notas</p>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex justify-end gap-2 px-5 pb-5">
+          <Button variant="secondary" size="sm" onClick={onClose}>
+            Cerrar
+          </Button>
+          {appt.status === 'SCHEDULED' && (
+            <button
+              onClick={() => { onCancel(appt.id); onClose(); }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors"
+            >
+              <Icon name="cancel" size="xs" />
+              Cancelar cita
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -61,6 +193,7 @@ export function CalendarPage() {
   const [selectedLineId, setSelectedLineId] = useState('');
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
+  const [detailAppointment, setDetailAppointment] = useState<Appointment | null>(null);
   const [loading, setLoading] = useState(false);
 
   const today = new Date();
@@ -261,16 +394,25 @@ export function CalendarPage() {
                           </p>
                         )}
                         {appt.notes && (
-                          <p className="text-xs text-muted-foreground mt-1 italic line-clamp-3">{appt.notes}</p>
+                          <p className="text-xs text-muted-foreground mt-1 italic line-clamp-2">{appt.notes}</p>
                         )}
                       </div>
-                      <button
-                        onClick={() => handleCancel(appt.id)}
-                        className="text-destructive/70 hover:text-destructive transition-colors shrink-0"
-                        title="Cancelar cita"
-                      >
-                        <Icon name="cancel" size="sm" />
-                      </button>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          onClick={() => setDetailAppointment(appt)}
+                          className="text-muted-foreground hover:text-primary transition-colors p-0.5"
+                          title="Ver detalle"
+                        >
+                          <Icon name="visibility" size="sm" />
+                        </button>
+                        <button
+                          onClick={() => handleCancel(appt.id)}
+                          className="text-destructive/70 hover:text-destructive transition-colors p-0.5"
+                          title="Cancelar cita"
+                        >
+                          <Icon name="cancel" size="sm" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -295,6 +437,15 @@ export function CalendarPage() {
           </div>
         </div>
       </Card>
+
+      {/* Appointment detail modal */}
+      {detailAppointment && (
+        <AppointmentDetailModal
+          appt={detailAppointment}
+          onClose={() => setDetailAppointment(null)}
+          onCancel={handleCancel}
+        />
+      )}
     </div>
   );
 }
