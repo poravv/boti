@@ -93,16 +93,24 @@ export default function Login({ onLogin }: LoginProps) {
           body: JSON.stringify({ username: loginIdentifier, password }),
         });
         onLogin(data.token, data.user);
-      } else if (legacyMode) {
-        // Email in legacy mode (no Firebase)
-        const data = await apiFetchJson<{ token: string; user: any }>('/api/auth/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: loginIdentifier, password }),
-        });
-        onLogin(data.token, data.user);
       } else {
-        // Email with Firebase
+        // Email — try backend first (users with passwordHash: operators, legacy admins)
+        // Falls through to Firebase only if backend returns 401 (Firebase-only user)
+        try {
+          const data = await apiFetchJson<{ token: string; user: any }>('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: loginIdentifier, password }),
+          });
+          onLogin(data.token, data.user);
+          return;
+        } catch {
+          // User not in DB with password — fall through to Firebase
+        }
+
+        if (legacyMode) throw new Error('Email o contraseña incorrectos.');
+
+        // Firebase path (Google-registered users, no passwordHash)
         const firebaseUser = await signInWithEmail(loginIdentifier, password);
         if (!firebaseUser.emailVerified) {
           await resendVerificationEmail(firebaseUser).catch(() => {});
