@@ -25,8 +25,14 @@ export class SalesService implements ISalesService {
       {
         name: 'generate_payment_link',
         description:
-          'Genera un link de pago de PagoPar para que el cliente pueda pagar de forma segura. ' +
-          'Úsala SOLO cuando el cliente haya confirmado que quiere comprar y ya acordaron el precio.',
+          'Genera un link de pago seguro (PagoPar) y se lo enviás directamente al cliente en el chat. ' +
+          'Usá esta herramienta cuando el cliente quiera pagar, contratar, activar un plan o pida el link — ' +
+          'incluso si usa palabras como "quiero el plan", "facturame", "dame el link", "quiero comprarlo ya", "pagar ahora". ' +
+          'NUNCA uses create_appointment para cobros: "contratar" o "activar" son compras, no citas de agenda. ' +
+          'NUNCA escales al equipo humano para pagos de productos con precio fijo. ' +
+          'Flujo obligatorio: llamá esta herramienta → recibís una URL → enviásela al cliente: ' +
+          '"Acá tenés tu link de pago: [URL]. Una vez que pagues te confirmamos y enviamos la factura." ' +
+          'Si la herramienta retorna un error, avisale al cliente honestamente en lugar de prometer que "ya lo generás en un momento".',
         parameters: {
           type: 'object',
           properties: {
