@@ -156,19 +156,24 @@ export class HandleInboundMessage implements HandleInboundMessageUseCase {
       const hasTools = (salesEnabled || calendarConnected) && !!aiService.generateReplyWithTools;
 
       if (hasTools) {
-        // When the message (or recent history) has payment intent, only expose the payment tool.
-        // Checking history prevents tool-switching mid-conversation when the user's follow-up
-        // ("Web express de 250000") lacks keywords but the context is clearly a payment flow.
         const paymentIntentRegex = /\b(pagar|pago|link de pago|facturar|facturame|contratar|activar|quiero el plan|quiero pagar|quiero comprarlo|dame el link|quiero comprar)\b/i;
+        // Calendar intent takes explicit priority — if the current message is about scheduling,
+        // never route to the payment tool even if there's recent payment history.
+        const calendarIntentRegex = /\b(reuni[oó]n|cita|agendar|agenda|programar|reservar|disponibilidad)\b/i;
+
         const recentUserMessages = ctx.lastMessages.slice(-4).filter(m => m.direction === 'INBOUND');
         const hasRecentPaymentIntent = recentUserMessages.some(m => paymentIntentRegex.test(m.content));
-        const isPaymentIntent = salesEnabled && (
-          paymentIntentRegex.test(content) || hasRecentPaymentIntent
-        );
-        // Force the tool call on follow-up messages so the AI can't hallucinate a URL.
-        // On the first turn the AI may respond with text to ask for RUC; on subsequent turns it must call the tool.
-        const forceToolCall = isPaymentIntent && hasRecentPaymentIntent;
+        const isCurrentPaymentIntent = paymentIntentRegex.test(content);
+        const isCurrentCalendarIntent = calendarConnected && calendarIntentRegex.test(content);
 
+        // Route to payment only when current message or recent history has payment words
+        // AND the current message is not explicitly about scheduling.
+        const isPaymentIntent = salesEnabled && !isCurrentCalendarIntent && (
+          isCurrentPaymentIntent || hasRecentPaymentIntent
+        );
+
+        // Do NOT force the tool call. The tool description instructs the AI to collect
+        // RUC, nombre and email before calling — forcing bypasses that and causes hallucinations.
         const tools = isPaymentIntent
           ? salesService!.getToolDefinitions()
           : [
@@ -177,10 +182,13 @@ export class HandleInboundMessage implements HandleInboundMessageUseCase {
             ];
 
         if (isPaymentIntent) {
-          console.log(`[HandleInboundMessage] payment intent detected — exposing only generate_payment_link forceToolCall=${forceToolCall} lineId=${lineId}`);
+          console.log(`[HandleInboundMessage] payment intent detected — exposing only generate_payment_link lineId=${lineId}`);
+        }
+        if (isCurrentCalendarIntent) {
+          console.log(`[HandleInboundMessage] calendar intent detected — overriding payment history lineId=${lineId}`);
         }
 
-        const result = await aiService.generateReplyWithTools!(aiMessages, tools, { lineId, forceToolCall });
+        const result = await aiService.generateReplyWithTools!(aiMessages, tools, { lineId });
 
         console.log(`[HandleInboundMessage] AI result type=${result.type} lineId=${lineId}`);
 
