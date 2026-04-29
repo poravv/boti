@@ -18,6 +18,41 @@ interface AIConfig {
   aiModel?: string;
 }
 
+interface ModelOption {
+  value: string;
+  label: string;
+  badge?: string;
+}
+
+const MODELS_BY_PROVIDER: Record<string, ModelOption[]> = {
+  openai: [
+    { value: 'gpt-4.1', label: 'GPT-4.1', badge: 'Recomendado' },
+    { value: 'gpt-4o', label: 'GPT-4o' },
+    { value: 'gpt-4o-mini', label: 'GPT-4o Mini — Rápido y económico' },
+    { value: 'gpt-4-turbo', label: 'GPT-4 Turbo' },
+    { value: 'o1-mini', label: 'o1 Mini — Razonamiento avanzado' },
+    { value: 'o3-mini', label: 'o3 Mini — Razonamiento avanzado' },
+  ],
+  gemini: [
+    { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro', badge: 'Recomendado' },
+    { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash — Rápido' },
+    { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
+    { value: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro — Contexto largo' },
+    { value: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash' },
+  ],
+  anthropic: [
+    { value: 'claude-opus-4-7', label: 'Claude Opus 4.7', badge: 'Más capaz' },
+    { value: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6', badge: 'Recomendado' },
+    { value: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5 — Rápido y económico' },
+  ],
+};
+
+const RECOMMENDED_MODEL: Record<string, string> = {
+  openai: 'gpt-4.1',
+  gemini: 'gemini-2.5-pro',
+  anthropic: 'claude-sonnet-4-6',
+};
+
 const AIConfiguration = () => {
   const [lines, setLines] = useState<{ id: string; name: string }[]>([]);
   const [selectedLineId, setSelectedLineId] = useState<string>('');
@@ -177,22 +212,33 @@ const AIConfiguration = () => {
                 <FormSelect
                   label="Proveedor de IA"
                   value={config.assignedAiProvider}
-                  onChange={(event) =>
-                    setConfig({ ...config, assignedAiProvider: event.target.value })
-                  }
+                  onChange={(event) => {
+                    const provider = event.target.value;
+                    const currentModels = MODELS_BY_PROVIDER[provider] ?? [];
+                    const currentModelValid = currentModels.some(m => m.value === config.aiModel);
+                    setConfig({
+                      ...config,
+                      assignedAiProvider: provider,
+                      aiModel: currentModelValid ? config.aiModel : RECOMMENDED_MODEL[provider],
+                    });
+                  }}
                 >
-                  <option value="gemini">Google Gemini 1.5 Pro</option>
-                  <option value="openai">OpenAI GPT-4o</option>
-                  <option value="anthropic">Anthropic Claude 3.5</option>
+                  <option value="gemini">Google Gemini</option>
+                  <option value="openai">OpenAI</option>
+                  <option value="anthropic">Anthropic Claude</option>
                 </FormSelect>
 
-                <FormInput
-                  label="Nombre del modelo (Opcional)"
-                  placeholder="Ej. gpt-4o, gemini-1.5-pro"
-                  value={config.aiModel || ''}
+                <FormSelect
+                  label="Modelo"
+                  value={config.aiModel || RECOMMENDED_MODEL[config.assignedAiProvider] || ''}
                   onChange={(event) => setConfig({ ...config, aiModel: event.target.value })}
-                  helperText="Si se deja vacío, se usará el modelo estándar."
-                />
+                >
+                  {(MODELS_BY_PROVIDER[config.assignedAiProvider] ?? []).map((model) => (
+                    <option key={model.value} value={model.value}>
+                      {model.badge ? `${model.label} ★` : model.label}
+                    </option>
+                  ))}
+                </FormSelect>
 
                 <div className="md:col-span-2 flex flex-col gap-1">
                   <FormInput
@@ -326,9 +372,10 @@ const AIConfiguration = () => {
             <Card.Body>
               <ul className="space-y-2">
                 {[
-                  'Usá un system prompt claro y conciso.',
+                  'Los modelos con ★ son los más recomendados para ventas autónomas.',
+                  'GPT-4.1 y Gemini 2.5 Pro tienen el mejor function calling.',
+                  'Modelos "Mini" o "Flash" son más rápidos pero menos precisos en herramientas complejas.',
                   'Evitá JSON de más de 50KB para mejor performance.',
-                  'Gemini 1.5 Pro maneja mejor contextos largos.',
                 ].map((tip) => (
                   <li key={tip} className="flex gap-2 text-body-sm text-on-surface-variant">
                     <Icon name="check_circle" size="xs" className="text-success mt-0.5" />
