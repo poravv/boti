@@ -84,6 +84,7 @@ const DEFAULT_BODY_TEMPLATE = JSON.stringify(
       tipoDocumento: '{{CLIENTE_TIPO_DOCUMENTO}}',
       numeroDocumento: '{{CLIENTE_RUC}}',
       razonSocial: '{{CLIENTE_NOMBRE}}',
+      email: '{{CLIENTE_EMAIL}}',
     },
     detail: [
       {
@@ -238,6 +239,7 @@ export const AutonomousSalesPage = () => {
       tipoDocumento: '{{CLIENTE_TIPO_DOCUMENTO}}',
       numeroDocumento: '{{CLIENTE_RUC}}',
       razonSocial: '{{CLIENTE_NOMBRE}}',
+      email: '{{CLIENTE_EMAIL}}',
     },
     detail: [
       {
@@ -632,9 +634,10 @@ export const AutonomousSalesPage = () => {
                       <p>Cuando el cliente quiera una factura, el bot le pedirá por WhatsApp:</p>
                       <ul className="ml-3 space-y-0.5 list-disc">
                         <li><strong>RUC o CI</strong> — para <code className="bg-background/70 px-1 rounded">{'{{CLIENTE_RUC}}'}</code></li>
-                        <li><strong>Nombre o Razón Social</strong> — para <code className="bg-background/70 px-1 rounded">{'{{CLIENTE_NOMBRE}}'}</code></li>
+                        <li><strong>Nombre completo o Razón Social</strong> — para <code className="bg-background/70 px-1 rounded">{'{{CLIENTE_NOMBRE}}'}</code></li>
+                        <li><strong>Email</strong> — para <code className="bg-background/70 px-1 rounded">{'{{CLIENTE_EMAIL}}'}</code> (requerido por SIFEN)</li>
                       </ul>
-                      <p className="text-muted-foreground">Si el cliente no provee su RUC, se usa su número de teléfono como documento.</p>
+                      <p className="text-muted-foreground">El nombre se pide explícitamente al cliente (no se usa el nombre de WhatsApp). Si no provee RUC/CI, se usa su número de teléfono.</p>
                     </div>
                   </div>
                 </div>
@@ -662,7 +665,7 @@ export const AutonomousSalesPage = () => {
                   <div className="mt-3 space-y-2">
                     <p className="text-xs text-muted-foreground">
                       Placeholders disponibles:{' '}
-                      {['TRANSACTION_ID', 'FECHA_EMISION', 'MONTO_TOTAL', 'CANTIDAD', 'PRECIO_UNITARIO', 'CLIENTE_RUC', 'CLIENTE_TELEFONO', 'CLIENTE_NOMBRE', 'PRODUCTO'].map((k) => (
+                      {['TRANSACTION_ID', 'FECHA_EMISION', 'MONTO_TOTAL', 'CANTIDAD', 'PRECIO_UNITARIO', 'CLIENTE_RUC', 'CLIENTE_TELEFONO', 'CLIENTE_NOMBRE', 'CLIENTE_EMAIL', 'PRODUCTO'].map((k) => (
                         <code key={k} className="bg-muted px-1 rounded mr-1">{`{{${k}}}`}</code>
                       ))}
                     </p>

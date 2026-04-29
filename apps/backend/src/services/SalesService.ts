@@ -32,8 +32,9 @@ export class SalesService implements ISalesService {
           'NUNCA escales al equipo humano para pagos de productos con precio fijo. ' +
           'NUNCA inventes, escribas ni simules un link de pago en texto — el link SIEMPRE sale de esta herramienta. ' +
           'Flujo OBLIGATORIO en este orden: ' +
-          '1) Si no tenés el RUC o CI del cliente, preguntáselo: "¿Me podés dar tu RUC o CI para la factura?" — ' +
-          '2) Una vez que el cliente te da su RUC/CI, llamá esta herramienta incluyendo ruc_receptor → ' +
+          '1) Si no tenés el RUC/CI, nombre legal y email del cliente, pedílos todos juntos en un solo mensaje: ' +
+          '"Para emitir la factura necesito: tu RUC o CI, tu nombre completo o razón social, y tu email." — ' +
+          '2) Una vez que el cliente te da esos datos, llamá esta herramienta incluyendo ruc_receptor, nombre_receptor y email_receptor → ' +
           '3) Recibís una URL → enviásela al cliente: "Acá tenés tu link de pago: [URL]. Una vez que pagues te confirmamos." ' +
           'Si la herramienta retorna un error, avisale al cliente honestamente.',
         parameters: {
@@ -55,8 +56,19 @@ export class SalesService implements ISalesService {
               type: 'string',
               description:
                 'RUC o CI del cliente para la factura. ' +
-                'SIEMPRE pedíselo al cliente antes de llamar esta herramienta si no lo proporcionó en la conversación. ' +
-                'Ejemplo de cómo pedirlo: "¿Me podés dar tu RUC o CI para emitir la factura?"',
+                'SIEMPRE pedíselo al cliente antes de llamar esta herramienta si no lo proporcionó en la conversación.',
+            },
+            nombre_receptor: {
+              type: 'string',
+              description:
+                'Nombre completo o razón social legal del cliente para la factura. ' +
+                'NO uses el nombre de WhatsApp — siempre pedíselo explícitamente al cliente.',
+            },
+            email_receptor: {
+              type: 'string',
+              description:
+                'Email del cliente para la factura electrónica (requerido por SIFEN). ' +
+                'SIEMPRE pedíselo al cliente antes de llamar esta herramienta.',
             },
           },
           required: ['producto', 'monto'],
@@ -82,6 +94,8 @@ export class SalesService implements ISalesService {
     const monto = Math.round(Number(args.monto ?? 0));
     const descripcion = args.descripcion ? String(args.descripcion) : producto;
     const receptorDocumento = args.ruc_receptor ? String(args.ruc_receptor) : null;
+    const receptorNombre = args.nombre_receptor ? String(args.nombre_receptor) : null;
+    const receptorEmail = args.email_receptor ? String(args.email_receptor) : null;
 
     if (monto <= 0) return 'El monto debe ser mayor a 0.';
 
@@ -98,6 +112,8 @@ export class SalesService implements ISalesService {
           clientPhone,
           clientName: clientName || null,
           receptorDocumento,
+          receptorNombre,
+          receptorEmail,
           hashPedido: saleId,
           pagoParOrderId: null,
           paymentLinkUrl: simulatorUrl,
@@ -132,6 +148,8 @@ export class SalesService implements ISalesService {
         clientPhone,
         clientName: clientName || null,
         receptorDocumento,
+        receptorNombre,
+        receptorEmail,
         hashPedido: result.hashPedido,
         pagoParOrderId: result.pagoParOrderId,
         paymentLinkUrl: result.paymentUrl,
@@ -191,14 +209,15 @@ export class SalesService implements ISalesService {
       TRANSACTION_ID: `BOTI-${Date.now()}`,
       PAGOPAR_ORDER_ID: sale.pagoParOrderId ?? sale.id,
       FECHA_EMISION: now,
-      MONTO_TOTAL: sale.amount,                              // number → JSON number in template
-      CLIENTE_TELEFONO: sale.clientPhone,                    // string → stays string
+      MONTO_TOTAL: sale.amount,
+      CLIENTE_TELEFONO: sale.clientPhone,
       CLIENTE_RUC: (sale as any).receptorDocumento ?? sale.clientPhone,
       CLIENTE_TIPO_DOCUMENTO: clienteTipoDoc,
-      CLIENTE_NOMBRE: (sale as any).clientName ?? sale.clientPhone,
+      CLIENTE_NOMBRE: (sale as any).receptorNombre ?? (sale as any).clientName ?? sale.clientPhone,
+      CLIENTE_EMAIL: (sale as any).receptorEmail ?? '',
       PRODUCTO: productName,
-      CANTIDAD: Number(items[0]?.cantidad ?? 1),             // number → JSON number
-      PRECIO_UNITARIO: Number(items[0]?.precioUnitario ?? sale.amount), // number → JSON number
+      CANTIDAD: Number(items[0]?.cantidad ?? 1),
+      PRECIO_UNITARIO: Number(items[0]?.precioUnitario ?? sale.amount),
     };
 
     try {

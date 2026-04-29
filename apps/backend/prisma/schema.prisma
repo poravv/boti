@@ -109,6 +109,8 @@ model SaleRecord {
   clientPhone       String
   clientName        String?
   receptorDocumento String?   // RUC o CI del cliente para facturación
+  receptorNombre    String?   // Nombre legal del receptor (explícitamente pedido al cliente)
+  receptorEmail     String?   // Email del receptor para SIFEN
   hashPedido     String?
   pagoParOrderId String?
   paymentLinkUrl String?
