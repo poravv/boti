@@ -51,8 +51,10 @@ function makeClient(overrides = {}) {
     phone: '595992000001',
     name: 'Test User',
     isBlocked: false,
-    blockedUntil: null,
-    aiPausedUntil: null,
+    blockedUntil: undefined,
+    aiPausedUntil: undefined,
+    createdAt: new Date(),
+    updatedAt: new Date(),
     ...overrides,
   };
 }
@@ -120,6 +122,8 @@ function makeDeps(overrides: Partial<{
     isConnectedForLine: vi.fn().mockResolvedValue(calendarConnected),
     getToolDefinitions: vi.fn().mockReturnValue(CALENDAR_TOOLS),
     executeTool: vi.fn().mockResolvedValue('Cita agendada para el lunes 10:00'),
+    getAppointments: vi.fn().mockResolvedValue([]),
+    cancelAppointment: vi.fn().mockResolvedValue(undefined),
     ...overrides.calendar,
   };
 
@@ -416,9 +420,6 @@ describe('Client access control', () => {
   });
 
   it('AI pausada → notifier llamado, sin respuesta automática', async () => {
-    const { useCase, queue, notifier } = makeDeps();
-    vi.mocked(useCase['deps' as any]).clientRepo?.upsert;
-
     const pausedDeps = makeDeps();
     vi.mocked(pausedDeps.clientRepo.upsert).mockResolvedValue(
       makeClient({ aiPausedUntil: new Date(Date.now() + 60000) })

@@ -48,6 +48,12 @@ export class SalesService implements ISalesService {
               type: 'string',
               description: 'Descripción breve del pedido (opcional)',
             },
+            ruc_receptor: {
+              type: 'string',
+              description:
+                'RUC o CI del cliente para emitir la factura. Si el cliente pidió una factura o mencionó su RUC/CI, incluirlo acá. ' +
+                'Si no lo mencionó y el cliente quiere factura, pedíselo antes de llamar esta herramienta.',
+            },
           },
           required: ['producto', 'monto'],
         },
@@ -74,6 +80,7 @@ export class SalesService implements ISalesService {
     const producto = String(args.producto ?? 'Producto');
     const monto = Math.round(Number(args.monto ?? 0));
     const descripcion = args.descripcion ? String(args.descripcion) : producto;
+    const receptorDocumento = args.ruc_receptor ? String(args.ruc_receptor) : null;
 
     if (monto <= 0) {
       return 'El monto debe ser mayor a 0.';
@@ -101,6 +108,7 @@ export class SalesService implements ISalesService {
         lineId,
         clientPhone,
         clientName: clientName || null,
+        receptorDocumento,
         hashPedido: result.hashPedido,
         pagoParOrderId: result.pagoParOrderId,
         paymentLinkUrl: result.paymentUrl,
@@ -159,6 +167,7 @@ export class SalesService implements ISalesService {
       FECHA_EMISION: now,
       MONTO_TOTAL: sale.amount,                              // number → JSON number in template
       CLIENTE_TELEFONO: sale.clientPhone,                    // string → stays string
+      CLIENTE_RUC: (sale as any).receptorDocumento ?? sale.clientPhone,
       CLIENTE_NOMBRE: (sale as any).clientName ?? sale.clientPhone,
       PRODUCTO: productName,
       CANTIDAD: Number(items[0]?.cantidad ?? 1),             // number → JSON number

@@ -106,8 +106,9 @@ model SaleRecord {
   id             String       @id @default(uuid())
   lineId         String
   line           WhatsAppLine @relation(fields: [lineId], references: [id], onDelete: Cascade)
-  clientPhone    String
-  clientName     String?
+  clientPhone       String
+  clientName        String?
+  receptorDocumento String?   // RUC o CI del cliente para facturación
   hashPedido     String?
   pagoParOrderId String?
   paymentLinkUrl String?

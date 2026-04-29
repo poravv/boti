@@ -4,6 +4,19 @@ import { Badge, Button, Card, FormInput, Icon, useToast } from '../ui';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
+interface EmisorFormState {
+  emisorId: string;
+  ruc: string;
+  razonSocial: string;
+  nombreFantasia: string;
+  timbrado: string;
+  establecimiento: string;
+  puntoExpedicion: string;
+  fechaVigenciaTimbrado: string;
+  tipoContribuyente: string;
+  tipoRegimen: string;
+}
+
 interface PagoParFormState {
   baseUrl: string;
   publicKey: string;
@@ -110,6 +123,19 @@ export const AutonomousSalesPage = () => {
     successExample: '',
     isActive: true,
   });
+  const [emisor, setEmisor] = useState<EmisorFormState>({
+    emisorId: '',
+    ruc: '',
+    razonSocial: '',
+    nombreFantasia: '',
+    timbrado: '',
+    establecimiento: '001',
+    puntoExpedicion: '001',
+    fechaVigenciaTimbrado: '',
+    tipoContribuyente: '2',
+    tipoRegimen: '8',
+  });
+  const [showAdvancedTemplate, setShowAdvancedTemplate] = useState(false);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<'pagopar' | 'facturador'>('pagopar');
@@ -160,6 +186,24 @@ export const AutonomousSalesPage = () => {
               : '',
             isActive: data.facturadorConfig.isActive,
           });
+
+          if (data.facturadorConfig.bodyTemplate) {
+            const tmpl = data.facturadorConfig.bodyTemplate as any;
+            if (tmpl.emisor || tmpl.emisorId) {
+              setEmisor({
+                emisorId: tmpl.emisorId ?? '',
+                ruc: tmpl.emisor?.ruc ?? '',
+                razonSocial: tmpl.emisor?.razonSocial ?? '',
+                nombreFantasia: tmpl.emisor?.nombreFantasia ?? '',
+                timbrado: tmpl.emisor?.timbrado ?? '',
+                establecimiento: tmpl.emisor?.establecimiento ?? '001',
+                puntoExpedicion: tmpl.emisor?.puntoExpedicion ?? '001',
+                fechaVigenciaTimbrado: tmpl.emisor?.fechaVigenciaTimbrado ?? '',
+                tipoContribuyente: String(tmpl.emisor?.tipoContribuyente ?? '2'),
+                tipoRegimen: String(tmpl.emisor?.tipoRegimen ?? '8'),
+              });
+            }
+          }
         } else {
           setFacturador((prev) => ({ ...prev, baseUrl: '', accessKey: '', secretKey: '', apiKey: '' }));
         }
@@ -168,15 +212,59 @@ export const AutonomousSalesPage = () => {
       .finally(() => setLoading(false));
   }, [selectedLineId]);
 
+  const buildGeneratedTemplate = () => ({
+    transactionId: '{{TRANSACTION_ID}}',
+    emisorId: emisor.emisorId || 'COMPLETAR_EMISOR_ID',
+    tipoDocumento: 'FACTURA',
+    fechaEmision: '{{FECHA_EMISION}}',
+    header: {
+      moneda: 'PYG',
+      condicionPago: 1,
+      formaPago: 'CONTADO',
+      montoTotal: '{{MONTO_TOTAL}}',
+    },
+    emisor: {
+      ruc: emisor.ruc || 'COMPLETAR-RUC',
+      razonSocial: emisor.razonSocial || 'MI EMPRESA SA',
+      nombreFantasia: emisor.nombreFantasia || emisor.razonSocial || 'Mi Empresa',
+      timbrado: emisor.timbrado || 'COMPLETAR',
+      establecimiento: emisor.establecimiento || '001',
+      puntoExpedicion: emisor.puntoExpedicion || '001',
+      fechaVigenciaTimbrado: emisor.fechaVigenciaTimbrado || '2025-01-01',
+      tipoContribuyente: Number(emisor.tipoContribuyente) || 2,
+      tipoRegimen: Number(emisor.tipoRegimen) || 8,
+    },
+    receptor: {
+      tipoDocumento: 'CI',
+      numeroDocumento: '{{CLIENTE_RUC}}',
+      razonSocial: '{{CLIENTE_NOMBRE}}',
+    },
+    detail: [
+      {
+        codigo: 'BOTI-VENTA',
+        descripcion: '{{PRODUCTO}}',
+        cantidad: '{{CANTIDAD}}',
+        precioUnitario: '{{PRECIO_UNITARIO}}',
+        ivaTipo: 1,
+        ivaBase: 100,
+        iva: 10,
+      },
+    ],
+  });
+
   const handleSave = async () => {
     setSaving(true);
     try {
       let bodyTemplateJson: unknown;
-      try {
-        bodyTemplateJson = JSON.parse(facturador.bodyTemplate);
-      } catch {
-        toast.show('El body template del facturador no es JSON válido.', { variant: 'error' });
-        return;
+      if (showAdvancedTemplate) {
+        try {
+          bodyTemplateJson = JSON.parse(facturador.bodyTemplate);
+        } catch {
+          toast.show('El body template del facturador no es JSON válido.', { variant: 'error' });
+          return;
+        }
+      } else {
+        bodyTemplateJson = buildGeneratedTemplate();
       }
 
       let successExampleJson: unknown = null;
@@ -387,6 +475,7 @@ export const AutonomousSalesPage = () => {
           {/* Facturador Tab */}
           {activeTab === 'facturador' && (
             <Card className="p-5 space-y-4">
+              {/* Header + active toggle */}
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                   <Icon name="receipt_long" className="text-primary" />
@@ -411,6 +500,7 @@ export const AutonomousSalesPage = () => {
                 </div>
               </div>
 
+              {/* Credenciales */}
               <p className="text-xs text-muted-foreground">
                 Se llama automáticamente después de confirmar un pago. Las claves se obtienen en el dashboard del facturador → <strong>Workspace → API Keys</strong>.
               </p>
@@ -421,7 +511,6 @@ export const AutonomousSalesPage = () => {
                   value={facturador.baseUrl}
                   onChange={(e) => setFacturador((f) => ({ ...f, baseUrl: e.target.value }))}
                   placeholder="https://facturador.tuempresa.com/api/v1/facturas"
-                 
                 />
                 <div className="grid grid-cols-2 gap-4">
                   <FormInput
@@ -429,7 +518,6 @@ export const AutonomousSalesPage = () => {
                     value={facturador.accessKey}
                     onChange={(e) => setFacturador((f) => ({ ...f, accessKey: e.target.value }))}
                     placeholder="tu-access-key"
-                   
                   />
                   <FormInput
                     label="X-Secret-Key"
@@ -437,7 +525,6 @@ export const AutonomousSalesPage = () => {
                     value={facturador.secretKey}
                     onChange={(e) => setFacturador((f) => ({ ...f, secretKey: e.target.value }))}
                     placeholder="Dejar vacío para no cambiar"
-                   
                   />
                 </div>
                 <FormInput
@@ -445,46 +532,149 @@ export const AutonomousSalesPage = () => {
                   value={facturador.apiKey}
                   onChange={(e) => setFacturador((f) => ({ ...f, apiKey: e.target.value }))}
                   placeholder="Opcional — dejar vacío si no aplica"
-                 
                 />
               </div>
 
-              {/* Body Template */}
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1">
-                  Body Template (JSON)
-                </label>
-                <p className="text-xs text-muted-foreground mb-2">
-                  Usá placeholders: <code className="bg-muted px-1 rounded">{'{{TRANSACTION_ID}}'}</code>{' '}
-                  <code className="bg-muted px-1 rounded">{'{{FECHA_EMISION}}'}</code>{' '}
-                  <code className="bg-muted px-1 rounded">{'{{PRODUCTO}}'}</code>{' '}
-                  <code className="bg-muted px-1 rounded">{'{{MONTO_TOTAL}}'}</code>{' '}
-                  <code className="bg-muted px-1 rounded">{'{{CANTIDAD}}'}</code>{' '}
-                  <code className="bg-muted px-1 rounded">{'{{PRECIO_UNITARIO}}'}</code>{' '}
-                  <code className="bg-muted px-1 rounded">{'{{CLIENTE_TELEFONO}}'}</code>
+              {/* Datos de tu empresa (Emisor) */}
+              <div className="border-t border-border pt-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Icon name="business" className="text-primary" />
+                  <h3 className="font-medium text-foreground text-sm">Datos de tu empresa (Emisor)</h3>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Estos datos se incluyen en cada factura como el emisor. Completalos una sola vez.
                 </p>
-                <textarea
-                  value={facturador.bodyTemplate}
-                  onChange={(e) => setFacturador((f) => ({ ...f, bodyTemplate: e.target.value }))}
-                  rows={16}
-                  spellCheck={false}
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 resize-y"
-                />
+                <div className="grid grid-cols-2 gap-3">
+                  <FormInput
+                    label="Emisor ID"
+                    value={emisor.emisorId}
+                    onChange={(e) => setEmisor((p) => ({ ...p, emisorId: e.target.value }))}
+                    placeholder="Andres01"
+                  />
+                  <FormInput
+                    label="RUC del Emisor"
+                    value={emisor.ruc}
+                    onChange={(e) => setEmisor((p) => ({ ...p, ruc: e.target.value }))}
+                    placeholder="80012345-6"
+                  />
+                  <FormInput
+                    label="Razón Social"
+                    value={emisor.razonSocial}
+                    onChange={(e) => setEmisor((p) => ({ ...p, razonSocial: e.target.value }))}
+                    placeholder="MI EMPRESA SA"
+                  />
+                  <FormInput
+                    label="Nombre Fantasía"
+                    value={emisor.nombreFantasia}
+                    onChange={(e) => setEmisor((p) => ({ ...p, nombreFantasia: e.target.value }))}
+                    placeholder="Mi Empresa"
+                  />
+                  <FormInput
+                    label="Timbrado"
+                    value={emisor.timbrado}
+                    onChange={(e) => setEmisor((p) => ({ ...p, timbrado: e.target.value }))}
+                    placeholder="12345678"
+                  />
+                  <FormInput
+                    label="Fecha Vigencia Timbrado"
+                    type="date"
+                    value={emisor.fechaVigenciaTimbrado}
+                    onChange={(e) => setEmisor((p) => ({ ...p, fechaVigenciaTimbrado: e.target.value }))}
+                  />
+                  <FormInput
+                    label="Establecimiento"
+                    value={emisor.establecimiento}
+                    onChange={(e) => setEmisor((p) => ({ ...p, establecimiento: e.target.value }))}
+                    placeholder="001"
+                  />
+                  <FormInput
+                    label="Punto de Expedición"
+                    value={emisor.puntoExpedicion}
+                    onChange={(e) => setEmisor((p) => ({ ...p, puntoExpedicion: e.target.value }))}
+                    placeholder="001"
+                  />
+                  <div>
+                    <label className="block text-xs font-medium text-foreground mb-1">Tipo Contribuyente</label>
+                    <select
+                      value={emisor.tipoContribuyente}
+                      onChange={(e) => setEmisor((p) => ({ ...p, tipoContribuyente: e.target.value }))}
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    >
+                      <option value="1">1 — Persona Física</option>
+                      <option value="2">2 — Persona Jurídica</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-foreground mb-1">Tipo Régimen</label>
+                    <select
+                      value={emisor.tipoRegimen}
+                      onChange={(e) => setEmisor((p) => ({ ...p, tipoRegimen: e.target.value }))}
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    >
+                      <option value="8">8 — Régimen General</option>
+                      <option value="1">1 — Otro</option>
+                    </select>
+                  </div>
+                </div>
               </div>
 
-              {/* Success Example */}
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1">
-                  Ejemplo de respuesta exitosa (opcional — referencia)
-                </label>
-                <textarea
-                  value={facturador.successExample}
-                  onChange={(e) => setFacturador((f) => ({ ...f, successExample: e.target.value }))}
-                  rows={5}
-                  spellCheck={false}
-                  placeholder={'{\n  "id": "FAC-001",\n  "status": "ok"\n}'}
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 resize-y"
-                />
+              {/* Datos del cliente (Receptor) — read-only info */}
+              <div className="border-t border-border pt-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Icon name="person" className="text-primary" />
+                  <h3 className="font-medium text-foreground text-sm">Datos del cliente (Receptor)</h3>
+                </div>
+                <div className="rounded-lg bg-primary/5 border border-primary/20 p-3 space-y-2">
+                  <div className="flex items-start gap-2">
+                    <Icon name="smart_toy" size="sm" className="text-primary mt-0.5 shrink-0" />
+                    <div className="text-xs text-foreground/80 space-y-1">
+                      <p className="font-medium text-foreground">El bot recopila estos datos automáticamente</p>
+                      <p>Cuando el cliente quiera una factura, el bot le pedirá por WhatsApp:</p>
+                      <ul className="ml-3 space-y-0.5 list-disc">
+                        <li><strong>RUC o CI</strong> — para <code className="bg-background/70 px-1 rounded">{'{{CLIENTE_RUC}}'}</code></li>
+                        <li><strong>Nombre o Razón Social</strong> — para <code className="bg-background/70 px-1 rounded">{'{{CLIENTE_NOMBRE}}'}</code></li>
+                      </ul>
+                      <p className="text-muted-foreground">Si el cliente no provee su RUC, se usa su número de teléfono como documento.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Template avanzado — collapsible */}
+              <div className="border-t border-border pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!showAdvancedTemplate) {
+                      setFacturador((f) => ({
+                        ...f,
+                        bodyTemplate: JSON.stringify(buildGeneratedTemplate(), null, 2),
+                      }));
+                    }
+                    setShowAdvancedTemplate((v) => !v);
+                  }}
+                  className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <Icon name={showAdvancedTemplate ? 'expand_less' : 'expand_more'} size="sm" />
+                  Template JSON avanzado {showAdvancedTemplate ? '(ocultar)' : '(ver/editar)'}
+                </button>
+                {showAdvancedTemplate && (
+                  <div className="mt-3 space-y-2">
+                    <p className="text-xs text-muted-foreground">
+                      Placeholders disponibles:{' '}
+                      {['TRANSACTION_ID', 'FECHA_EMISION', 'MONTO_TOTAL', 'CANTIDAD', 'PRECIO_UNITARIO', 'CLIENTE_RUC', 'CLIENTE_TELEFONO', 'CLIENTE_NOMBRE', 'PRODUCTO'].map((k) => (
+                        <code key={k} className="bg-muted px-1 rounded mr-1">{`{{${k}}}`}</code>
+                      ))}
+                    </p>
+                    <textarea
+                      value={facturador.bodyTemplate}
+                      onChange={(e) => setFacturador((f) => ({ ...f, bodyTemplate: e.target.value }))}
+                      rows={16}
+                      spellCheck={false}
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 resize-y"
+                    />
+                  </div>
+                )}
               </div>
             </Card>
           )}
