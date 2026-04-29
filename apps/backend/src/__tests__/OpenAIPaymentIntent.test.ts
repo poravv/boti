@@ -21,13 +21,24 @@ const PAYMENT_TOOL: AIToolDef = {
     'incluso si usa palabras como "quiero el plan", "facturame", "dame el link", "quiero comprarlo ya", "pagar ahora". ' +
     'NUNCA uses create_appointment para cobros: "contratar" o "activar" son compras, no citas de agenda. ' +
     'NUNCA escales al equipo humano para pagos de productos con precio fijo. ' +
-    'Flujo obligatorio: llamá esta herramienta → recibís una URL → enviásela al cliente.',
+    'Flujo OBLIGATORIO en este orden: ' +
+    '1) Si no tenés el RUC o CI del cliente, preguntáselo: "¿Me podés dar tu RUC o CI para la factura?" — ' +
+    '2) Una vez que el cliente te da su RUC/CI, llamá esta herramienta incluyendo ruc_receptor → ' +
+    '3) Recibís una URL → enviásela al cliente: "Acá tenés tu link de pago: [URL]. Una vez que pagues te confirmamos." ' +
+    'Si la herramienta retorna un error, avisale al cliente honestamente.',
   parameters: {
     type: 'object',
     properties: {
       producto: { type: 'string', description: 'Nombre del producto' },
       monto: { type: 'number', description: 'Monto en Guaraníes (PYG)' },
       descripcion: { type: 'string', description: 'Descripción opcional' },
+      ruc_receptor: {
+        type: 'string',
+        description:
+          'RUC o CI del cliente para la factura. ' +
+          'SIEMPRE pedíselo al cliente antes de llamar esta herramienta si no lo proporcionó en la conversación. ' +
+          'Ejemplo de cómo pedirlo: "¿Me podés dar tu RUC o CI para emitir la factura?"',
+      },
     },
     required: ['producto', 'monto'],
   },
@@ -37,10 +48,14 @@ const SYSTEM_PROMPT = `Sos el asistente virtual de MindTechPY. Vendés productos
 Cuando el cliente quiera pagar, generás el link de pago directamente con generate_payment_link.
 No escalás al equipo para pagos con precio fijo. "Contratar", "activar", "pagar" son señales de compra.`;
 
+// Multi-turn: simulates that the bot already asked for RUC and the client provided it.
+// This reflects the mandatory flow: bot asks RUC → client gives it → bot calls tool.
 function makeMessages(userContent: string) {
   return [
     { role: 'system' as const, content: SYSTEM_PROMPT },
     { role: 'user' as const, content: userContent },
+    { role: 'assistant' as const, content: '¿Me podés dar tu RUC o CI para emitir la factura?' },
+    { role: 'user' as const, content: 'Mi CI es 1234567' },
   ];
 }
 
@@ -124,4 +139,68 @@ describe('OpenAI real API — follow-up message includes payment URL', () => {
     const reply = await adapter.generateReply(followUp);
     expect(reply).toContain(SANDBOX_URL);
   }, 15000);
+});
+
+describe('OpenAI real API — RUC collection via chat (multi-turn)', () => {
+  let adapter: OpenAIAdapter;
+
+  beforeAll(() => {
+    if (!OPENAI_API_KEY) throw new Error('OPENAI_API_KEY not set');
+    adapter = new OpenAIAdapter(OPENAI_API_KEY!, MODEL);
+  });
+
+  it('turno 1: bot pide RUC/CI antes de llamar la herramienta', async () => {
+    if (!OPENAI_API_KEY) return;
+    // Single turn: client expresses payment intent, AI should ask for RUC NOT call tool
+    const result = await adapter.generateReplyWithTools!(
+      [
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user', content: 'quiero pagar el plan Web Express de 250.000 gs' },
+      ],
+      [PAYMENT_TOOL],
+    );
+    // AI must ask for RUC, not call the tool immediately
+    expect(result.type).toBe('text');
+    const textContent = result.type === 'text' ? result.content : '';
+    expect(textContent.toLowerCase()).toMatch(/ruc|ci|c[eé]dula|documento|identidad/i);
+  }, 20000);
+
+  it('turno 2: bot llama generate_payment_link con ruc_receptor tras recibir CI del cliente', async () => {
+    if (!OPENAI_API_KEY) return;
+    // Multi-turn: first client expressed intent, bot asked for RUC, now client provides it
+    const result = await adapter.generateReplyWithTools!(
+      [
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user', content: 'quiero pagar el plan Web Express de 250.000 gs' },
+        { role: 'assistant', content: '¿Me podés dar tu RUC o CI para emitir la factura?' },
+        { role: 'user', content: 'Mi CI es 4567890' },
+      ],
+      [PAYMENT_TOOL],
+    );
+    // AI must now call the tool with ruc_receptor
+    expect(result.type).toBe('tool_call');
+    if (result.type === 'tool_call') {
+      expect(result.name).toBe('generate_payment_link');
+      expect(String(result.args.ruc_receptor ?? '')).toMatch(/4567890/);
+      expect(Number(result.args.monto)).toBeGreaterThan(0);
+    }
+  }, 20000);
+
+  it('turno 2 con RUC empresa: incluye ruc_receptor en el tool call', async () => {
+    if (!OPENAI_API_KEY) return;
+    const result = await adapter.generateReplyWithTools!(
+      [
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user', content: 'quiero contratar Boti Plan Pro, 380.000 guaraníes' },
+        { role: 'assistant', content: '¿Me podés dar tu RUC o CI para emitir la factura?' },
+        { role: 'user', content: 'El RUC de mi empresa es 80012345-6' },
+      ],
+      [PAYMENT_TOOL],
+    );
+    expect(result.type).toBe('tool_call');
+    if (result.type === 'tool_call') {
+      expect(result.name).toBe('generate_payment_link');
+      expect(String(result.args.ruc_receptor ?? '')).toMatch(/80012345/);
+    }
+  }, 20000);
 });

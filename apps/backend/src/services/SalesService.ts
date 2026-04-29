@@ -30,9 +30,11 @@ export class SalesService implements ISalesService {
           'incluso si usa palabras como "quiero el plan", "facturame", "dame el link", "quiero comprarlo ya", "pagar ahora". ' +
           'NUNCA uses create_appointment para cobros: "contratar" o "activar" son compras, no citas de agenda. ' +
           'NUNCA escales al equipo humano para pagos de productos con precio fijo. ' +
-          'Flujo obligatorio: llamá esta herramienta → recibís una URL → enviásela al cliente: ' +
-          '"Acá tenés tu link de pago: [URL]. Una vez que pagues te confirmamos y enviamos la factura." ' +
-          'Si la herramienta retorna un error, avisale al cliente honestamente en lugar de prometer que "ya lo generás en un momento".',
+          'Flujo OBLIGATORIO en este orden: ' +
+          '1) Si no tenés el RUC o CI del cliente, preguntáselo: "¿Me podés dar tu RUC o CI para la factura?" — ' +
+          '2) Una vez que el cliente te da su RUC/CI, llamá esta herramienta incluyendo ruc_receptor → ' +
+          '3) Recibís una URL → enviásela al cliente: "Acá tenés tu link de pago: [URL]. Una vez que pagues te confirmamos." ' +
+          'Si la herramienta retorna un error, avisale al cliente honestamente.',
         parameters: {
           type: 'object',
           properties: {
@@ -51,8 +53,9 @@ export class SalesService implements ISalesService {
             ruc_receptor: {
               type: 'string',
               description:
-                'RUC o CI del cliente para emitir la factura. Si el cliente pidió una factura o mencionó su RUC/CI, incluirlo acá. ' +
-                'Si no lo mencionó y el cliente quiere factura, pedíselo antes de llamar esta herramienta.',
+                'RUC o CI del cliente para la factura. ' +
+                'SIEMPRE pedíselo al cliente antes de llamar esta herramienta si no lo proporcionó en la conversación. ' +
+                'Ejemplo de cómo pedirlo: "¿Me podés dar tu RUC o CI para emitir la factura?"',
             },
           },
           required: ['producto', 'monto'],
