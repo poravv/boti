@@ -168,7 +168,7 @@ export class SalesService implements ISalesService {
   async handlePaymentConfirmation(
     lineId: string,
     hashPedido: string,
-  ): Promise<{ clientPhone: string; amount: number; productName: string; invoiceId?: string } | null> {
+  ): Promise<{ clientPhone: string; amount: number; productName: string; invoiceId?: string; invoiceUrl?: string } | null> {
     const sale = await this.prisma.saleRecord.findFirst({
       where: { hashPedido, lineId },
     });
@@ -220,9 +220,16 @@ export class SalesService implements ISalesService {
       PRECIO_UNITARIO: Number(items[0]?.precioUnitario ?? sale.amount),
     };
 
+    let invoiceUrl: string | undefined;
+
     try {
       const invoiceResult = await facturador.createInvoice(replacements);
       invoiceId = invoiceResult.invoiceId;
+
+      if (invoiceId) {
+        const baseUrl = facturadorConfig.baseUrl.replace(/\/+$/, '').replace(/\/api\/v1\/facturas.*$/i, '');
+        invoiceUrl = `${baseUrl}/api/v1/kude/${invoiceId}`;
+      }
 
       await this.prisma.saleRecord.update({
         where: { id: sale.id },
@@ -236,6 +243,6 @@ export class SalesService implements ISalesService {
       console.error(`[SalesService] Facturador error for sale ${sale.id}:`, err.message);
     }
 
-    return { clientPhone: sale.clientPhone, amount: sale.amount, productName, invoiceId };
+    return { clientPhone: sale.clientPhone, amount: sale.amount, productName, invoiceId, invoiceUrl };
   }
 }

@@ -1127,13 +1127,14 @@ export function createRouter(
         if (confirmed) {
           wsManager.broadcast('sale:paid', { lineId, hashPedido, ...confirmed });
 
-          const { clientPhone, amount, productName, invoiceId } = confirmed;
+          const { clientPhone, amount, productName, invoiceId, invoiceUrl } = confirmed;
           const amountFormatted = amount.toLocaleString('es-PY');
           let confirmMsg =
             `✅ *¡Pago confirmado!*\n\n` +
             `Producto: ${productName}\n` +
             `Monto: Gs. ${amountFormatted}\n`;
-          if (invoiceId) confirmMsg += `Factura: ${invoiceId}\n`;
+          if (invoiceUrl) confirmMsg += `📄 Factura: ${invoiceUrl}\n`;
+          else if (invoiceId) confirmMsg += `Factura: ${invoiceId}\n`;
           confirmMsg += `\n¡Gracias por tu compra! 🎉`;
 
           try {
@@ -1185,13 +1186,14 @@ export function createRouter(
 
       wsManager.broadcast('sale:paid', { lineId, hashPedido, ...confirmed });
 
-      const { clientPhone, amount, productName, invoiceId } = confirmed;
+      const { clientPhone, amount, productName, invoiceId, invoiceUrl } = confirmed;
       const amountFormatted = amount.toLocaleString('es-PY');
       let confirmMsg =
         `✅ *¡Pago confirmado!*\n\n` +
         `Producto: ${productName}\n` +
         `Monto: Gs. ${amountFormatted}\n`;
-      if (invoiceId) confirmMsg += `Factura: ${invoiceId}\n`;
+      if (invoiceUrl) confirmMsg += `📄 Factura: ${invoiceUrl}\n`;
+      else if (invoiceId) confirmMsg += `Factura: ${invoiceId}\n`;
       confirmMsg += `\n¡Gracias por tu compra! 🎉`;
 
       try {
@@ -1200,7 +1202,7 @@ export function createRouter(
         console.error('[simulate-payment] Error sending WA confirmation:', err.message);
       }
 
-      res.json({ ok: true, clientPhone, amount, productName, invoiceId });
+      res.json({ ok: true, clientPhone, amount, productName, invoiceId, invoiceUrl });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
@@ -1779,7 +1781,9 @@ export function createRouter(
       if (!result) return res.status(409).json({ error: 'No se pudo confirmar el pago' });
 
       // Send WhatsApp confirmation — same flow as the PagoPar webhook handler
-      const invoiceMsg = result.invoiceId ? ` Tu número de factura: ${result.invoiceId}.` : '';
+      const invoiceMsg = result.invoiceUrl
+        ? `\n📄 Factura: ${result.invoiceUrl}`
+        : result.invoiceId ? ` Tu número de factura: ${result.invoiceId}.` : '';
       const confirmMsg =
         `✅ *Pago confirmado* — ${result.productName}\n` +
         `Monto: ${result.amount.toLocaleString('es-PY')} Gs.${invoiceMsg}\n` +
@@ -1804,7 +1808,7 @@ export function createRouter(
         console.error('[pay-simulator] Error saving message:', saveErr.message);
       }
 
-      res.json({ ok: true, clientPhone: result.clientPhone, amount: result.amount, invoiceId: result.invoiceId });
+      res.json({ ok: true, clientPhone: result.clientPhone, amount: result.amount, invoiceId: result.invoiceId, invoiceUrl: result.invoiceUrl });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
