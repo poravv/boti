@@ -184,6 +184,9 @@ export class SalesService implements ISalesService {
 
     const now = new Date().toISOString().replace('Z', '-03:00');
 
+    const clienteDoc = (sale as any).receptorDocumento;
+    const clienteTipoDoc = clienteDoc?.includes('-') ? 'RUC' : 'CI';
+
     const replacements: Record<string, string | number> = {
       TRANSACTION_ID: sale.id,
       PAGOPAR_ORDER_ID: sale.pagoParOrderId ?? sale.id,
@@ -191,6 +194,7 @@ export class SalesService implements ISalesService {
       MONTO_TOTAL: sale.amount,                              // number → JSON number in template
       CLIENTE_TELEFONO: sale.clientPhone,                    // string → stays string
       CLIENTE_RUC: (sale as any).receptorDocumento ?? sale.clientPhone,
+      CLIENTE_TIPO_DOCUMENTO: clienteTipoDoc,
       CLIENTE_NOMBRE: (sale as any).clientName ?? sale.clientPhone,
       PRODUCTO: productName,
       CANTIDAD: Number(items[0]?.cantidad ?? 1),             // number → JSON number
