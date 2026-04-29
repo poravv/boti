@@ -1141,6 +1141,19 @@ export function createRouter(
           } catch (err: any) {
             console.error('[Webhook PagoPar] Error sending WA confirmation:', err.message);
           }
+
+          try {
+            await prisma.client.upsert({
+              where: { phone: clientPhone },
+              update: {},
+              create: { phone: clientPhone, name: clientPhone, isBlocked: false },
+            });
+            await prisma.message.create({
+              data: { lineId, clientPhone, content: confirmMsg, type: 'TEXT', direction: 'OUTBOUND', status: 'SUCCESS', sentAt: new Date() },
+            });
+          } catch (saveErr: any) {
+            console.error('[Webhook PagoPar] Error saving message:', saveErr.message);
+          }
         }
       }
 
@@ -1766,17 +1779,29 @@ export function createRouter(
       if (!result) return res.status(409).json({ error: 'No se pudo confirmar el pago' });
 
       // Send WhatsApp confirmation — same flow as the PagoPar webhook handler
+      const invoiceMsg = result.invoiceId ? ` Tu número de factura: ${result.invoiceId}.` : '';
+      const confirmMsg =
+        `✅ *Pago confirmado* — ${result.productName}\n` +
+        `Monto: ${result.amount.toLocaleString('es-PY')} Gs.${invoiceMsg}\n` +
+        `¡Gracias por tu compra! En breve nos ponemos en contacto. 🎉`;
+
       try {
-        const invoiceMsg = result.invoiceId ? ` Tu número de factura: ${result.invoiceId}.` : '';
-        await whatsApp.sendTextMessage(
-          sale.lineId,
-          result.clientPhone,
-          `✅ *Pago confirmado* — ${result.productName}\n` +
-          `Monto: ${result.amount.toLocaleString('es-PY')} Gs.${invoiceMsg}\n` +
-          `¡Gracias por tu compra! En breve nos ponemos en contacto. 🎉`,
-        );
+        await whatsApp.sendTextMessage(sale.lineId, result.clientPhone, confirmMsg);
       } catch (waErr: any) {
         console.error('[pay-simulator] WA send error:', waErr.message);
+      }
+
+      try {
+        await prisma.client.upsert({
+          where: { phone: result.clientPhone },
+          update: {},
+          create: { phone: result.clientPhone, name: result.clientPhone, isBlocked: false },
+        });
+        await prisma.message.create({
+          data: { lineId: sale.lineId, clientPhone: result.clientPhone, content: confirmMsg, type: 'TEXT', direction: 'OUTBOUND', status: 'SUCCESS', sentAt: new Date() },
+        });
+      } catch (saveErr: any) {
+        console.error('[pay-simulator] Error saving message:', saveErr.message);
       }
 
       res.json({ ok: true, clientPhone: result.clientPhone, amount: result.amount, invoiceId: result.invoiceId });
