@@ -156,10 +156,22 @@ export class HandleInboundMessage implements HandleInboundMessageUseCase {
       const hasTools = (salesEnabled || calendarConnected) && !!aiService.generateReplyWithTools;
 
       if (hasTools) {
-        const tools = [
-          ...(salesEnabled ? salesService!.getToolDefinitions() : []),
-          ...(calendarConnected ? calendarService!.getToolDefinitions() : []),
-        ];
+        // When the message has clear payment intent, only expose the payment tool.
+        // This prevents GPT-4o from pattern-matching "contratar/pagar/activar" to calendar tools.
+        const paymentIntentRegex = /\b(pagar|pago|link de pago|facturar|facturame|contratar|activar plan|quiero el plan|quiero pagar|quiero comprarlo|dame el link|quiero comprar)\b/i;
+        const isPaymentIntent = salesEnabled && paymentIntentRegex.test(content);
+
+        const tools = isPaymentIntent
+          ? salesService!.getToolDefinitions()
+          : [
+              ...(salesEnabled ? salesService!.getToolDefinitions() : []),
+              ...(calendarConnected ? calendarService!.getToolDefinitions() : []),
+            ];
+
+        if (isPaymentIntent) {
+          console.log(`[HandleInboundMessage] payment intent detected — exposing only generate_payment_link lineId=${lineId}`);
+        }
+
         const result = await aiService.generateReplyWithTools!(aiMessages, tools, { lineId });
 
         console.log(`[HandleInboundMessage] AI result type=${result.type} lineId=${lineId}`);
