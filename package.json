@@ -10,6 +10,15 @@
   "scripts": {
     "dev": "npm run dev --workspaces",
     "build": "npm run build --workspaces",
-    "start": "npm run start --workspaces"
+    "start": "npm run start --workspaces",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:unit": "vitest run packages/core/src/__tests__",
+    "test:integration": "vitest run apps/backend/src/__tests__",
+    "test:coverage": "vitest run --coverage"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^4.1.5",
+    "vitest": "^4.1.5"
   }
 }

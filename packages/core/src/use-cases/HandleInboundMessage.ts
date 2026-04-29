@@ -158,7 +158,7 @@ export class HandleInboundMessage implements HandleInboundMessageUseCase {
       if (hasTools) {
         // When the message has clear payment intent, only expose the payment tool.
         // This prevents GPT-4o from pattern-matching "contratar/pagar/activar" to calendar tools.
-        const paymentIntentRegex = /\b(pagar|pago|link de pago|facturar|facturame|contratar|activar plan|quiero el plan|quiero pagar|quiero comprarlo|dame el link|quiero comprar)\b/i;
+        const paymentIntentRegex = /\b(pagar|pago|link de pago|facturar|facturame|contratar|activar|quiero el plan|quiero pagar|quiero comprarlo|dame el link|quiero comprar)\b/i;
         const isPaymentIntent = salesEnabled && paymentIntentRegex.test(content);
 
         const tools = isPaymentIntent
