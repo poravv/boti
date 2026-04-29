@@ -385,6 +385,15 @@ const MessageCenter = () => {
     } catch { /* keep state */ }
   };
 
+  const handleClearAIContext = async () => {
+    if (!activeChat?.lineId) return;
+    if (!window.confirm('¿Limpiar el contexto de IA para esta conversación? El bot olvidará el historial reciente y empezará desde cero.')) return;
+    try {
+      await apiFetch(`/api/lines/${activeChat.lineId}/context/${activeChat.phone}`, { method: 'DELETE' });
+      alert('Contexto de IA limpiado. El bot empezará desde cero en el próximo mensaje.');
+    } catch { alert('Error al limpiar el contexto.'); }
+  };
+
   const handleDeleteNote = async (noteId: string) => {
     if (!activeChat) return;
     try {
@@ -599,6 +608,15 @@ const MessageCenter = () => {
                 </div>
               </div>
               <div className="flex gap-2 items-center">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  leadingIcon="psychology_alt"
+                  onClick={handleClearAIContext}
+                  title="Limpiar contexto de IA"
+                >
+                  Reset IA
+                </Button>
                 {activeChat.conversationStatus !== 'CLOSED' ? (
                   <Button
                     variant="secondary"

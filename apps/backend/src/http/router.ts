@@ -762,6 +762,19 @@ export function createRouter(
     }
   });
 
+  // DELETE /lines/:lineId/context/:phone — clear AI conversation context for a contact
+  router.delete('/lines/:lineId/context/:phone', authMiddleware, async (req, res) => {
+    try {
+      const { lineId, phone } = req.params;
+      const line = await prisma.whatsAppLine.findUnique({ where: { id: lineId }, select: { orgId: true } });
+      if (!line || line.orgId !== (req as any).user.orgId) return res.status(403).json({ error: 'Acceso denegado.' });
+      await prisma.conversationContext.deleteMany({ where: { lineId, clientPhone: phone } });
+      res.json({ ok: true });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   router.get('/clients/:phone/notes', authMiddleware, async (req, res) => {
     try {
       const cl = await prisma.client.findUnique({ where: { phone: req.params.phone } });
