@@ -17,7 +17,12 @@ export class SalesService implements ISalesService {
       where: { id: lineId },
       select: { autonomousSalesEnabled: true, pagoParConfig: { select: { id: true } } },
     });
-    return !!(line?.autonomousSalesEnabled && line.pagoParConfig);
+    if (!line?.autonomousSalesEnabled) return false;
+    if (line.pagoParConfig) return true;
+    // No PagoPar config — still enabled if super admin has force_sandbox active
+    // (sandbox mode generates fake URLs without real credentials)
+    const forceSandbox = await this.prisma.systemConfig.findUnique({ where: { key: 'pagopar.force_sandbox' } });
+    return forceSandbox?.value === 'true';
   }
 
   getToolDefinitions(): AIToolDef[] {
@@ -78,7 +83,10 @@ export class SalesService implements ISalesService {
 
     const config = await this.prisma.pagoParConfig.findUnique({ where: { lineId } });
     if (!config) {
-      return 'No hay configuración de PagoPar para esta línea.';
+      const forceSandbox = await this.prisma.systemConfig.findUnique({ where: { key: 'pagopar.force_sandbox' } });
+      if (forceSandbox?.value !== 'true') {
+        return 'No hay configuración de PagoPar para esta línea.';
+      }
     }
 
     const producto = String(args.producto ?? 'Producto');
@@ -90,7 +98,13 @@ export class SalesService implements ISalesService {
       return 'El monto debe ser mayor a 0.';
     }
 
-    const pagopar = new PagoParAdapter(config.publicKey, config.privateKey, config.sandboxMode, config.baseUrl ?? undefined);
+    // When no config, force_sandbox was verified above — use mock credentials (sandbox generates fake URLs)
+    const pagopar = new PagoParAdapter(
+      config?.publicKey ?? 'mock_public_key',
+      config?.privateKey ?? 'mock_private_key',
+      config?.sandboxMode ?? true,
+      config?.baseUrl ?? undefined,
+    );
 
     const orderId = `BOTI-${lineId.slice(0, 8)}-${Date.now()}`;
     // Always use the auto-generated webhook URL tied to this lineId.
