@@ -156,10 +156,15 @@ export class HandleInboundMessage implements HandleInboundMessageUseCase {
       const hasTools = (salesEnabled || calendarConnected) && !!aiService.generateReplyWithTools;
 
       if (hasTools) {
-        // When the message has clear payment intent, only expose the payment tool.
-        // This prevents GPT-4o from pattern-matching "contratar/pagar/activar" to calendar tools.
+        // When the message (or recent history) has payment intent, only expose the payment tool.
+        // Checking history prevents tool-switching mid-conversation when the user's follow-up
+        // ("Web express de 250000") lacks keywords but the context is clearly a payment flow.
         const paymentIntentRegex = /\b(pagar|pago|link de pago|facturar|facturame|contratar|activar|quiero el plan|quiero pagar|quiero comprarlo|dame el link|quiero comprar)\b/i;
-        const isPaymentIntent = salesEnabled && paymentIntentRegex.test(content);
+        const recentUserMessages = ctx.lastMessages.slice(-4).filter(m => m.direction === 'INBOUND');
+        const isPaymentIntent = salesEnabled && (
+          paymentIntentRegex.test(content) ||
+          recentUserMessages.some(m => paymentIntentRegex.test(m.content))
+        );
 
         const tools = isPaymentIntent
           ? salesService!.getToolDefinitions()
