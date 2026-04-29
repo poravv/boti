@@ -188,7 +188,7 @@ export class SalesService implements ISalesService {
     const clienteTipoDoc = clienteDoc?.includes('-') ? 'RUC' : 'CI';
 
     const replacements: Record<string, string | number> = {
-      TRANSACTION_ID: sale.id,
+      TRANSACTION_ID: `BOTI-${Date.now()}`,
       PAGOPAR_ORDER_ID: sale.pagoParOrderId ?? sale.id,
       FECHA_EMISION: now,
       MONTO_TOTAL: sale.amount,                              // number → JSON number in template
