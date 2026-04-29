@@ -162,17 +162,28 @@ export class HandleInboundMessage implements HandleInboundMessageUseCase {
         ];
         const result = await aiService.generateReplyWithTools!(aiMessages, tools, { lineId });
 
+        console.log(`[HandleInboundMessage] AI result type=${result.type} lineId=${lineId}`);
+
         if (result.type === 'tool_call') {
           const salesToolNames = salesEnabled ? salesService!.getToolDefinitions().map(t => t.name) : [];
           let toolResult: string;
 
-          if (salesEnabled && salesToolNames.includes(result.name)) {
-            toolResult = await salesService!.executeTool(lineId, fromPhone, fromName, result.name, result.args);
-          } else if (calendarConnected) {
-            toolResult = await calendarService!.executeTool(lineId, fromPhone, fromName, result.name, result.args);
-          } else {
-            toolResult = 'Herramienta no disponible.';
+          console.log(`[HandleInboundMessage] tool_call name=${result.name} args=${JSON.stringify(result.args)} lineId=${lineId}`);
+
+          try {
+            if (salesEnabled && salesToolNames.includes(result.name)) {
+              toolResult = await salesService!.executeTool(lineId, fromPhone, fromName, result.name, result.args);
+            } else if (calendarConnected) {
+              toolResult = await calendarService!.executeTool(lineId, fromPhone, fromName, result.name, result.args);
+            } else {
+              toolResult = 'Herramienta no disponible.';
+            }
+          } catch (toolErr: any) {
+            console.error(`[HandleInboundMessage] tool execution error name=${result.name} lineId=${lineId}:`, toolErr.message);
+            toolResult = `Error ejecutando herramienta: ${toolErr.message}`;
           }
+
+          console.log(`[HandleInboundMessage] tool result=${toolResult.slice(0, 120)} lineId=${lineId}`);
 
           const followUpMessages = [
             ...aiMessages,
