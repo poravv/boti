@@ -78,7 +78,7 @@ const DEFAULT_BODY_TEMPLATE = JSON.stringify(
       puntoExpedicion: '001',
       fechaVigenciaTimbrado: '2025-01-01',
       tipoContribuyente: 2,
-      tipoRegimen: 8,
+      tipoRegimen: 1,
     },
     receptor: {
       tipoDocumento: '{{CLIENTE_TIPO_DOCUMENTO}}',
@@ -134,7 +134,7 @@ export const AutonomousSalesPage = () => {
     puntoExpedicion: '001',
     fechaVigenciaTimbrado: '',
     tipoContribuyente: '2',
-    tipoRegimen: '8',
+    tipoRegimen: '1',
   });
   const [showAdvancedTemplate, setShowAdvancedTemplate] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -201,7 +201,7 @@ export const AutonomousSalesPage = () => {
                 puntoExpedicion: tmpl.emisor?.puntoExpedicion ?? '001',
                 fechaVigenciaTimbrado: tmpl.emisor?.fechaVigenciaTimbrado ?? '',
                 tipoContribuyente: String(tmpl.emisor?.tipoContribuyente ?? '2'),
-                tipoRegimen: String(tmpl.emisor?.tipoRegimen ?? '8'),
+                tipoRegimen: String(tmpl.emisor?.tipoRegimen ?? '1'),
               });
             }
           }
@@ -233,7 +233,7 @@ export const AutonomousSalesPage = () => {
       puntoExpedicion: emisor.puntoExpedicion || '001',
       fechaVigenciaTimbrado: emisor.fechaVigenciaTimbrado || '2025-01-01',
       tipoContribuyente: Number(emisor.tipoContribuyente) || 2,
-      tipoRegimen: Number(emisor.tipoRegimen) || 8,
+      tipoRegimen: Number(emisor.tipoRegimen) || 1,
     },
     receptor: {
       tipoDocumento: '{{CLIENTE_TIPO_DOCUMENTO}}',
@@ -613,8 +613,11 @@ export const AutonomousSalesPage = () => {
                       onChange={(e) => setEmisor((p) => ({ ...p, tipoRegimen: e.target.value }))}
                       className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
                     >
-                      <option value="8">8 — Régimen General</option>
-                      <option value="1">1 — Otro</option>
+                      <option value="1">1 — Régimen General</option>
+                      <option value="2">2 — Régimen Simplificado</option>
+                      <option value="3">3 — Turístico (TURISTA)</option>
+                      <option value="4">4 — RESIMPLE</option>
+                      <option value="8">8 — Medianas Empresas</option>
                     </select>
                   </div>
                 </div>
