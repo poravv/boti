@@ -41,7 +41,7 @@ export class GeminiAIAdapter implements IAIService {
   async generateReplyWithTools(
     messages: AIMessage[],
     tools: AIToolDef[],
-    _options?: any,
+    options?: { lineId?: string; forceToolCall?: boolean },
   ): Promise<AIReplyResult> {
     const systemMsg = messages.find((m) => m.role === 'system');
     const history = messages
@@ -68,9 +68,14 @@ export class GeminiAIAdapter implements IAIService {
       })),
     }];
 
+    const toolConfig = options?.forceToolCall
+      ? { functionCallingConfig: { mode: 'ANY' as const } }
+      : undefined;
+
     const modelWithTools = this.genAI.getGenerativeModel({
       model: this.modelName,
       tools: geminiTools as any,
+      toolConfig: toolConfig as any,
     });
 
     const chat = modelWithTools.startChat({
@@ -114,7 +119,7 @@ export class OpenAIAdapter implements IAIService {
   async generateReplyWithTools(
     messages: AIMessage[],
     tools: AIToolDef[],
-    _options?: any,
+    options?: { lineId?: string; forceToolCall?: boolean },
   ): Promise<AIReplyResult> {
     const openAiTools = tools.map((t) => ({
       type: 'function' as const,
@@ -125,11 +130,13 @@ export class OpenAIAdapter implements IAIService {
       },
     }));
 
+    const toolChoice = options?.forceToolCall ? 'required' : 'auto';
+
     const response = await this.client.chat.completions.create({
       model: this.model,
       messages,
       tools: openAiTools,
-      tool_choice: 'auto',
+      tool_choice: toolChoice,
     });
 
     const choice = response.choices[0];

@@ -68,7 +68,7 @@ export interface IAIService {
   generateReplyWithTools?(
     messages: AIMessage[],
     tools: AIToolDef[],
-    options?: { lineId?: string },
+    options?: { lineId?: string; forceToolCall?: boolean },
   ): Promise<AIReplyResult>;
 }
 

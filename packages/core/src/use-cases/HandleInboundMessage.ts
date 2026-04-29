@@ -161,10 +161,13 @@ export class HandleInboundMessage implements HandleInboundMessageUseCase {
         // ("Web express de 250000") lacks keywords but the context is clearly a payment flow.
         const paymentIntentRegex = /\b(pagar|pago|link de pago|facturar|facturame|contratar|activar|quiero el plan|quiero pagar|quiero comprarlo|dame el link|quiero comprar)\b/i;
         const recentUserMessages = ctx.lastMessages.slice(-4).filter(m => m.direction === 'INBOUND');
+        const hasRecentPaymentIntent = recentUserMessages.some(m => paymentIntentRegex.test(m.content));
         const isPaymentIntent = salesEnabled && (
-          paymentIntentRegex.test(content) ||
-          recentUserMessages.some(m => paymentIntentRegex.test(m.content))
+          paymentIntentRegex.test(content) || hasRecentPaymentIntent
         );
+        // Force the tool call on follow-up messages so the AI can't hallucinate a URL.
+        // On the first turn the AI may respond with text to ask for RUC; on subsequent turns it must call the tool.
+        const forceToolCall = isPaymentIntent && hasRecentPaymentIntent;
 
         const tools = isPaymentIntent
           ? salesService!.getToolDefinitions()
@@ -174,10 +177,10 @@ export class HandleInboundMessage implements HandleInboundMessageUseCase {
             ];
 
         if (isPaymentIntent) {
-          console.log(`[HandleInboundMessage] payment intent detected — exposing only generate_payment_link lineId=${lineId}`);
+          console.log(`[HandleInboundMessage] payment intent detected — exposing only generate_payment_link forceToolCall=${forceToolCall} lineId=${lineId}`);
         }
 
-        const result = await aiService.generateReplyWithTools!(aiMessages, tools, { lineId });
+        const result = await aiService.generateReplyWithTools!(aiMessages, tools, { lineId, forceToolCall });
 
         console.log(`[HandleInboundMessage] AI result type=${result.type} lineId=${lineId}`);
 

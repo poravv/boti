@@ -30,6 +30,7 @@ export class SalesService implements ISalesService {
           'incluso si usa palabras como "quiero el plan", "facturame", "dame el link", "quiero comprarlo ya", "pagar ahora". ' +
           'NUNCA uses create_appointment para cobros: "contratar" o "activar" son compras, no citas de agenda. ' +
           'NUNCA escales al equipo humano para pagos de productos con precio fijo. ' +
+          'NUNCA inventes, escribas ni simules un link de pago en texto — el link SIEMPRE sale de esta herramienta. ' +
           'Flujo OBLIGATORIO en este orden: ' +
           '1) Si no tenés el RUC o CI del cliente, preguntáselo: "¿Me podés dar tu RUC o CI para la factura?" — ' +
           '2) Una vez que el cliente te da su RUC/CI, llamá esta herramienta incluyendo ruc_receptor → ' +
