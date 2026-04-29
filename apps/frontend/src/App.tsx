@@ -19,6 +19,7 @@ import { SuperAdminPage } from './components/pages/SuperAdminPage';
 import { LandingPage } from './components/pages/LandingPage';
 import { ContactsPage } from './components/pages/ContactsPage';
 import { HelpPage } from './components/pages/HelpPage';
+import { PaymentSimulatorPage } from './components/pages/PaymentSimulatorPage';
 
 interface AuthUser {
   userId?: string;
@@ -188,17 +189,19 @@ const App = () => {
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<Login onLogin={handleLogin} />} />
+        <Route path="/pay/:saleId" element={<PaymentSimulatorPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     );
   }
 
   // Public routes accessible even when authenticated — render without AppShell
-  if (location.pathname === '/' || location.pathname === '/login') {
+  if (location.pathname === '/' || location.pathname === '/login' || location.pathname.startsWith('/pay/')) {
     return (
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<Login onLogin={handleLogin} />} />
+        <Route path="/pay/:saleId" element={<PaymentSimulatorPage />} />
       </Routes>
     );
   }

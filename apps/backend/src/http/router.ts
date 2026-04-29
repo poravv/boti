@@ -1727,5 +1727,63 @@ export function createRouter(
     }
   });
 
+  // ── Payment Simulator ────────────────────────────────────────────────────────
+  // Public routes — no auth required. Used when no PagoPar config is set up.
+
+  // GET /pay/:saleId — sale details for the simulator frontend page
+  router.get('/pay/:saleId', async (req, res) => {
+    try {
+      const sale = await prisma.saleRecord.findUnique({
+        where: { id: req.params.saleId },
+        select: {
+          id: true,
+          amount: true,
+          currency: true,
+          status: true,
+          items: true,
+          clientName: true,
+          line: { select: { name: true } },
+        },
+      });
+      if (!sale) return res.status(404).json({ error: 'Link no encontrado' });
+      if (sale.status !== 'PENDING') return res.json({ ...sale, alreadyPaid: true });
+      res.json(sale);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /pay/:saleId/confirm — simulate a payment confirmation
+  router.post('/pay/:saleId/confirm', async (req, res) => {
+    try {
+      const sale = await prisma.saleRecord.findUnique({ where: { id: req.params.saleId } });
+      if (!sale) return res.status(404).json({ error: 'Venta no encontrada' });
+      if (sale.status !== 'PENDING') return res.status(409).json({ error: 'Ya procesado', status: sale.status });
+
+      if (!salesService) return res.status(503).json({ error: 'Servicio de ventas no disponible.' });
+
+      const result = await salesService.handlePaymentConfirmation(sale.lineId, sale.id);
+      if (!result) return res.status(409).json({ error: 'No se pudo confirmar el pago' });
+
+      // Send WhatsApp confirmation — same flow as the PagoPar webhook handler
+      try {
+        const invoiceMsg = result.invoiceId ? ` Tu número de factura: ${result.invoiceId}.` : '';
+        await whatsApp.sendTextMessage(
+          sale.lineId,
+          result.clientPhone,
+          `✅ *Pago confirmado* — ${result.productName}\n` +
+          `Monto: ${result.amount.toLocaleString('es-PY')} Gs.${invoiceMsg}\n` +
+          `¡Gracias por tu compra! En breve nos ponemos en contacto. 🎉`,
+        );
+      } catch (waErr: any) {
+        console.error('[pay-simulator] WA send error:', waErr.message);
+      }
+
+      res.json({ ok: true, clientPhone: result.clientPhone, amount: result.amount, invoiceId: result.invoiceId });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   return router;
 }

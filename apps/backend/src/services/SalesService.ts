@@ -15,14 +15,9 @@ export class SalesService implements ISalesService {
   async isEnabledForLine(lineId: string): Promise<boolean> {
     const line = await this.prisma.whatsAppLine.findUnique({
       where: { id: lineId },
-      select: { autonomousSalesEnabled: true, pagoParConfig: { select: { id: true } } },
+      select: { autonomousSalesEnabled: true },
     });
-    if (!line?.autonomousSalesEnabled) return false;
-    if (line.pagoParConfig) return true;
-    // No PagoPar config — still enabled if super admin has force_sandbox active
-    // (sandbox mode generates fake URLs without real credentials)
-    const forceSandbox = await this.prisma.systemConfig.findUnique({ where: { key: 'pagopar.force_sandbox' } });
-    return forceSandbox?.value === 'true';
+    return !!line?.autonomousSalesEnabled;
   }
 
   getToolDefinitions(): AIToolDef[] {
@@ -82,34 +77,45 @@ export class SalesService implements ISalesService {
     }
 
     const config = await this.prisma.pagoParConfig.findUnique({ where: { lineId } });
-    if (!config) {
-      const forceSandbox = await this.prisma.systemConfig.findUnique({ where: { key: 'pagopar.force_sandbox' } });
-      if (forceSandbox?.value !== 'true') {
-        return 'No hay configuración de PagoPar para esta línea.';
-      }
-    }
 
     const producto = String(args.producto ?? 'Producto');
     const monto = Math.round(Number(args.monto ?? 0));
     const descripcion = args.descripcion ? String(args.descripcion) : producto;
     const receptorDocumento = args.ruc_receptor ? String(args.ruc_receptor) : null;
 
-    if (monto <= 0) {
-      return 'El monto debe ser mayor a 0.';
+    if (monto <= 0) return 'El monto debe ser mayor a 0.';
+
+    if (!config) {
+      // No PagoPar configured — use internal payment simulator
+      const { randomUUID } = await import('crypto');
+      const saleId = randomUUID();
+      const simulatorUrl = `${this.backendBaseUrl}/pay/${saleId}`;
+
+      await this.prisma.saleRecord.create({
+        data: {
+          id: saleId,
+          lineId,
+          clientPhone,
+          clientName: clientName || null,
+          receptorDocumento,
+          hashPedido: saleId,
+          pagoParOrderId: null,
+          paymentLinkUrl: simulatorUrl,
+          amount: monto,
+          currency: 'PYG',
+          status: 'PENDING',
+          items: [{ nombre: producto, cantidad: 1, precioUnitario: monto }],
+        },
+      });
+
+      return simulatorUrl;
     }
 
-    // When no config, force_sandbox was verified above — use mock credentials (sandbox generates fake URLs)
-    const pagopar = new PagoParAdapter(
-      config?.publicKey ?? 'mock_public_key',
-      config?.privateKey ?? 'mock_private_key',
-      config?.sandboxMode ?? true,
-      config?.baseUrl ?? undefined,
-    );
-
-    const orderId = `BOTI-${lineId.slice(0, 8)}-${Date.now()}`;
     // Always use the auto-generated webhook URL tied to this lineId.
     // Prevents misconfiguration where a stored callbackUrl could point to another client's endpoint.
     const callbackUrl = `${this.backendBaseUrl}/api/webhook/pagopar/${lineId}`;
+    const pagopar = new PagoParAdapter(config.publicKey, config.privateKey, config.sandboxMode, config.baseUrl ?? undefined);
+    const orderId = `BOTI-${lineId.slice(0, 8)}-${Date.now()}`;
 
     const result = await pagopar.createPaymentOrder({
       orderId,
@@ -120,7 +126,6 @@ export class SalesService implements ISalesService {
       callbackUrl,
     });
 
-    // Persist sale record
     await this.prisma.saleRecord.create({
       data: {
         lineId,
