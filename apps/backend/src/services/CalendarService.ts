@@ -69,11 +69,11 @@ export class CalendarService implements ICalendarService {
       {
         name: 'create_appointment',
         description:
-          `Agenda una cita para el cliente en el calendario. ` +
-          `Úsala cuando el cliente haya confirmado la fecha y hora que desea. ` +
-          `Si el cliente insiste en un horario específico que no aparece en check_availability, ` +
-          `igual podés crearlo — check_availability solo muestra slots sugeridos, ` +
-          `pero create_appointment acepta cualquier hora. ` +
+          `Agenda una cita, reunión o demo en el calendario. ` +
+          `Úsala SOLO cuando el cliente quiera reunirse, hablar con el equipo o ver una demo — NO para cobros ni pagos. ` +
+          `NUNCA uses create_appointment cuando el cliente quiera pagar, contratar, activar un plan o pedir un link de pago — para eso existe generate_payment_link. ` +
+          `Palabras como "contratar", "activar", "quiero el plan", "pagar" y "facturame" son señales de compra, NO de agenda. ` +
+          `Si el cliente insiste en un horario específico que no aparece en check_availability, igual podés crearlo — check_availability solo muestra slots sugeridos. ` +
           `Hoy es ${today}. Siempre usá el año correcto en fecha_hora.`,
         parameters: {
           type: 'object',
