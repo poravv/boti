@@ -15,6 +15,16 @@ interface EmisorFormState {
   fechaVigenciaTimbrado: string;
   tipoContribuyente: string;
   tipoRegimen: string;
+  actividadEconomica: string;
+  actividadDescripcion: string;
+  email: string;
+  telefono: string;
+  direccion: string;
+  numeroCasa: string;
+  departamento?: string;
+  departamentoDescripcion?: string;
+  ciudad?: string;
+  ciudadDescripcion?: string;
 }
 
 interface PagoParFormState {
@@ -79,6 +89,12 @@ const DEFAULT_BODY_TEMPLATE = JSON.stringify(
       fechaVigenciaTimbrado: '2025-01-01',
       tipoContribuyente: 2,
       tipoRegimen: 1,
+      actividadEconomica: '46510',
+      actividadDescripcion: 'Comercio al por mayor de equipos informáticos',
+      email: 'empresa@empresa.com',
+      telefono: '021000000',
+      direccion: 'Av. Principal',
+      numeroCasa: '123',
     },
     receptor: {
       tipoDocumento: '{{CLIENTE_TIPO_DOCUMENTO}}',
@@ -135,6 +151,16 @@ export const AutonomousSalesPage = () => {
     fechaVigenciaTimbrado: '',
     tipoContribuyente: '2',
     tipoRegimen: '1',
+    actividadEconomica: '',
+    actividadDescripcion: '',
+    email: '',
+    telefono: '',
+    direccion: '',
+    numeroCasa: '',
+    departamento: '',
+    departamentoDescripcion: '',
+    ciudad: '',
+    ciudadDescripcion: '',
   });
   const [showAdvancedTemplate, setShowAdvancedTemplate] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -202,6 +228,16 @@ export const AutonomousSalesPage = () => {
                 fechaVigenciaTimbrado: tmpl.emisor?.fechaVigenciaTimbrado ?? '',
                 tipoContribuyente: String(tmpl.emisor?.tipoContribuyente ?? '2'),
                 tipoRegimen: String(tmpl.emisor?.tipoRegimen ?? '1'),
+                actividadEconomica: String(tmpl.emisor?.actividadEconomica ?? ''),
+                actividadDescripcion: tmpl.emisor?.actividadDescripcion ?? '',
+                email: tmpl.emisor?.email ?? '',
+                telefono: tmpl.emisor?.telefono ?? '',
+                direccion: tmpl.emisor?.direccion ?? '',
+                numeroCasa: tmpl.emisor?.numeroCasa ?? '',
+                departamento: String(tmpl.emisor?.departamento ?? ''),
+                departamentoDescripcion: tmpl.emisor?.departamentoDescripcion ?? '',
+                ciudad: String(tmpl.emisor?.ciudad ?? ''),
+                ciudadDescripcion: tmpl.emisor?.ciudadDescripcion ?? '',
               });
             }
           }
@@ -234,6 +270,14 @@ export const AutonomousSalesPage = () => {
       fechaVigenciaTimbrado: emisor.fechaVigenciaTimbrado || '2025-01-01',
       tipoContribuyente: Number(emisor.tipoContribuyente) || 2,
       tipoRegimen: Number(emisor.tipoRegimen) || 1,
+      actividadEconomica: emisor.actividadEconomica || 'COMPLETAR',
+      actividadDescripcion: emisor.actividadDescripcion || 'Actividad económica principal',
+      email: emisor.email || 'COMPLETAR@EMAIL.COM',
+      telefono: emisor.telefono || '',
+      direccion: emisor.direccion || '',
+      numeroCasa: emisor.numeroCasa || '0',
+      ...(emisor.departamento ? { departamento: Number(emisor.departamento), departamentoDescripcion: emisor.departamentoDescripcion || '' } : {}),
+      ...(emisor.ciudad ? { ciudad: Number(emisor.ciudad), ciudadDescripcion: emisor.ciudadDescripcion || '' } : {}),
     },
     receptor: {
       tipoDocumento: '{{CLIENTE_TIPO_DOCUMENTO}}',
@@ -619,6 +663,66 @@ export const AutonomousSalesPage = () => {
                       <option value="4">4 — RESIMPLE</option>
                       <option value="8">8 — Medianas Empresas</option>
                     </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-foreground mb-1">Código Actividad Económica *</label>
+                    <input
+                      type="text"
+                      value={emisor.actividadEconomica}
+                      onChange={(e) => setEmisor((p) => ({ ...p, actividadEconomica: e.target.value }))}
+                      placeholder="Ej: 46510"
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-foreground mb-1">Descripción Actividad *</label>
+                    <input
+                      type="text"
+                      value={emisor.actividadDescripcion}
+                      onChange={(e) => setEmisor((p) => ({ ...p, actividadDescripcion: e.target.value }))}
+                      placeholder="Ej: Comercio al por mayor..."
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-foreground mb-1">Email Emisor *</label>
+                    <input
+                      type="email"
+                      value={emisor.email}
+                      onChange={(e) => setEmisor((p) => ({ ...p, email: e.target.value }))}
+                      placeholder="empresa@empresa.com"
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-foreground mb-1">Teléfono *</label>
+                    <input
+                      type="text"
+                      value={emisor.telefono}
+                      onChange={(e) => setEmisor((p) => ({ ...p, telefono: e.target.value }))}
+                      placeholder="021000000"
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-foreground mb-1">Dirección *</label>
+                    <input
+                      type="text"
+                      value={emisor.direccion}
+                      onChange={(e) => setEmisor((p) => ({ ...p, direccion: e.target.value }))}
+                      placeholder="Av. Principal 123"
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-foreground mb-1">Número de Casa *</label>
+                    <input
+                      type="text"
+                      value={emisor.numeroCasa}
+                      onChange={(e) => setEmisor((p) => ({ ...p, numeroCasa: e.target.value }))}
+                      placeholder="123"
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    />
                   </div>
                 </div>
               </div>
