@@ -1,6 +1,9 @@
 // Generic configurable facturador (invoicing) HTTP adapter.
 // Sends POST to baseUrl with X-Access-Key / X-Secret-Key headers.
 // The bodyTemplate is a JSON object where {{FIELD}} placeholders are replaced at call time.
+//
+// Type coercion: if a replacement value is a number, a single-placeholder field (e.g. "{{MONTO}}")
+// becomes a JSON number. String values always stay strings — no heuristic coercion.
 
 export interface FacturadorConfig {
   baseUrl: string;
@@ -20,7 +23,7 @@ export interface InvoiceResult {
 export class FacturadorAdapter {
   constructor(private readonly config: FacturadorConfig) {}
 
-  async createInvoice(replacements: Record<string, string>): Promise<InvoiceResult> {
+  async createInvoice(replacements: Record<string, string | number>): Promise<InvoiceResult> {
     const body = this.applyTemplate(this.config.bodyTemplate, replacements);
 
     const headers: Record<string, string> = {
@@ -41,18 +44,33 @@ export class FacturadorAdapter {
 
     const raw = await resp.json().catch(() => ({})) as any;
 
+    // cdc = Código de Control SIFEN — the official document identifier.
+    // Fall back to transactionId (our own ID echoed by the API) if cdc not present.
+    const invoiceId: string | undefined =
+      raw?.cdc ?? raw?.id ?? raw?.invoiceId ?? raw?.transactionId ?? undefined;
+
     return {
       success: resp.ok,
-      invoiceId: raw?.id ?? raw?.transactionId ?? raw?.invoiceId ?? raw?.numero,
+      invoiceId,
       raw,
       statusCode: resp.status,
     };
   }
 
-  // Recursively replace {{KEY}} placeholders in any nested JSON value
-  private applyTemplate(template: unknown, replacements: Record<string, string>): unknown {
+  // Recursively replace {{KEY}} placeholders in any nested JSON value.
+  // When the entire string value is a single {{KEY}} placeholder AND the replacement is a number,
+  // the result is a JSON number — no heuristic coercion on partial strings.
+  private applyTemplate(template: unknown, replacements: Record<string, string | number>): unknown {
     if (typeof template === 'string') {
-      return template.replace(/\{\{(\w+)\}\}/g, (_, key) => replacements[key] ?? `{{${key}}}`);
+      const single = template.match(/^\{\{(\w+)\}\}$/);
+      if (single) {
+        const val = replacements[single[1]];
+        if (val !== undefined) return val; // preserves number or string type
+        return template; // unknown key — leave as-is
+      }
+      return template.replace(/\{\{(\w+)\}\}/g, (_, key) =>
+        String(replacements[key] ?? `{{${key}}}`),
+      );
     }
     if (Array.isArray(template)) {
       return template.map((item) => this.applyTemplate(item, replacements));

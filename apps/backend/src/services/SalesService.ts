@@ -100,6 +100,7 @@ export class SalesService implements ISalesService {
       data: {
         lineId,
         clientPhone,
+        clientName: clientName || null,
         hashPedido: result.hashPedido,
         pagoParOrderId: result.pagoParOrderId,
         paymentLinkUrl: result.paymentUrl,
@@ -152,15 +153,16 @@ export class SalesService implements ISalesService {
 
     const now = new Date().toISOString().replace('Z', '-03:00');
 
-    const replacements: Record<string, string> = {
+    const replacements: Record<string, string | number> = {
       TRANSACTION_ID: sale.id,
       PAGOPAR_ORDER_ID: sale.pagoParOrderId ?? sale.id,
       FECHA_EMISION: now,
-      MONTO_TOTAL: String(sale.amount),
-      CLIENTE_TELEFONO: sale.clientPhone,
+      MONTO_TOTAL: sale.amount,                              // number → JSON number in template
+      CLIENTE_TELEFONO: sale.clientPhone,                    // string → stays string
+      CLIENTE_NOMBRE: (sale as any).clientName ?? sale.clientPhone,
       PRODUCTO: productName,
-      CANTIDAD: String(items[0]?.cantidad ?? 1),
-      PRECIO_UNITARIO: String(items[0]?.precioUnitario ?? sale.amount),
+      CANTIDAD: Number(items[0]?.cantidad ?? 1),             // number → JSON number
+      PRECIO_UNITARIO: Number(items[0]?.precioUnitario ?? sale.amount), // number → JSON number
     };
 
     try {
