@@ -4,29 +4,6 @@ import { Badge, Button, Card, FormInput, Icon, useToast } from '../ui';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-interface EmisorFormState {
-  emisorId: string;
-  ruc: string;
-  razonSocial: string;
-  nombreFantasia: string;
-  timbrado: string;
-  establecimiento: string;
-  puntoExpedicion: string;
-  fechaVigenciaTimbrado: string;
-  tipoContribuyente: string;
-  tipoRegimen: string;
-  actividadEconomica: string;
-  actividadDescripcion: string;
-  email: string;
-  telefono: string;
-  direccion: string;
-  numeroCasa: string;
-  departamento?: string;
-  departamentoDescripcion?: string;
-  ciudad?: string;
-  ciudadDescripcion?: string;
-}
-
 interface PagoParFormState {
   baseUrl: string;
   publicKey: string;
@@ -38,7 +15,7 @@ interface FacturadorFormState {
   baseUrl: string;
   accessKey: string;
   secretKey: string;
-  apiKey: string;
+  emisorId: string;
   bodyTemplate: string; // JSON string for editing
   successExample: string; // JSON string for display
   isActive: boolean;
@@ -70,32 +47,8 @@ interface SalesConfig {
 const DEFAULT_BODY_TEMPLATE = JSON.stringify(
   {
     transactionId: '{{TRANSACTION_ID}}',
-    emisorId: 'COMPLETAR_EMISOR_ID',
-    tipoDocumento: 'FACTURA',
+    emisorId: 'COMPLETAR-EMISOR-ID',
     fechaEmision: '{{FECHA_EMISION}}',
-    header: {
-      moneda: 'PYG',
-      condicionPago: 1,
-      formaPago: 'CONTADO',
-      montoTotal: '{{MONTO_TOTAL}}',
-    },
-    emisor: {
-      ruc: 'COMPLETAR-RUC',
-      razonSocial: 'MI EMPRESA SA',
-      nombreFantasia: 'Mi Empresa',
-      timbrado: 'COMPLETAR',
-      establecimiento: '001',
-      puntoExpedicion: '001',
-      fechaVigenciaTimbrado: '2025-01-01',
-      tipoContribuyente: 2,
-      tipoRegimen: 1,
-      actividadEconomica: '46510',
-      actividadDescripcion: 'Comercio al por mayor de equipos informáticos',
-      email: 'empresa@empresa.com',
-      telefono: '021000000',
-      direccion: 'Av. Principal',
-      numeroCasa: '123',
-    },
     receptor: {
       tipoDocumento: '{{CLIENTE_TIPO_DOCUMENTO}}',
       numeroDocumento: '{{CLIENTE_RUC}}',
@@ -104,13 +57,11 @@ const DEFAULT_BODY_TEMPLATE = JSON.stringify(
     },
     detail: [
       {
-        codigo: 'BOTI-VENTA',
         descripcion: '{{PRODUCTO}}',
         cantidad: '{{CANTIDAD}}',
         precioUnitario: '{{PRECIO_UNITARIO}}',
-        ivaTipo: 1,
-        ivaBase: 100,
-        iva: 10,
+        ivaTipo: '10',
+        unidadMedida: 'UNI',
       },
     ],
   },
@@ -135,32 +86,10 @@ export const AutonomousSalesPage = () => {
     baseUrl: '',
     accessKey: '',
     secretKey: '',
-    apiKey: '',
+    emisorId: '',
     bodyTemplate: DEFAULT_BODY_TEMPLATE,
     successExample: '',
     isActive: true,
-  });
-  const [emisor, setEmisor] = useState<EmisorFormState>({
-    emisorId: '',
-    ruc: '',
-    razonSocial: '',
-    nombreFantasia: '',
-    timbrado: '',
-    establecimiento: '001',
-    puntoExpedicion: '001',
-    fechaVigenciaTimbrado: '',
-    tipoContribuyente: '2',
-    tipoRegimen: '1',
-    actividadEconomica: '',
-    actividadDescripcion: '',
-    email: '',
-    telefono: '',
-    direccion: '',
-    numeroCasa: '',
-    departamento: '',
-    departamentoDescripcion: '',
-    ciudad: '',
-    ciudadDescripcion: '',
   });
   const [showAdvancedTemplate, setShowAdvancedTemplate] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -200,11 +129,14 @@ export const AutonomousSalesPage = () => {
 
         setHasFacturadorConfig(!!data.facturadorConfig);
         if (data.facturadorConfig) {
+          const tmpl = data.facturadorConfig.bodyTemplate as any;
+          const emisorId = tmpl?.emisorId ?? '';
+
           setFacturador({
             baseUrl: data.facturadorConfig.baseUrl,
             accessKey: data.facturadorConfig.accessKey,
             secretKey: '', // never pre-filled — secret
-            apiKey: data.facturadorConfig.apiKey ?? '',
+            emisorId,
             bodyTemplate: data.facturadorConfig.bodyTemplate
               ? JSON.stringify(data.facturadorConfig.bodyTemplate, null, 2)
               : DEFAULT_BODY_TEMPLATE,
@@ -213,36 +145,8 @@ export const AutonomousSalesPage = () => {
               : '',
             isActive: data.facturadorConfig.isActive,
           });
-
-          if (data.facturadorConfig.bodyTemplate) {
-            const tmpl = data.facturadorConfig.bodyTemplate as any;
-            if (tmpl.emisorId || tmpl.emisor) {
-              setEmisor({
-                emisorId: tmpl.emisorId ?? '',
-                ruc: tmpl.emisor?.ruc ?? '',
-                razonSocial: tmpl.emisor?.razonSocial ?? '',
-                nombreFantasia: tmpl.emisor?.nombreFantasia ?? '',
-                timbrado: tmpl.emisor?.timbrado ?? '',
-                establecimiento: tmpl.emisor?.establecimiento ?? '001',
-                puntoExpedicion: tmpl.emisor?.puntoExpedicion ?? '001',
-                fechaVigenciaTimbrado: tmpl.emisor?.fechaVigenciaTimbrado ?? '',
-                tipoContribuyente: String(tmpl.emisor?.tipoContribuyente ?? '2'),
-                tipoRegimen: String(tmpl.emisor?.tipoRegimen ?? '1'),
-                actividadEconomica: String(tmpl.emisor?.actividadEconomica ?? ''),
-                actividadDescripcion: tmpl.emisor?.actividadDescripcion ?? '',
-                email: tmpl.emisor?.email ?? '',
-                telefono: tmpl.emisor?.telefono ?? '',
-                direccion: tmpl.emisor?.direccion ?? '',
-                numeroCasa: tmpl.emisor?.numeroCasa ?? '',
-                departamento: String(tmpl.emisor?.departamento ?? ''),
-                departamentoDescripcion: tmpl.emisor?.departamentoDescripcion ?? '',
-                ciudad: String(tmpl.emisor?.ciudad ?? ''),
-                ciudadDescripcion: tmpl.emisor?.ciudadDescripcion ?? '',
-              });
-            }
-          }
         } else {
-          setFacturador((prev) => ({ ...prev, baseUrl: '', accessKey: '', secretKey: '', apiKey: '' }));
+          setFacturador((prev) => ({ ...prev, baseUrl: '', accessKey: '', secretKey: '', emisorId: '' }));
         }
       })
       .catch(console.error)
@@ -251,34 +155,8 @@ export const AutonomousSalesPage = () => {
 
   const buildGeneratedTemplate = () => ({
     transactionId: '{{TRANSACTION_ID}}',
-    emisorId: emisor.emisorId || 'COMPLETAR_EMISOR_ID',
-    tipoDocumento: 'FACTURA',
+    emisorId: facturador.emisorId || 'COMPLETAR-EMISOR-ID',
     fechaEmision: '{{FECHA_EMISION}}',
-    header: {
-      moneda: 'PYG',
-      condicionPago: 1,
-      formaPago: 'CONTADO',
-      montoTotal: '{{MONTO_TOTAL}}',
-    },
-    emisor: {
-      ruc: emisor.ruc || 'COMPLETAR-RUC',
-      razonSocial: emisor.razonSocial || 'MI EMPRESA SA',
-      nombreFantasia: emisor.nombreFantasia || emisor.razonSocial || 'Mi Empresa',
-      timbrado: emisor.timbrado || 'COMPLETAR',
-      establecimiento: emisor.establecimiento || '001',
-      puntoExpedicion: emisor.puntoExpedicion || '001',
-      fechaVigenciaTimbrado: emisor.fechaVigenciaTimbrado || '2025-01-01',
-      tipoContribuyente: Number(emisor.tipoContribuyente) || 2,
-      tipoRegimen: Number(emisor.tipoRegimen) || 1,
-      actividadEconomica: emisor.actividadEconomica || 'COMPLETAR',
-      actividadDescripcion: emisor.actividadDescripcion || 'Actividad económica principal',
-      email: emisor.email || 'COMPLETAR@EMAIL.COM',
-      telefono: emisor.telefono || '',
-      direccion: emisor.direccion || '',
-      numeroCasa: emisor.numeroCasa || '0',
-      ...(emisor.departamento ? { departamento: Number(emisor.departamento), departamentoDescripcion: emisor.departamentoDescripcion || '' } : {}),
-      ...(emisor.ciudad ? { ciudad: Number(emisor.ciudad), ciudadDescripcion: emisor.ciudadDescripcion || '' } : {}),
-    },
     receptor: {
       tipoDocumento: '{{CLIENTE_TIPO_DOCUMENTO}}',
       numeroDocumento: '{{CLIENTE_RUC}}',
@@ -287,13 +165,11 @@ export const AutonomousSalesPage = () => {
     },
     detail: [
       {
-        codigo: 'BOTI-VENTA',
         descripcion: '{{PRODUCTO}}',
         cantidad: '{{CANTIDAD}}',
         precioUnitario: '{{PRECIO_UNITARIO}}',
-        ivaTipo: 1,
-        ivaBase: 100,
-        iva: 10,
+        ivaTipo: '10',
+        unidadMedida: 'UNI',
       },
     ],
   });
@@ -344,7 +220,6 @@ export const AutonomousSalesPage = () => {
             baseUrl: facturador.baseUrl,
             accessKey: facturador.accessKey,
             ...(facturador.secretKey ? { secretKey: facturador.secretKey } : {}),
-            apiKey: facturador.apiKey || null,
             bodyTemplate: bodyTemplateJson,
             successExample: successExampleJson,
             isActive: facturador.isActive,
@@ -556,7 +431,7 @@ export const AutonomousSalesPage = () => {
                   label="Base URL (endpoint POST de facturación)"
                   value={facturador.baseUrl}
                   onChange={(e) => setFacturador((f) => ({ ...f, baseUrl: e.target.value }))}
-                  placeholder="https://facturador.tuempresa.com/api/v1/facturas"
+                  placeholder="http://localhost:8081"
                 />
                 <div className="grid grid-cols-2 gap-4">
                   <FormInput
@@ -574,156 +449,21 @@ export const AutonomousSalesPage = () => {
                   />
                 </div>
                 <FormInput
-                  label="X-Api-Key (opcional)"
-                  value={facturador.apiKey}
-                  onChange={(e) => setFacturador((f) => ({ ...f, apiKey: e.target.value }))}
-                  placeholder="Opcional — dejar vacío si no aplica"
+                  label="Emisor ID (workspace en el facturador)"
+                  value={facturador.emisorId}
+                  onChange={(e) => setFacturador((f) => ({ ...f, emisorId: e.target.value }))}
+                  placeholder="Andres01"
                 />
               </div>
 
-              {/* Datos de tu empresa (Emisor) */}
-              <div className="border-t border-border pt-4 space-y-3">
-                <div className="flex items-center gap-2">
-                  <Icon name="business" className="text-primary" />
-                  <h3 className="font-medium text-foreground text-sm">Datos de tu empresa (Emisor)</h3>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Completalos una sola vez. El facturador los recibe junto con cada factura.
-                </p>
-                <div className="grid grid-cols-2 gap-3">
-                  <FormInput
-                    label="Emisor ID"
-                    value={emisor.emisorId}
-                    onChange={(e) => setEmisor((p) => ({ ...p, emisorId: e.target.value }))}
-                    placeholder="Andres01"
-                  />
-                  <FormInput
-                    label="RUC"
-                    value={emisor.ruc}
-                    onChange={(e) => setEmisor((p) => ({ ...p, ruc: e.target.value }))}
-                    placeholder="80012345-6"
-                  />
-                  <FormInput
-                    label="Razón Social"
-                    value={emisor.razonSocial}
-                    onChange={(e) => setEmisor((p) => ({ ...p, razonSocial: e.target.value }))}
-                    placeholder="MI EMPRESA SA"
-                  />
-                  <FormInput
-                    label="Nombre Fantasía"
-                    value={emisor.nombreFantasia}
-                    onChange={(e) => setEmisor((p) => ({ ...p, nombreFantasia: e.target.value }))}
-                    placeholder="Mi Empresa"
-                  />
-                  <FormInput
-                    label="Timbrado"
-                    value={emisor.timbrado}
-                    onChange={(e) => setEmisor((p) => ({ ...p, timbrado: e.target.value }))}
-                    placeholder="12345678"
-                  />
-                  <FormInput
-                    label="Fecha Vigencia Timbrado"
-                    type="date"
-                    value={emisor.fechaVigenciaTimbrado}
-                    onChange={(e) => setEmisor((p) => ({ ...p, fechaVigenciaTimbrado: e.target.value }))}
-                  />
-                  <FormInput
-                    label="Establecimiento"
-                    value={emisor.establecimiento}
-                    onChange={(e) => setEmisor((p) => ({ ...p, establecimiento: e.target.value }))}
-                    placeholder="001"
-                  />
-                  <FormInput
-                    label="Punto de Expedición"
-                    value={emisor.puntoExpedicion}
-                    onChange={(e) => setEmisor((p) => ({ ...p, puntoExpedicion: e.target.value }))}
-                    placeholder="001"
-                  />
-                  <div>
-                    <label className="block text-xs font-medium text-foreground mb-1">Tipo Contribuyente</label>
-                    <select
-                      value={emisor.tipoContribuyente}
-                      onChange={(e) => setEmisor((p) => ({ ...p, tipoContribuyente: e.target.value }))}
-                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-                    >
-                      <option value="1">1 — Persona Física</option>
-                      <option value="2">2 — Persona Jurídica</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-foreground mb-1">Tipo Régimen</label>
-                    <select
-                      value={emisor.tipoRegimen}
-                      onChange={(e) => setEmisor((p) => ({ ...p, tipoRegimen: e.target.value }))}
-                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-                    >
-                      <option value="1">1 — Régimen General</option>
-                      <option value="2">2 — Régimen Simplificado</option>
-                      <option value="3">3 — Turístico (TURISTA)</option>
-                      <option value="4">4 — RESIMPLE</option>
-                      <option value="8">8 — Medianas Empresas</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-foreground mb-1">Código Actividad Económica *</label>
-                    <input
-                      type="text"
-                      value={emisor.actividadEconomica}
-                      onChange={(e) => setEmisor((p) => ({ ...p, actividadEconomica: e.target.value }))}
-                      placeholder="Ej: 46510"
-                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-foreground mb-1">Descripción Actividad *</label>
-                    <input
-                      type="text"
-                      value={emisor.actividadDescripcion}
-                      onChange={(e) => setEmisor((p) => ({ ...p, actividadDescripcion: e.target.value }))}
-                      placeholder="Ej: Comercio al por mayor..."
-                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-foreground mb-1">Email Emisor *</label>
-                    <input
-                      type="email"
-                      value={emisor.email}
-                      onChange={(e) => setEmisor((p) => ({ ...p, email: e.target.value }))}
-                      placeholder="empresa@empresa.com"
-                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-foreground mb-1">Teléfono *</label>
-                    <input
-                      type="text"
-                      value={emisor.telefono}
-                      onChange={(e) => setEmisor((p) => ({ ...p, telefono: e.target.value }))}
-                      placeholder="021000000"
-                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-foreground mb-1">Dirección *</label>
-                    <input
-                      type="text"
-                      value={emisor.direccion}
-                      onChange={(e) => setEmisor((p) => ({ ...p, direccion: e.target.value }))}
-                      placeholder="Av. Principal 123"
-                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-foreground mb-1">Número de Casa *</label>
-                    <input
-                      type="text"
-                      value={emisor.numeroCasa}
-                      onChange={(e) => setEmisor((p) => ({ ...p, numeroCasa: e.target.value }))}
-                      placeholder="123"
-                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-                    />
-                  </div>
+              {/* Nota sobre datos fiscales */}
+              <div className="rounded-lg bg-muted/50 border border-border px-4 py-3 text-xs text-muted-foreground space-y-1">
+                <div className="flex items-start gap-2">
+                  <Icon name="info" size="xs" className="inline shrink-0 mt-0.5" />
+                  <p>
+                    Los datos fiscales del emisor (RUC, timbrado, etc.) se configuran directamente en el
+                    dashboard del Facturador (electronico-sifen).
+                  </p>
                 </div>
               </div>
 
@@ -772,7 +512,7 @@ export const AutonomousSalesPage = () => {
                   <div className="mt-3 space-y-2">
                     <p className="text-xs text-muted-foreground">
                       Placeholders disponibles:{' '}
-                      {['TRANSACTION_ID', 'FECHA_EMISION', 'MONTO_TOTAL', 'CANTIDAD', 'PRECIO_UNITARIO', 'CLIENTE_RUC', 'CLIENTE_TELEFONO', 'CLIENTE_NOMBRE', 'CLIENTE_EMAIL', 'PRODUCTO'].map((k) => (
+                      {['TRANSACTION_ID', 'FECHA_EMISION', 'CANTIDAD', 'PRECIO_UNITARIO', 'CLIENTE_RUC', 'CLIENTE_TIPO_DOCUMENTO', 'CLIENTE_TELEFONO', 'CLIENTE_NOMBRE', 'CLIENTE_EMAIL', 'PRODUCTO'].map((k) => (
                         <code key={k} className="bg-muted px-1 rounded mr-1">{`{{${k}}}`}</code>
                       ))}
                     </p>
