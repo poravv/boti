@@ -12,7 +12,7 @@ export interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
 }
 
 const VARIANT: Record<BadgeVariant, string> = {
-  primary: 'bg-primary/10 text-primary border border-primary/20',
+  primary: 'bg-action/10 text-action border border-action/20',
   secondary: 'bg-secondary/10 text-secondary border border-secondary/20',
   success: 'bg-success-container text-on-success-container border border-success/20',
   warning: 'bg-warning-container text-on-warning-container border border-warning/20',
@@ -21,7 +21,7 @@ const VARIANT: Record<BadgeVariant, string> = {
 };
 
 const DOT_COLOR: Record<BadgeVariant, string> = {
-  primary: 'bg-primary',
+  primary: 'bg-action',
   secondary: 'bg-secondary',
   success: 'bg-success',
   warning: 'bg-warning',

@@ -15,13 +15,13 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const BASE =
-  'inline-flex items-center justify-center gap-2 font-semibold rounded-xl transition-all duration-250 ease-premium focus-ring disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none select-none';
+  'inline-flex items-center justify-center gap-2 font-semibold rounded-md transition-all duration-250 ease-premium focus-ring disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none select-none';
 
 const VARIANT: Record<ButtonVariant, string> = {
   primary:
-    'bg-primary text-white shadow-glass-sm hover:opacity-90 hover:shadow-glass hover:-translate-y-0.5 active:translate-y-0 active:shadow-glass-sm active:opacity-100',
+    'bg-action text-on-action shadow-glass-sm hover:opacity-90 hover:shadow-glass hover:-translate-y-0.5 active:translate-y-0 active:shadow-glass-sm active:opacity-100',
   secondary:
-    'bg-white text-primary border border-outline-variant shadow-glass-sm hover:bg-surface-container-low hover:shadow-glass hover:-translate-y-0.5 active:translate-y-0',
+    'bg-white text-action border border-action/40 shadow-glass-sm hover:bg-action/5 hover:shadow-glass hover:-translate-y-0.5 active:translate-y-0',
   ghost:
     'bg-transparent text-on-surface hover:bg-surface-container-high/60 active:bg-surface-container-high',
   danger:

@@ -288,7 +288,7 @@ function HeroStatCard({ value, trend, hourlyTraffic, maxTraffic, delay }: HeroSt
                 <div
                   key={index}
                   role="presentation"
-                  className="flex-1 bg-primary/15 hover:bg-primary rounded-t-lg transition-colors duration-250 ease-premium relative group"
+                  className="flex-1 bg-primary/15 hover:bg-action rounded-t-lg transition-colors duration-250 ease-premium relative group"
                   style={{ height: `${height}%` }}
                 >
                   <span className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 bg-inverse-surface text-inverse-on-surface text-overline px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
@@ -381,7 +381,7 @@ function TrafficCard({ hourlyTraffic, maxTraffic, total, delay }: TrafficCardPro
               <div
                 key={index}
                 role="presentation"
-                className="flex-1 bg-primary/10 hover:bg-primary rounded-t-lg transition-colors duration-250 ease-premium relative group"
+                className="flex-1 bg-primary/10 hover:bg-action rounded-t-lg transition-colors duration-250 ease-premium relative group"
                 style={{ height: `${height}%` }}
               >
                 <span className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 bg-inverse-surface text-inverse-on-surface text-overline px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">

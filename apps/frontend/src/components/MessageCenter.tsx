@@ -595,7 +595,7 @@ const MessageCenter = () => {
                       <button type="button" onClick={() => setEditingName(false)} className="p-1 rounded-lg hover:bg-error/10 text-error"><Icon name="close" size="sm" /></button>
                     </form>
                   ) : (
-                    <button onClick={() => { setNameInput(activeChat.name || ''); setEditingName(true); }} className="font-semibold text-on-surface hover:text-primary transition-colors text-left">
+                    <button onClick={() => { setNameInput(activeChat.name || ''); setEditingName(true); }} className="font-semibold text-on-surface hover:text-action transition-colors text-left">
                       {displayName(activeChat.name, activeChat.phone)}
                     </button>
                   )}
@@ -708,7 +708,7 @@ const MessageCenter = () => {
                 <div className="flex justify-center py-2">
                   <button
                     type="button"
-                    className="text-body-sm text-primary bg-primary/8 hover:bg-primary/12 px-4 py-1.5 rounded-full transition-colors"
+                    className="text-body-sm text-primary bg-primary/8 hover:bg-action/12 px-4 py-1.5 rounded-full transition-colors"
                     onClick={() => loadMoreMessages(activeChat.phone)}
                   >
                     Cargar mensajes anteriores

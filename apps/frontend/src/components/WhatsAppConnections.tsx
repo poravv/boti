@@ -160,7 +160,7 @@ const WhatsAppConnections = () => {
         >
           <div className="flex-1 space-y-5">
             <div>
-              <h2 className="text-heading-md text-primary">Vincular dispositivo</h2>
+              <h2 className="text-heading-md text-action">Vincular dispositivo</h2>
               <p className="text-body-sm text-on-surface-variant mt-2">
                 {activeQrLine
                   ? `Vinculando: ${activeQrLine}`
@@ -232,7 +232,7 @@ const WhatsAppConnections = () => {
             <div className="relative flex flex-col gap-3">
               <span className="text-overline uppercase text-on-surface-variant">Estado del sistema</span>
               <div className="flex items-center justify-between">
-                <span className="text-display-sm text-primary">{connectedCount}</span>
+                <span className="text-display-sm text-action">{connectedCount}</span>
                 <Icon name="hub" size="xl" className="text-success" filled />
               </div>
               <p className="text-caption text-on-surface-variant">
@@ -250,7 +250,7 @@ const WhatsAppConnections = () => {
               <span className="text-overline uppercase text-on-surface-variant">
                 Disponibilidad promedio
               </span>
-              <span className="text-heading-md text-primary">99.8%</span>
+              <span className="text-heading-md text-action">99.8%</span>
               <div className="h-2 bg-surface-container rounded-full overflow-hidden">
                 <div
                   className="h-full bg-success rounded-full"
@@ -263,7 +263,7 @@ const WhatsAppConnections = () => {
 
         <div className="lg:col-span-12 space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-heading-sm text-primary">Números conectados</h3>
+            <h3 className="text-heading-sm text-action">Números conectados</h3>
             <Badge variant="neutral" size="sm">
               {lines.length} / 5
             </Badge>

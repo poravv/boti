@@ -211,27 +211,27 @@ export function HelpPage() {
                   className={cn(
                     'w-full text-left flex items-start gap-3 p-3 rounded-xl border transition-all duration-200',
                     selectedId === tpl.id
-                      ? 'border-primary bg-primary/5'
+                      ? 'border-action bg-action/5'
                       : 'border-transparent hover:bg-surface-container',
                   )}
                 >
                   <div
                     className={cn(
                       'w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0',
-                      selectedId === tpl.id ? 'bg-primary/10' : 'bg-surface-container-high',
+                      selectedId === tpl.id ? 'bg-action/10' : 'bg-surface-container-high',
                     )}
                   >
                     <Icon
                       name={tpl.icon}
                       size="sm"
-                      className={selectedId === tpl.id ? 'text-primary' : 'text-on-surface-variant'}
+                      className={selectedId === tpl.id ? 'text-action' : 'text-on-surface-variant'}
                     />
                   </div>
                   <div className="min-w-0">
                     <p
                       className={cn(
                         'text-body font-medium leading-tight',
-                        selectedId === tpl.id ? 'text-primary' : 'text-on-surface',
+                        selectedId === tpl.id ? 'text-action' : 'text-on-surface',
                       )}
                     >
                       {tpl.title}
@@ -251,8 +251,8 @@ export function HelpPage() {
           <Card variant="glass" className="p-5 space-y-4">
             {/* Template header */}
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-                <Icon name={selected.icon} size="sm" className="text-primary" />
+              <div className="w-10 h-10 rounded-xl bg-action/10 flex items-center justify-center flex-shrink-0">
+                <Icon name={selected.icon} size="sm" className="text-action" />
               </div>
               <div>
                 <h2 className="text-heading-sm font-bold text-on-surface">{selected.title}</h2>
@@ -281,7 +281,7 @@ export function HelpPage() {
             <textarea
               value={editedPrompt}
               onChange={(e) => setEditedPrompt(e.target.value)}
-              className="w-full min-h-[300px] bg-surface-container border border-outline-variant/30 rounded-xl px-4 py-3 text-sm font-mono text-on-surface placeholder:text-on-surface-variant/40 resize-y focus:outline-none focus:ring-2 focus:ring-primary/30 transition"
+              className="w-full min-h-[300px] bg-surface-container border border-outline-variant/30 rounded-xl px-4 py-3 text-sm font-mono text-on-surface placeholder:text-on-surface-variant/40 resize-y focus:outline-none focus:ring-2 focus:ring-action/30 transition"
               spellCheck={false}
             />
 
@@ -314,8 +314,8 @@ export function HelpPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {TIPS.map((tip) => (
             <Card key={tip.icon} variant="glass" className="p-4">
-              <div className="w-8 h-8 rounded-xl bg-primary/8 flex items-center justify-center mb-3">
-                <Icon name={tip.icon} size="sm" className="text-primary" />
+              <div className="w-8 h-8 rounded-xl bg-action/8 flex items-center justify-center mb-3">
+                <Icon name={tip.icon} size="sm" className="text-action" />
               </div>
               <p className="text-body font-semibold text-on-surface leading-tight">{tip.title}</p>
               <p className="text-body-sm text-on-surface-variant mt-1.5 leading-relaxed">{tip.body}</p>

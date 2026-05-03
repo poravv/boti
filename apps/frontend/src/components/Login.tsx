@@ -301,7 +301,7 @@ export default function Login({ onLogin }: LoginProps) {
                     <button
                       type="button"
                       onClick={() => switchView('reset')}
-                      className="text-xs text-primary hover:underline w-full text-right"
+                      className="text-xs text-action hover:underline w-full text-right"
                     >
                       ¿Olvidaste tu contraseña?
                     </button>
@@ -320,7 +320,7 @@ export default function Login({ onLogin }: LoginProps) {
                     ¿No tenés cuenta?{' '}
                     <button
                       onClick={() => switchView('register')}
-                      className="text-primary hover:underline font-medium"
+                      className="text-action hover:underline font-medium"
                     >
                       Registrarse gratis
                     </button>
@@ -330,7 +330,7 @@ export default function Login({ onLogin }: LoginProps) {
                     ¿Ya tenés cuenta?{' '}
                     <button
                       onClick={() => switchView('login')}
-                      className="text-primary hover:underline font-medium"
+                      className="text-action hover:underline font-medium"
                     >
                       Ingresar
                     </button>

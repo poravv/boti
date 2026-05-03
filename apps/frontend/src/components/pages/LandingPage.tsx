@@ -122,7 +122,7 @@ function Nav() {
           <span className="w-7 h-7 rounded-full overflow-hidden bg-white flex-shrink-0">
             <img src="/logo.png" alt="Boti" className="w-full h-full object-cover" />
           </span>
-          <span className="font-bold text-xl text-primary tracking-tight">Boti</span>
+          <span className="font-bold text-xl text-action tracking-tight">Boti</span>
         </div>
         <Link to={isAuthenticated ? '/dashboard' : '/login'}>
           <Button variant="secondary" size="sm" trailingIcon={isAuthenticated ? 'arrow_forward' : undefined}>
@@ -161,10 +161,10 @@ function BrowserMockup() {
           ].map((contact, i) => (
             <div
               key={contact.name}
-              className={`flex items-center gap-2 rounded-xl px-2 py-2 cursor-pointer transition-all duration-250 ease-premium ${i === 0 ? 'bg-primary/10' : 'hover:bg-surface-container-low'}`}
+              className={`flex items-center gap-2 rounded-xl px-2 py-2 cursor-pointer transition-all duration-250 ease-premium ${i === 0 ? 'bg-action/10' : 'hover:bg-surface-container-low'}`}
             >
-              <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
-                <span className="text-caption font-semibold text-primary">{contact.name[0]}</span>
+              <div className="w-8 h-8 rounded-full bg-action/20 flex items-center justify-center flex-shrink-0">
+                <span className="text-caption font-semibold text-action">{contact.name[0]}</span>
               </div>
               <div className="min-w-0">
                 <p className="text-caption font-semibold text-on-surface truncate">{contact.name}</p>
@@ -179,26 +179,26 @@ function BrowserMockup() {
           <div className="flex-1 p-3 space-y-2 overflow-hidden">
             {/* Incoming */}
             <div className="flex justify-start">
-              <div className="bg-primary/10 rounded-2xl rounded-tl-sm px-3 py-2 max-w-xs">
+              <div className="bg-action/10 rounded-2xl rounded-tl-sm px-3 py-2 max-w-xs">
                 <p className="text-caption text-on-surface">¿Tienen stock del producto?</p>
               </div>
             </div>
             {/* AI response */}
             <div className="flex justify-end">
-              <div className="relative bg-primary rounded-2xl rounded-tr-sm px-3 py-2 max-w-xs">
+              <div className="relative bg-action rounded-2xl rounded-tr-sm px-3 py-2 max-w-xs">
                 <p className="text-caption text-white">¡Hola! Sí, tenemos disponibilidad inmediata. ¿Te envío el catálogo?</p>
                 <span className="absolute -top-1 -left-1 w-3 h-3 rounded-full bg-green-400 animate-pulse-soft border-2 border-white" aria-label="IA procesando" />
               </div>
             </div>
             {/* Incoming */}
             <div className="flex justify-start">
-              <div className="bg-primary/10 rounded-2xl rounded-tl-sm px-3 py-2 max-w-xs">
+              <div className="bg-action/10 rounded-2xl rounded-tl-sm px-3 py-2 max-w-xs">
                 <p className="text-caption text-on-surface">Sí por favor</p>
               </div>
             </div>
             {/* AI response */}
             <div className="flex justify-end">
-              <div className="bg-primary rounded-2xl rounded-tr-sm px-3 py-2 max-w-xs">
+              <div className="bg-action rounded-2xl rounded-tr-sm px-3 py-2 max-w-xs">
                 <p className="text-caption text-white">Perfecto, te comparto el link de pago también. ¡Es muy fácil!</p>
               </div>
             </div>
@@ -225,14 +225,14 @@ function HeroSection() {
     <section className="relative overflow-hidden py-16 lg:py-24">
       {/* Decorative blobs */}
       <div aria-hidden className="pointer-events-none absolute inset-0">
-        <div className="absolute -top-32 -right-32 w-96 h-96 rounded-full bg-primary/5 blur-3xl" />
+        <div className="absolute -top-32 -right-32 w-96 h-96 rounded-full bg-action/5 blur-3xl" />
         <div className="absolute bottom-0 -left-20 w-72 h-72 rounded-full bg-secondary/5 blur-3xl" />
       </div>
 
       <div className="relative max-w-7xl mx-auto px-6 grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
         {/* Text column */}
         <div className="lg:col-span-6 animate-fade-in-up">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 text-primary text-caption font-semibold mb-6">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-action/10 text-action text-caption font-semibold mb-6">
             <span aria-hidden>✦</span>
             Automatización inteligente
           </div>
@@ -240,7 +240,7 @@ function HeroSection() {
           <h1 className="text-display-md lg:text-display-lg font-bold text-on-surface">
             Automatizá tu WhatsApp
             <br />
-            <span className="text-primary">con Inteligencia Artificial</span>
+            <span className="text-action">con Inteligencia Artificial</span>
           </h1>
 
           <p className="text-body-lg text-on-surface/70 max-w-xl mt-4">
@@ -318,7 +318,7 @@ function FeaturesSection() {
         <div className="grid grid-cols-12 gap-4">
           {/* Card 1 — Large: IA Conversacional */}
           <div className={`col-span-12 lg:col-span-7 ${cardBase}`}>
-            <span className="material-symbols-rounded text-primary mb-4 block" style={{ fontSize: '32px', fontVariationSettings: "'FILL' 0" }}>
+            <span className="material-symbols-rounded text-action mb-4 block" style={{ fontSize: '32px', fontVariationSettings: "'FILL' 0" }}>
               psychology
             </span>
             <h3 className="text-heading-sm text-on-surface mb-2">IA que entiende tu negocio</h3>
@@ -329,12 +329,12 @@ function FeaturesSection() {
             {/* Mini chat visual */}
             <div className="bg-surface rounded-xl p-4 space-y-2 border border-outline-variant/20">
               <div className="flex justify-start">
-                <div className="bg-primary/10 rounded-2xl rounded-tl-sm px-3 py-2 text-body-sm text-on-surface max-w-xs">
+                <div className="bg-action/10 rounded-2xl rounded-tl-sm px-3 py-2 text-body-sm text-on-surface max-w-xs">
                   ¿Tienen stock del producto?
                 </div>
               </div>
               <div className="flex justify-end">
-                <div className="bg-primary rounded-2xl rounded-tr-sm px-3 py-2 text-body-sm text-white max-w-xs">
+                <div className="bg-action rounded-2xl rounded-tr-sm px-3 py-2 text-body-sm text-white max-w-xs">
                   ¡Hola! Sí, tenemos disponibilidad. ¿Te enviamos el catálogo ahora?
                 </div>
               </div>
@@ -343,7 +343,7 @@ function FeaturesSection() {
 
           {/* Card 2 — Multi-línea */}
           <div className={`col-span-12 lg:col-span-5 ${cardBase}`}>
-            <span className="material-symbols-rounded text-primary mb-4 block" style={{ fontSize: '32px', fontVariationSettings: "'FILL' 0" }}>
+            <span className="material-symbols-rounded text-action mb-4 block" style={{ fontSize: '32px', fontVariationSettings: "'FILL' 0" }}>
               smartphone
             </span>
             <h3 className="text-heading-sm text-on-surface mb-2">Múltiples líneas WhatsApp</h3>
@@ -355,7 +355,7 @@ function FeaturesSection() {
 
           {/* Card 3 — Equipo */}
           <div className={`col-span-12 lg:col-span-4 ${cardBase}`}>
-            <span className="material-symbols-rounded text-primary mb-4 block" style={{ fontSize: '32px', fontVariationSettings: "'FILL' 0" }}>
+            <span className="material-symbols-rounded text-action mb-4 block" style={{ fontSize: '32px', fontVariationSettings: "'FILL' 0" }}>
               group
             </span>
             <h3 className="text-heading-sm text-on-surface mb-2">Handoff a operadores</h3>
@@ -366,7 +366,7 @@ function FeaturesSection() {
 
           {/* Card 4 — Pagos */}
           <div className={`col-span-12 lg:col-span-4 ${cardBase}`}>
-            <span className="material-symbols-rounded text-primary mb-4 block" style={{ fontSize: '32px', fontVariationSettings: "'FILL' 0" }}>
+            <span className="material-symbols-rounded text-action mb-4 block" style={{ fontSize: '32px', fontVariationSettings: "'FILL' 0" }}>
               payments
             </span>
             <h3 className="text-heading-sm text-on-surface mb-2">Pagos por WhatsApp</h3>
@@ -378,7 +378,7 @@ function FeaturesSection() {
 
           {/* Card 5 — Facturación */}
           <div className={`col-span-12 lg:col-span-4 ${cardBase}`}>
-            <span className="material-symbols-rounded text-primary mb-4 block" style={{ fontSize: '32px', fontVariationSettings: "'FILL' 0" }}>
+            <span className="material-symbols-rounded text-action mb-4 block" style={{ fontSize: '32px', fontVariationSettings: "'FILL' 0" }}>
               receipt_long
             </span>
             <h3 className="text-heading-sm text-on-surface mb-2">Facturación electrónica</h3>
@@ -425,7 +425,7 @@ function HowItWorksSection() {
         <div className="flex flex-col lg:flex-row items-start lg:items-center gap-8 lg:gap-0">
           {steps.map((step, index) => (
             <div key={step.number} className="flex lg:flex-col lg:flex-1 items-start lg:items-center gap-4 lg:text-center lg:px-8">
-              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center font-bold text-body-lg">
+              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-action text-white flex items-center justify-center font-bold text-body-lg">
                 {step.number}
               </div>
 
@@ -498,12 +498,12 @@ function PricingSection() {
               className={[
                 'rounded-2xl border p-6 flex flex-col gap-4 transition-all duration-250 ease-premium',
                 plan.highlighted
-                  ? 'border-2 border-primary shadow-glass-lg md:scale-105 bg-white'
+                  ? 'border-2 border-action shadow-glass-lg md:scale-105 bg-white'
                   : 'border-outline-variant/30 shadow-glass bg-white/70 backdrop-blur-xl',
               ].join(' ')}
             >
               {plan.badge && (
-                <div className={`inline-flex self-start px-3 py-1 rounded-full text-caption font-semibold ${plan.highlighted ? 'bg-primary/10 text-primary' : 'bg-surface-container text-on-surface/60'}`}>
+                <div className={`inline-flex self-start px-3 py-1 rounded-full text-caption font-semibold ${plan.highlighted ? 'bg-action/10 text-action' : 'bg-surface-container text-on-surface/60'}`}>
                   {plan.badge}
                 </div>
               )}
@@ -516,7 +516,7 @@ function PricingSection() {
               <ul className="space-y-2 flex-1">
                 {plan.features.map((feat) => (
                   <li key={feat} className="flex items-start gap-2 text-body text-on-surface/70">
-                    <span className="material-symbols-rounded text-primary flex-shrink-0 mt-px" style={{ fontSize: '16px', fontVariationSettings: "'FILL' 1" }}>
+                    <span className="material-symbols-rounded text-action flex-shrink-0 mt-px" style={{ fontSize: '16px', fontVariationSettings: "'FILL' 1" }}>
                       check_circle
                     </span>
                     {feat}
@@ -539,7 +539,7 @@ function PricingSection() {
             href="https://wa.me/595981586823"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-primary font-semibold hover:underline"
+            className="text-action font-semibold hover:underline"
           >
             Escribinos por WhatsApp →
           </a>
@@ -555,7 +555,7 @@ function PricingSection() {
 function CtaBand() {
   const isAuthenticated = useIsAuthenticated();
   return (
-    <section className="py-20 bg-primary text-center">
+    <section className="py-20 bg-action text-center">
       <div className="max-w-2xl mx-auto px-6">
         <h2 className="text-display-sm text-white mb-4">
           Empezá a automatizar hoy
@@ -564,7 +564,7 @@ function CtaBand() {
           14 días gratis. Sin tarjeta de crédito. Cancelá cuando quieras.
         </p>
         <Link to={isAuthenticated ? '/dashboard' : '/login'}>
-          <button className="inline-flex items-center gap-2 h-14 px-8 rounded-xl bg-white text-primary font-semibold text-body-lg shadow-glass transition-all duration-250 ease-premium hover:bg-surface hover:-translate-y-0.5 hover:shadow-glass-lg active:translate-y-0">
+          <button className="inline-flex items-center gap-2 h-14 px-8 rounded-xl bg-white text-action font-semibold text-body-lg shadow-glass transition-all duration-250 ease-premium hover:bg-surface hover:-translate-y-0.5 hover:shadow-glass-lg active:translate-y-0">
             {isAuthenticated ? 'Ir al dashboard' : 'Crear cuenta gratis'}
             <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>arrow_forward</span>
           </button>

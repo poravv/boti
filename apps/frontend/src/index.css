@@ -6,12 +6,13 @@
   :root {
     --app-header-h: 3.75rem;
     --sidebar-w: 16rem;
-    --color-primary: #006b5f;
-    --color-secondary: #3c6376;
+    --color-primary: #002532;
+    --color-secondary: #006b5f;
+    --color-action: #14B8A6;
     --color-surface: #f8f9ff;
     --color-on-surface: #0b1c30;
     --color-outline-variant: #c1c7cc;
-    --radius: 0.5rem;
+    --radius: 0.25rem;
   }
 
   * {
@@ -49,11 +50,11 @@
 @layer components {
   /* Base glass surface: gradient + blur + multi-layered shadow. */
   .glass-card {
-    @apply bg-gradient-to-br from-white/90 via-white/80 to-surface-container/60 backdrop-blur-2xl border border-outline-variant/30 shadow-glass rounded-2xl;
+    @apply bg-gradient-to-br from-white/90 via-white/80 to-surface-container/60 backdrop-blur-2xl border border-outline-variant/30 shadow-glass rounded-lg;
   }
 
   .glass-elevated {
-    @apply bg-gradient-to-br from-white/95 via-white/85 to-surface-container/70 backdrop-blur-3xl border border-outline-variant/40 shadow-glass-lg rounded-2xl;
+    @apply bg-gradient-to-br from-white/95 via-white/85 to-surface-container/70 backdrop-blur-3xl border border-outline-variant/40 shadow-glass-lg rounded-lg;
   }
 
   /* Interactive glass: adds hover lift. Pair with .glass-card or .glass-elevated. */
@@ -77,6 +78,6 @@
 
   /* Single source of truth for keyboard focus ring. */
   .focus-ring {
-    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-action focus-visible:ring-offset-2 focus-visible:ring-offset-background;
   }
 }

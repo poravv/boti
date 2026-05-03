@@ -12,7 +12,7 @@ export interface CardProps extends HTMLAttributes<HTMLDivElement> {
 const VARIANT: Record<CardVariant, string> = {
   glass: 'glass-card',
   'glass-elevated': 'glass-elevated',
-  solid: 'bg-surface-container-lowest border border-outline-variant/40 rounded-2xl shadow-glass-sm',
+  solid: 'bg-surface-container-lowest border border-outline-variant/40 rounded-lg shadow-glass-sm',
 };
 
 const PADDING: Record<NonNullable<CardProps['padding']>, string> = {

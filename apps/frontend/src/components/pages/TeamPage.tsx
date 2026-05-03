@@ -204,7 +204,7 @@ export function TeamPage({ currentUserId }: TeamPageProps) {
       <Card variant="glass" className="overflow-hidden">
         {isLoading ? (
           <div className="flex items-center justify-center py-16">
-            <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+            <div className="w-8 h-8 border-4 border-action/20 border-t-primary rounded-full animate-spin" />
           </div>
         ) : errorMsg ? (
           <div className="flex items-center gap-2 p-6 text-error">
@@ -245,7 +245,7 @@ export function TeamPage({ currentUserId }: TeamPageProps) {
                     {/* Avatar + name + username */}
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-bold text-body uppercase flex-shrink-0">
+                        <div className="w-9 h-9 rounded-xl bg-action/10 flex items-center justify-center text-action font-bold text-body uppercase flex-shrink-0">
                           {user.name[0] ?? '?'}
                         </div>
                         <div className="min-w-0">
@@ -267,7 +267,7 @@ export function TeamPage({ currentUserId }: TeamPageProps) {
                     <td className="px-4 py-4">
                       {user.line ? (
                         <div className="flex items-center gap-1.5">
-                          <Icon name="smartphone" size="xs" className="text-primary" />
+                          <Icon name="smartphone" size="xs" className="text-action" />
                           <span className="text-body-sm text-on-surface truncate max-w-[140px]">{user.line.name}</span>
                         </div>
                       ) : (

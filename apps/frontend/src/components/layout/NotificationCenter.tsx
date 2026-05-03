@@ -107,7 +107,7 @@ export function NotificationCenter({ notifications, onClear }: NotificationCente
                   className="animate-fade-in-up"
                   style={{ animationDelay: `${Math.min(index, 10) * 30}ms` }}
                 >
-                  <div className="flex gap-3 p-3 rounded-xl bg-surface-container-low/80 border border-outline-variant/40 hover:border-primary/20 transition-colors">
+                  <div className="flex gap-3 p-3 rounded-xl bg-surface-container-low/80 border border-outline-variant/40 hover:border-action/20 transition-colors">
                     <div
                       aria-hidden="true"
                       className={cn(

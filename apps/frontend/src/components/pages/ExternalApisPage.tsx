@@ -127,7 +127,7 @@ function ApiCard({ api, onEdit, onDelete, onToggleActive }: ApiCardProps) {
             aria-label={api.isActive ? 'Desactivar API' : 'Activar API'}
             className={cn(
               'relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-250 focus-ring',
-              api.isActive ? 'bg-primary text-white' : 'bg-outline-variant',
+              api.isActive ? 'bg-action text-white' : 'bg-outline-variant',
             )}
           >
             <span
@@ -337,7 +337,7 @@ function ApiFormPanel({ open, onClose, onSaved, lineId, editing }: ApiFormPanelP
                 placeholder="Nombre"
                 value={row.key}
                 onChange={(e) => updateHeader(idx, 'key', e.target.value)}
-                className="flex-1 px-3 py-2 rounded-lg border border-outline-variant/40 bg-surface text-on-surface text-body-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                className="flex-1 px-3 py-2 rounded-lg border border-outline-variant/40 bg-surface text-on-surface text-body-sm focus:outline-none focus:ring-2 focus:ring-action/30"
               />
               <input
                 type="text"
@@ -345,7 +345,7 @@ function ApiFormPanel({ open, onClose, onSaved, lineId, editing }: ApiFormPanelP
                 placeholder="Valor"
                 value={row.value}
                 onChange={(e) => updateHeader(idx, 'value', e.target.value)}
-                className="flex-1 px-3 py-2 rounded-lg border border-outline-variant/40 bg-surface text-on-surface text-body-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                className="flex-1 px-3 py-2 rounded-lg border border-outline-variant/40 bg-surface text-on-surface text-body-sm focus:outline-none focus:ring-2 focus:ring-action/30"
               />
               <button
                 type="button"
@@ -421,7 +421,7 @@ function ApiFormPanel({ open, onClose, onSaved, lineId, editing }: ApiFormPanelP
             onClick={() => updateForm('isActive', !form.isActive)}
             className={cn(
               'relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-250 focus-ring',
-              form.isActive ? 'bg-primary text-white' : 'bg-outline-variant',
+              form.isActive ? 'bg-action text-white' : 'bg-outline-variant',
             )}
           >
             <span
@@ -446,8 +446,8 @@ function ApiFormPanel({ open, onClose, onSaved, lineId, editing }: ApiFormPanelP
               </pre>
             </div>
             {testResult.extracted !== undefined && (
-              <div className="p-3 bg-primary/10 rounded-xl border border-primary/20">
-                <p className="text-overline uppercase text-primary mb-1">Valor extraído</p>
+              <div className="p-3 bg-action/10 rounded-xl border border-action/20">
+                <p className="text-overline uppercase text-action mb-1">Valor extraído</p>
                 <pre className="text-body-sm text-on-surface font-mono whitespace-pre-wrap break-all">
                   {JSON.stringify(testResult.extracted, null, 2)}
                 </pre>
@@ -753,7 +753,7 @@ export function ExternalApisPage() {
         {/* Sidebar tips */}
         <div className="col-span-12 lg:col-span-4 space-y-6 lg:sticky lg:top-24">
           <div
-            className="bg-primary text-white rounded-2xl p-6 shadow-glass-xl relative overflow-hidden animate-fade-in-up"
+            className="bg-action text-white rounded-2xl p-6 shadow-glass-xl relative overflow-hidden animate-fade-in-up"
             style={{ animationDelay: '120ms' }}
           >
             <div

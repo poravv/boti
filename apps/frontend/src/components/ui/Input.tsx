@@ -25,7 +25,7 @@ const FIELD_BASE =
   'peer w-full bg-white/70 backdrop-blur-xl border rounded-xl text-body text-on-surface placeholder:text-on-surface-variant/70 transition-all duration-250 ease-premium focus-ring disabled:opacity-60 disabled:cursor-not-allowed';
 
 const STATUS_BORDER: Record<FieldStatus, string> = {
-  default: 'border-outline-variant/60 hover:border-primary/40 focus:border-primary',
+  default: 'border-outline-variant/60 hover:border-action/40 focus:border-action',
   error: 'border-error/70 focus:border-error',
   success: 'border-success/70 focus:border-success',
 };
@@ -102,7 +102,7 @@ export const FormInput = forwardRef<HTMLInputElement, FormInputProps>(function F
               'absolute pointer-events-none text-on-surface-variant transition-all duration-250 ease-premium',
               leadingIcon ? 'left-10' : 'left-4',
               'top-1/2 -translate-y-1/2 text-body',
-              'peer-focus:top-1.5 peer-focus:translate-y-0 peer-focus:text-overline peer-focus:text-primary',
+              'peer-focus:top-1.5 peer-focus:translate-y-0 peer-focus:text-overline peer-focus:text-action',
               'peer-[:not(:placeholder-shown)]:top-1.5 peer-[:not(:placeholder-shown)]:translate-y-0 peer-[:not(:placeholder-shown)]:text-overline',
             )}
           >

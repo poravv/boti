@@ -353,7 +353,7 @@ export function SuperAdminPage() {
   if (loading && !stats) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+        <div className="w-8 h-8 border-4 border-action/20 border-t-primary rounded-full animate-spin" />
       </div>
     );
   }
@@ -362,8 +362,8 @@ export function SuperAdminPage() {
     <div className="max-w-7xl mx-auto space-y-6 p-4">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-          <Icon name="admin_panel_settings" size="md" className="text-primary" />
+        <div className="w-10 h-10 rounded-xl bg-action/10 flex items-center justify-center">
+          <Icon name="admin_panel_settings" size="md" className="text-action" />
         </div>
         <div>
           <h1 className="text-xl font-bold text-foreground">Super Admin</h1>
@@ -411,7 +411,7 @@ export function SuperAdminPage() {
 
           <div className="bg-card border border-border rounded-xl p-5">
             <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
-              <Icon name="workspace_premium" size="sm" className="text-primary" />
+              <Icon name="workspace_premium" size="sm" className="text-action" />
               Distribución por plan
             </h3>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -533,7 +533,7 @@ export function SuperAdminPage() {
           {/* Add new super admin */}
           <div className="bg-card border border-border rounded-xl p-5">
             <h3 className="font-semibold text-foreground mb-1 flex items-center gap-2">
-              <Icon name="shield_person" size="sm" className="text-primary" />
+              <Icon name="shield_person" size="sm" className="text-action" />
               Agregar super admin
             </h3>
             <p className="text-xs text-muted-foreground mb-4">
@@ -594,13 +594,13 @@ export function SuperAdminPage() {
         <div className="space-y-6 max-w-2xl">
           <div className="bg-card border border-border rounded-xl p-5 space-y-5">
             <h3 className="font-semibold text-foreground flex items-center gap-2">
-              <Icon name="mail" size="sm" className="text-primary" />
+              <Icon name="mail" size="sm" className="text-action" />
               Servidor de correo (SMTP)
             </h3>
 
             {smtpLoading ? (
               <div className="flex items-center justify-center h-32">
-                <div className="w-6 h-6 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+                <div className="w-6 h-6 border-4 border-action/20 border-t-primary rounded-full animate-spin" />
               </div>
             ) : (
               <div className="space-y-4">
@@ -638,8 +638,8 @@ export function SuperAdminPage() {
                     <button
                       type="button"
                       onClick={() => setSmtpConfig(c => ({ ...c, smtp_secure: c.smtp_secure === 'true' ? 'false' : 'true' }))}
-                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary/30 ${
-                        smtpConfig.smtp_secure === 'true' ? 'bg-primary' : 'bg-outline-variant'
+                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-action/30 ${
+                        smtpConfig.smtp_secure === 'true' ? 'bg-action' : 'bg-outline-variant'
                       }`}
                       aria-checked={smtpConfig.smtp_secure === 'true'}
                       role="switch"
@@ -745,7 +745,7 @@ export function SuperAdminPage() {
           {/* Section A: Force sandbox toggle */}
           <div className="bg-card border border-border rounded-xl p-5 space-y-4">
             <h3 className="font-semibold text-foreground flex items-center gap-2">
-              <Icon name="bug_report" size="sm" className="text-primary" />
+              <Icon name="bug_report" size="sm" className="text-action" />
               Modo sandbox global
             </h3>
             <p className="text-sm text-muted-foreground">
@@ -765,7 +765,7 @@ export function SuperAdminPage() {
                   type="button"
                   disabled={forceSandboxLoading}
                   onClick={() => toggleForceSandbox(!forceSandbox)}
-                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-50 ${
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-action/30 disabled:opacity-50 ${
                     forceSandbox ? 'bg-yellow-500' : 'bg-outline-variant'
                   }`}
                   role="switch"
@@ -784,7 +784,7 @@ export function SuperAdminPage() {
           <div className="bg-card border border-border rounded-xl overflow-hidden">
             <div className="px-5 py-3 border-b border-border bg-muted/40 flex items-center justify-between">
               <h3 className="font-semibold text-foreground text-sm flex items-center gap-2">
-                <Icon name="pending_actions" size="sm" className="text-primary" />
+                <Icon name="pending_actions" size="sm" className="text-action" />
                 Ventas pendientes
               </h3>
               <Button variant="secondary" size="sm" onClick={loadPendingSales} leadingIcon="refresh">
@@ -794,7 +794,7 @@ export function SuperAdminPage() {
 
             {pendingSalesLoading ? (
               <div className="flex items-center justify-center h-32">
-                <div className="w-6 h-6 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+                <div className="w-6 h-6 border-4 border-action/20 border-t-primary rounded-full animate-spin" />
               </div>
             ) : (
               <table className="w-full text-sm">
@@ -853,7 +853,7 @@ export function SuperAdminPage() {
             <select
               value={orgPatch.planId}
               onChange={e => setOrgPatch(p => ({ ...p, planId: e.target.value }))}
-              className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background text-foreground focus:ring-2 focus:ring-primary/30 outline-none"
+              className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background text-foreground focus:ring-2 focus:ring-action/30 outline-none"
             >
               <option value="">Sin plan</option>
               {plans.map(p => <option key={p.id} value={p.id}>{p.name} — ${p.price}/mes</option>)}
@@ -865,7 +865,7 @@ export function SuperAdminPage() {
               type="date"
               value={orgPatch.trialEndsAt}
               onChange={e => setOrgPatch(p => ({ ...p, trialEndsAt: e.target.value }))}
-              className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background text-foreground focus:ring-2 focus:ring-primary/30 outline-none"
+              className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background text-foreground focus:ring-2 focus:ring-action/30 outline-none"
             />
           </div>
           <div className="flex items-center justify-between rounded-xl border border-outline-variant/30 bg-surface-container px-4 py-3">
@@ -881,7 +881,7 @@ export function SuperAdminPage() {
               <button
                 type="button"
                 onClick={() => setOrgPatch(p => ({ ...p, isActive: !p.isActive }))}
-                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary/30 ${orgPatch.isActive ? 'bg-primary' : 'bg-outline-variant'}`}
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-action/30 ${orgPatch.isActive ? 'bg-action' : 'bg-outline-variant'}`}
                 role="switch"
                 aria-checked={orgPatch.isActive}
               >
@@ -921,7 +921,7 @@ export function SuperAdminPage() {
                 <button
                   type="button"
                   onClick={() => setEditPlan(p => p ? { ...p, aiEnabled: !p.aiEnabled } : p)}
-                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary/30 ${editPlan.aiEnabled ? 'bg-primary' : 'bg-outline-variant'}`}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-action/30 ${editPlan.aiEnabled ? 'bg-action' : 'bg-outline-variant'}`}
                   role="switch"
                   aria-checked={editPlan.aiEnabled}
                 >

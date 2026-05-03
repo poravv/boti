@@ -65,7 +65,7 @@ export function Sidebar({ user, onLogout, items }: SidebarProps) {
                       cn(
                         'group relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-body transition-all duration-200 focus-ring',
                         isActive
-                          ? 'bg-primary/8 text-primary font-semibold'
+                          ? 'bg-action/10 text-action font-semibold'
                           : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface',
                       )
                     }
@@ -75,14 +75,14 @@ export function Sidebar({ user, onLogout, items }: SidebarProps) {
                         {isActive && (
                           <span
                             aria-hidden="true"
-                            className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 rounded-full bg-primary"
+                            className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-full bg-action"
                           />
                         )}
                         <Icon
                           name={item.icon}
                           size="sm"
                           filled={isActive}
-                          className={isActive ? 'text-primary' : 'text-on-surface-variant group-hover:text-on-surface'}
+                          className={isActive ? 'text-action' : 'text-on-surface-variant group-hover:text-on-surface'}
                         />
                         <span className="flex-1 truncate">{item.name}</span>
                         {(item.badge || 0) > 0 && (
@@ -159,7 +159,7 @@ export function BottomNav({ items }: BottomNavProps) {
           className={({ isActive }) =>
             cn(
               'flex flex-col items-center justify-center gap-0.5 flex-1 py-2 transition-colors duration-200 relative focus-ring rounded-lg',
-              isActive ? 'text-primary' : 'text-on-surface-variant',
+              isActive ? 'text-action' : 'text-on-surface-variant',
             )
           }
         >

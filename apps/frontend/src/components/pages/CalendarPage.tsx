@@ -400,7 +400,7 @@ export function CalendarPage() {
                       <div className="flex items-center gap-1 shrink-0">
                         <button
                           onClick={() => setDetailAppointment(appt)}
-                          className="text-muted-foreground hover:text-primary transition-colors p-0.5"
+                          className="text-muted-foreground hover:text-action transition-colors p-0.5"
                           title="Ver detalle"
                         >
                           <Icon name="visibility" size="sm" />

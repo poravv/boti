@@ -272,7 +272,7 @@ const AIConfiguration = () => {
                   }
                   disabled={loading}
                   placeholder="Ej. Eres un asistente de ventas experto en seguros…"
-                  className="w-full h-48 bg-white/70 backdrop-blur-xl border border-outline-variant/60 hover:border-primary/40 focus:border-primary rounded-xl p-4 text-body text-on-surface placeholder:text-on-surface-variant/70 focus-ring transition-all duration-250 ease-premium resize-y"
+                  className="w-full h-48 bg-white/70 backdrop-blur-xl border border-outline-variant/60 hover:border-action/40 focus:border-action rounded-xl p-4 text-body text-on-surface placeholder:text-on-surface-variant/70 focus-ring transition-all duration-250 ease-premium resize-y"
                 />
               </div>
             </Card.Body>

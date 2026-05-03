@@ -14,7 +14,7 @@ export default {
         'on-primary-fixed': '#001f2a',
         'on-secondary-fixed': '#00201c',
         'on-primary': '#ffffff',
-        'secondary': '#3c6376',
+        'secondary': '#006b5f',
         'on-error': '#ffffff',
         'secondary-fixed-dim': '#4fdbc8',
         'on-tertiary-fixed': '#2a1700',
@@ -36,10 +36,9 @@ export default {
         'on-tertiary': '#ffffff',
         'tertiary-container': '#4f3000',
         'on-background': '#0b1c30',
-        'primary': '#006b5f',
+        'primary': '#002532',
         'outline-variant': '#c1c7cc',
-        // Darkened one step to reach WCAG AA on surface-container backgrounds (>=4.5:1).
-        'on-surface-variant': '#2f3539',
+        'on-surface-variant': '#41484c',
         'primary-fixed-dim': '#a4cce1',
         'tertiary-fixed': '#ffddb8',
         'surface-container-lowest': '#ffffff',
@@ -53,6 +52,9 @@ export default {
         'secondary-container': '#6df5e1',
         'on-surface': '#0b1c30',
         'on-secondary-container': '#006f64',
+        // Action / CTA color — vibrant teal for buttons, focus rings, active states (Stitch override secondary #14B8A6).
+        'action': '#14B8A6',
+        'on-action': '#ffffff',
         // Semantic tokens for status UIs so pages stop reaching for raw Tailwind colors.
         'success': '#16A34A',
         'on-success': '#ffffff',
@@ -77,14 +79,14 @@ export default {
         'warning-foreground': '#78350f',
       },
       borderRadius: {
-        DEFAULT: '0.5rem',
-        sm: '0.375rem',
-        md: '0.625rem',
-        lg: '0.75rem',
-        xl: '1rem',
-        '2xl': '1.25rem',
-        '3xl': '1.5rem',
-        '4xl': '2rem',
+        DEFAULT: '0.25rem',
+        sm: '0.125rem',
+        md: '0.375rem',
+        lg: '0.5rem',
+        xl: '0.75rem',
+        '2xl': '1rem',
+        '3xl': '1.25rem',
+        '4xl': '1.5rem',
         full: '9999px',
       },
       spacing: {
@@ -113,7 +115,7 @@ export default {
         'body': ['0.875rem', { lineHeight: '1.25rem', letterSpacing: '0.01em', fontWeight: '400' }],
         'body-sm': ['0.8125rem', { lineHeight: '1.125rem', letterSpacing: '0.015em', fontWeight: '400' }],
         'caption': ['0.75rem', { lineHeight: '1rem', letterSpacing: '0.02em', fontWeight: '500' }],
-        'overline': ['0.6875rem', { lineHeight: '1rem', letterSpacing: '0.08em', fontWeight: '600' }],
+        'overline': ['0.6875rem', { lineHeight: '1rem', letterSpacing: '0.08em', fontWeight: '700' }],
       },
       // Multi-layered shadows with primary tint + inset highlight for glass depth.
       boxShadow: {

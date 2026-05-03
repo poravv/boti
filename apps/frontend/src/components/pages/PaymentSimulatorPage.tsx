@@ -49,7 +49,7 @@ export const PaymentSimulatorPage = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
-        <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+        <div className="w-8 h-8 border-4 border-action/20 border-t-primary rounded-full animate-spin" />
       </div>
     );
   }
@@ -85,8 +85,8 @@ export const PaymentSimulatorPage = () => {
           <p className="text-xs text-muted-foreground uppercase tracking-wide">{sale.line.name}</p>
           <h1 className="text-xl font-bold text-foreground">{productName}</h1>
         </div>
-        <div className="rounded-lg bg-primary/5 border border-primary/20 p-4 text-center">
-          <p className="text-3xl font-bold text-primary">{sale.amount.toLocaleString('es-PY')} Gs.</p>
+        <div className="rounded-lg bg-action/5 border border-action/20 p-4 text-center">
+          <p className="text-3xl font-bold text-action">{sale.amount.toLocaleString('es-PY')} Gs.</p>
           <p className="text-xs text-muted-foreground mt-1">{sale.currency}</p>
         </div>
         <div className="rounded-lg bg-yellow-500/10 border border-yellow-500/30 p-3 text-xs text-yellow-700 dark:text-yellow-400 text-center">

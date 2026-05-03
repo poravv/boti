@@ -53,7 +53,7 @@ export function Header({ user, notifications, onClearNotifications, actions }: H
           type="button"
           aria-label={`Perfil de ${user?.name ?? 'usuario'}`}
           onClick={() => navigate('/profile')}
-          className="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-white text-caption font-bold uppercase shadow-glass-sm hover:shadow-glass transition-shadow duration-200 focus-ring flex-shrink-0 cursor-pointer"
+          className="w-9 h-9 rounded-full bg-action flex items-center justify-center text-on-action text-caption font-bold uppercase shadow-glass-sm hover:shadow-glass transition-shadow duration-200 focus-ring flex-shrink-0 cursor-pointer"
         >
           {avatarChar}
         </button>

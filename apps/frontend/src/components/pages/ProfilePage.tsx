@@ -134,7 +134,7 @@ export function ProfilePage({ user }: ProfilePageProps) {
       {/* User info */}
       <Card variant="glass" className="p-6">
         <div className="flex items-start gap-5">
-          <div className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center text-white text-heading-md font-bold uppercase shadow-glass flex-shrink-0">
+          <div className="w-16 h-16 rounded-2xl bg-action flex items-center justify-center text-white text-heading-md font-bold uppercase shadow-glass flex-shrink-0">
             {user?.name?.[0] ?? 'A'}
           </div>
           <div className="flex-1 min-w-0">
@@ -152,8 +152,8 @@ export function ProfilePage({ user }: ProfilePageProps) {
       {/* Preferences */}
       <Card variant="glass" className="p-6">
         <div className="flex items-center gap-3 mb-5 pb-4 border-b border-outline-variant/30">
-          <div className="w-9 h-9 rounded-xl bg-primary/8 flex items-center justify-center">
-            <Icon name="tune" size="sm" className="text-primary" />
+          <div className="w-9 h-9 rounded-xl bg-action/8 flex items-center justify-center">
+            <Icon name="tune" size="sm" className="text-action" />
           </div>
           <div>
             <h3 className="text-heading-sm font-semibold text-on-surface">Preferencias</h3>
@@ -166,7 +166,7 @@ export function ProfilePage({ user }: ProfilePageProps) {
             <Icon
               name={soundEnabled ? 'volume_up' : 'volume_off'}
               size="sm"
-              className={soundEnabled ? 'text-primary' : 'text-on-surface-variant'}
+              className={soundEnabled ? 'text-action' : 'text-on-surface-variant'}
             />
             <div>
               <p className="text-body font-medium text-on-surface">Sonido de notificaciones</p>
@@ -180,7 +180,7 @@ export function ProfilePage({ user }: ProfilePageProps) {
             role="switch"
             aria-checked={soundEnabled}
             className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
-              soundEnabled ? 'bg-primary text-white' : 'bg-outline-variant'
+              soundEnabled ? 'bg-action text-white' : 'bg-outline-variant'
             }`}
           >
             <span
@@ -197,8 +197,8 @@ export function ProfilePage({ user }: ProfilePageProps) {
         <Card variant="glass" className="p-6">
           <div className="flex items-center justify-between mb-5 pb-4 border-b border-outline-variant/30">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-primary/8 flex items-center justify-center">
-                <Icon name="business" size="sm" className="text-primary" />
+              <div className="w-9 h-9 rounded-xl bg-action/8 flex items-center justify-center">
+                <Icon name="business" size="sm" className="text-action" />
               </div>
               <div>
                 <h3 className="text-heading-sm font-semibold text-on-surface">Mi organización</h3>
@@ -285,8 +285,8 @@ export function ProfilePage({ user }: ProfilePageProps) {
       {/* Change password */}
       <Card variant="glass" className="p-6">
         <div className="flex items-center gap-3 mb-5 pb-4 border-b border-outline-variant/30">
-          <div className="w-9 h-9 rounded-xl bg-primary/8 flex items-center justify-center">
-            <Icon name="lock" size="sm" className="text-primary" />
+          <div className="w-9 h-9 rounded-xl bg-action/8 flex items-center justify-center">
+            <Icon name="lock" size="sm" className="text-action" />
           </div>
           <div>
             <h3 className="text-heading-sm font-semibold text-on-surface">Cambiar contraseña</h3>

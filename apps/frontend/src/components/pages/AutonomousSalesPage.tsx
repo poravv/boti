@@ -251,7 +251,7 @@ export const AutonomousSalesPage = () => {
         <select
           value={selectedLineId}
           onChange={(e) => setSelectedLineId(e.target.value)}
-          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-action/40"
         >
           {lines.map((l) => (
             <option key={l.id} value={l.id}>
@@ -263,7 +263,7 @@ export const AutonomousSalesPage = () => {
 
       {loading ? (
         <div className="flex justify-center py-12">
-          <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+          <div className="w-8 h-8 border-4 border-action/20 border-t-primary rounded-full animate-spin" />
         </div>
       ) : (
         <>
@@ -272,7 +272,7 @@ export const AutonomousSalesPage = () => {
             <div className="flex items-center justify-between">
               <div>
                 <div className="flex items-center gap-2">
-                  <Icon name="storefront" className="text-primary" />
+                  <Icon name="storefront" className="text-action" />
                   <span className="font-semibold text-foreground">Ventas autónomas</span>
                   <Badge variant={salesEnabled ? 'success' : 'neutral'}>
                     {salesEnabled ? 'Activo' : 'Inactivo'}
@@ -285,7 +285,7 @@ export const AutonomousSalesPage = () => {
               <button
                 onClick={() => setSalesEnabled((v) => !v)}
                 className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none ${
-                  salesEnabled ? 'bg-primary text-white' : 'bg-muted'
+                  salesEnabled ? 'bg-action text-white' : 'bg-muted'
                 }`}
                 role="switch"
                 aria-checked={salesEnabled}
@@ -307,7 +307,7 @@ export const AutonomousSalesPage = () => {
                 onClick={() => setActiveTab(tab)}
                 className={`pb-2 text-sm font-medium border-b-2 transition-colors ${
                   activeTab === tab
-                    ? 'border-primary text-primary'
+                    ? 'border-action text-action'
                     : 'border-transparent text-muted-foreground hover:text-foreground'
                 }`}
               >
@@ -320,7 +320,7 @@ export const AutonomousSalesPage = () => {
           {activeTab === 'pagopar' && (
             <Card className="p-5 space-y-4">
               <div className="flex items-center gap-2 mb-2">
-                <Icon name="credit_card" className="text-primary" />
+                <Icon name="credit_card" className="text-action" />
                 <h2 className="font-semibold text-foreground">Configuración PagoPar</h2>
                 <Badge variant={pagopar.sandboxMode ? 'warning' : 'success'} >
                   {pagopar.sandboxMode ? 'Sandbox (test)' : 'Producción'}
@@ -365,7 +365,7 @@ export const AutonomousSalesPage = () => {
                 <button
                   onClick={() => setPagopar((p) => ({ ...p, sandboxMode: !p.sandboxMode }))}
                   className={`relative inline-flex h-5 w-10 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
-                    pagopar.sandboxMode ? 'bg-warning' : 'bg-primary text-white'
+                    pagopar.sandboxMode ? 'bg-warning' : 'bg-action text-white'
                   }`}
                   role="switch"
                   aria-checked={!pagopar.sandboxMode}
@@ -399,7 +399,7 @@ export const AutonomousSalesPage = () => {
               {/* Header + active toggle */}
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
-                  <Icon name="receipt_long" className="text-primary" />
+                  <Icon name="receipt_long" className="text-action" />
                   <h2 className="font-semibold text-foreground">Configuración Facturador</h2>
                 </div>
                 <div className="flex items-center gap-2">
@@ -407,7 +407,7 @@ export const AutonomousSalesPage = () => {
                   <button
                     onClick={() => setFacturador((f) => ({ ...f, isActive: !f.isActive }))}
                     className={`relative inline-flex h-5 w-10 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
-                      facturador.isActive ? 'bg-primary text-white' : 'bg-muted'
+                      facturador.isActive ? 'bg-action text-white' : 'bg-muted'
                     }`}
                     role="switch"
                     aria-checked={facturador.isActive}
@@ -470,12 +470,12 @@ export const AutonomousSalesPage = () => {
               {/* Datos del cliente (Receptor) — read-only info */}
               <div className="border-t border-border pt-4 space-y-3">
                 <div className="flex items-center gap-2">
-                  <Icon name="person" className="text-primary" />
+                  <Icon name="person" className="text-action" />
                   <h3 className="font-medium text-foreground text-sm">Datos del cliente (Receptor)</h3>
                 </div>
-                <div className="rounded-lg bg-primary/5 border border-primary/20 p-3 space-y-2">
+                <div className="rounded-lg bg-action/5 border border-action/20 p-3 space-y-2">
                   <div className="flex items-start gap-2">
-                    <Icon name="smart_toy" size="sm" className="text-primary mt-0.5 shrink-0" />
+                    <Icon name="smart_toy" size="sm" className="text-action mt-0.5 shrink-0" />
                     <div className="text-xs text-foreground/80 space-y-1">
                       <p className="font-medium text-foreground">El bot recopila estos datos automáticamente</p>
                       <p>Cuando el cliente quiera una factura, el bot le pedirá por WhatsApp:</p>
@@ -521,7 +521,7 @@ export const AutonomousSalesPage = () => {
                       onChange={(e) => setFacturador((f) => ({ ...f, bodyTemplate: e.target.value }))}
                       rows={16}
                       spellCheck={false}
-                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 resize-y"
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-action/40 resize-y"
                     />
                   </div>
                 )}

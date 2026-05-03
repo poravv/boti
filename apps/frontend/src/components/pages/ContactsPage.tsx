@@ -80,7 +80,7 @@ export function ContactsPage() {
           <h1 className="text-heading-lg font-bold text-on-surface flex items-center gap-2">
             Contactos
             {!isLoading && (
-              <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full bg-primary/10 text-primary text-caption font-semibold">
+              <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full bg-action/10 text-action text-caption font-semibold">
                 {contacts.length}
               </span>
             )}
@@ -104,7 +104,7 @@ export function ContactsPage() {
             placeholder="Buscar por nombre o teléfono..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-2.5 bg-surface-container rounded-xl border border-outline-variant/30 text-body text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary/30 transition"
+            className="w-full pl-9 pr-4 py-2.5 bg-surface-container rounded-xl border border-outline-variant/30 text-body text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-action/30 transition"
           />
         </div>
 
@@ -118,7 +118,7 @@ export function ContactsPage() {
               className={cn(
                 'flex-1 py-1.5 px-3 rounded-lg text-body-sm font-medium transition-colors duration-200',
                 activeTab === tab.id
-                  ? 'bg-primary text-white shadow-glass-sm'
+                  ? 'bg-action text-white shadow-glass-sm'
                   : 'text-on-surface-variant hover:text-on-surface',
               )}
             >
@@ -172,7 +172,7 @@ export function ContactsPage() {
               >
                 <div className="flex items-start gap-3">
                   {/* Avatar */}
-                  <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white text-body font-bold uppercase flex-shrink-0">
+                  <div className="w-10 h-10 rounded-full bg-action flex items-center justify-center text-white text-body font-bold uppercase flex-shrink-0">
                     {(contact.name?.[0] ?? contact.phone[0] ?? '?').toUpperCase()}
                   </div>
 
