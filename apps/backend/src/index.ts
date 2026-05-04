@@ -208,9 +208,15 @@ async function bootstrap() {
   const pending = new Map<string, Pending>();
 
   whatsApp.setOnMessage(async (lineId, fromPhone, fromName, content, type, avatarUrl) => {
-    const isSpam = await spamFilter.check(fromPhone);
+    // Strip JID suffix (@lid, @s.whatsapp.net) for display/DB — keep full JID for routing.
+    // When Baileys can't resolve a @lid to a real phone, fromPhone = '123@lid'.
+    // displayPhone = '123' is used for client identity; routingJid = '123@lid' routes the reply.
+    const displayPhone = fromPhone.split('@')[0];
+    const routingJid = fromPhone;
+
+    const isSpam = await spamFilter.check(displayPhone);
     if (isSpam) {
-      wsManager.broadcast('operator:notification', { lineId, event: 'SPAM_DETECTED', details: { phone: fromPhone } });
+      wsManager.broadcast('operator:notification', { lineId, event: 'SPAM_DETECTED', details: { phone: displayPhone } });
       return;
     }
 
@@ -226,7 +232,7 @@ async function bootstrap() {
     }
 
     const previousClient = await prisma.client.findUnique({
-      where: { phone: fromPhone },
+      where: { phone: displayPhone },
       select: {
         id: true,
         updatedAt: true,
@@ -237,12 +243,12 @@ async function bootstrap() {
     const isNewSession = !previousClient || (Date.now() - previousClient.updatedAt.getTime()) > SIX_HOURS;
 
     baseClientRepo.currentOrgId = lineOrgId;
-    const client = await baseClientRepo.upsert({ phone: fromPhone, name: fromName, avatarUrl, isBlocked: false }, lineOrgId);
+    const client = await baseClientRepo.upsert({ phone: displayPhone, name: fromName, avatarUrl, isBlocked: false }, lineOrgId);
     baseClientRepo.currentOrgId = undefined;
 
     const inboundMessage = await messageRepo.save({
       lineId,
-      clientPhone: fromPhone,
+      clientPhone: displayPhone,
       content,
       type: type as any,
       direction: 'INBOUND',
@@ -252,8 +258,8 @@ async function bootstrap() {
 
     wsManager.broadcast('message:new', {
       lineId,
-      fromPhone,
-      clientPhone: fromPhone,
+      fromPhone: displayPhone,
+      clientPhone: displayPhone,
       fromName,
       avatarUrl,
       content,
@@ -275,7 +281,7 @@ async function bootstrap() {
       },
     });
 
-    const key = `${lineId}:${fromPhone}`;
+    const key = `${lineId}:${displayPhone}`;
     const existing = pending.get(key);
 
     if (existing) {
@@ -295,7 +301,8 @@ async function bootstrap() {
 
       await handleInbound.execute({
         lineId,
-        fromPhone,
+        fromPhone: displayPhone,
+        routingJid,
         fromName: current?.fromName ?? fromName,
         avatarUrl: current?.avatarUrl,
         content: current?.content ?? accumulated,

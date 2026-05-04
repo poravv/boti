@@ -264,19 +264,18 @@ export class BaileysWhatsAppAdapter implements IWhatsAppProvider {
         let fromPhone = jid.split('@')[0].split(':')[0];
 
         if (jid.endsWith('@lid')) {
-          let resolved = false;
           try {
             const pn = await (sock as any).signalRepository?.lidMapping?.getPNForLID(jid);
             if (pn) {
               fromPhone = pn.split('@')[0];
-              resolved = true;
+            } else {
+              // LID unresolvable — use full @lid JID so sendTextMessage routes correctly
+              fromPhone = jid;
+              baileysLogger.warn({ jid }, 'LID unresolvable — using @lid JID for routing');
             }
           } catch (err) {
-            baileysLogger.debug({ jid, err }, 'Failed to resolve LID');
-          }
-          if (!resolved) {
-            baileysLogger.warn({ jid }, 'Unresolvable LID — skipping message to avoid sending to invalid JID');
-            continue;
+            fromPhone = jid;
+            baileysLogger.debug({ jid, err }, 'Failed to resolve LID — using @lid JID for routing');
           }
         }
 

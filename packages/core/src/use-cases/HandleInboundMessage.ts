@@ -38,6 +38,7 @@ export class HandleInboundMessage implements HandleInboundMessageUseCase {
   async execute(input: {
     lineId: string;
     fromPhone: string;
+    routingJid?: string;  // JID used for queue.enqueue — may differ from fromPhone for @lid contacts
     fromName: string;
     avatarUrl?: string | null;
     content: string;
@@ -46,6 +47,7 @@ export class HandleInboundMessage implements HandleInboundMessageUseCase {
     inboundMessageId?: string;
   }): Promise<void> {
     const { lineId, fromPhone, fromName, avatarUrl, content } = input;
+    const routingJid = input.routingJid ?? fromPhone;
     const { clientRepo, messageRepo, contextRepo, queue, aiService, contextFetcher, auditLogger, notifier, externalApiRepo, salesService, calendarService, maxMessages } = this.deps;
 
     // 1. Upsert client
@@ -246,7 +248,7 @@ export class HandleInboundMessage implements HandleInboundMessageUseCase {
     }
 
     // 7. Enqueue outbound reply
-    await queue.enqueue(lineId, { to: fromPhone, content: replyText, type: 'TEXT', clientMessageId: inboundMessage.id });
+    await queue.enqueue(lineId, { to: routingJid, content: replyText, type: 'TEXT', clientMessageId: inboundMessage.id });
 
     // 8. Update and Persist conversation history to Context Repo
     const inboundHistory = { direction: 'INBOUND', content, type: input.type, createdAt: new Date() } as any;
