@@ -2,6 +2,14 @@
 // Wires together all adapters following Hexagonal Architecture
 
 import 'dotenv/config';
+
+// Baileys internal retries can reject when a session closes mid-flight.
+// Without this handler Node.js 15+ exits on any unhandled rejection.
+process.on('unhandledRejection', (reason) => {
+  // Log but never crash — Baileys disconnect races are non-fatal.
+  const msg = reason instanceof Error ? reason.message : String(reason);
+  console.error('[unhandledRejection] non-fatal:', msg);
+});
 import http from 'http';
 import express from 'express';
 import cors from 'cors';
