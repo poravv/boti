@@ -16,7 +16,8 @@ import { useRedisAuthState } from './RedisAuthState.js';
 
 const AUTH_DIR = path.join(process.cwd(), '.baileys-auth');
 // Fallback version used when fetchLatestBaileysVersion() fails (network issues in Docker, etc.)
-const FALLBACK_WA_VERSION: [number, number, number] = [2, 3000, 1033893291];
+// Updated to match the version WA servers returned on 2026-05-04.
+const FALLBACK_WA_VERSION: [number, number, number] = [2, 3000, 1035194821];
 
 const baileysLogger = (P as any).default({ level: 'info' });
 
@@ -26,6 +27,10 @@ interface LineState {
   status: 'CONNECTED' | 'DISCONNECTED' | 'CONNECTING' | 'QR_PENDING';
   messageStatusCallbacks: Map<string, (status: 'SUCCESS' | 'FAILED') => void>;
   ephemeralByJid: Map<string, number>;
+  // Cache of recently sent messages keyed by msgId — used for WA retry requests.
+  // Without this, when WA requests a retry (e.g. first message to a new contact),
+  // Baileys can't resend the content and the message silently fails.
+  sentMessageCache: Map<string, any>;
   clearAuth?: () => Promise<void>;
   intentionalClose?: boolean; // set before socket.end() to suppress auto-reconnect
 }
@@ -139,6 +144,9 @@ export class BaileysWhatsAppAdapter implements IWhatsAppProvider {
       baileysLogger.warn({ fallback: waVersion }, 'Could not fetch WA version — using fallback');
     }
 
+    // Cache for sent messages — required for WA retry requests (e.g. first message to new contacts).
+    const sentMessageCache = new Map<string, any>();
+
     const sock = makeWASocket({
       version: waVersion,
       auth: {
@@ -151,6 +159,9 @@ export class BaileysWhatsAppAdapter implements IWhatsAppProvider {
       generateHighQualityLinkPreview: false,
       connectTimeoutMs: 30000,
       defaultQueryTimeoutMs: 60000,
+      getMessage: async (key) => {
+        return sentMessageCache.get(key.id!) ?? undefined;
+      },
     });
 
     const lineState: LineState = {
@@ -159,6 +170,7 @@ export class BaileysWhatsAppAdapter implements IWhatsAppProvider {
       status: 'CONNECTING',
       messageStatusCallbacks: new Map(),
       ephemeralByJid: new Map(),
+      sentMessageCache,
       clearAuth
     };
     this.lines.set(lineId, lineState);
@@ -375,6 +387,9 @@ export class BaileysWhatsAppAdapter implements IWhatsAppProvider {
       { text },
       ephemeralExpiration ? { ephemeralExpiration } : undefined,
     );
+    if (result?.key.id && result.message) {
+      line.sentMessageCache.set(result.key.id, result.message);
+    }
     return result?.key.id ?? '';
   }
 
@@ -391,6 +406,9 @@ export class BaileysWhatsAppAdapter implements IWhatsAppProvider {
       result = await line.socket.sendMessage(cleanTo, { image: buffer }, sendOpts);
     } else {
       result = await line.socket.sendMessage(cleanTo, { document: buffer, fileName: filename, mimetype: 'application/pdf' }, sendOpts);
+    }
+    if (result?.key.id && result.message) {
+      line.sentMessageCache.set(result.key.id, result.message);
     }
     return result?.key.id ?? '';
   }

@@ -346,7 +346,9 @@ async function bootstrap() {
     const activeLines = await prisma.whatsAppLine.findMany();
     logger.info({ count: activeLines.length }, 'Autostarting WhatsApp lines...');
     for (const line of activeLines) {
-      whatsApp.connectLine(line.id).catch(err => {
+      // forceNewQr=false: preserve Redis credentials so reconnects after pod restart
+      // don't require a new QR scan if the session is still valid.
+      whatsApp.connectLine(line.id, false).catch(err => {
         logger.error({ lineId: line.id, err: err.message }, 'Failed to autostart line');
       });
     }
