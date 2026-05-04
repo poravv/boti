@@ -41,7 +41,14 @@ const WhatsAppConnections = () => {
   const fetchLines = async () => {
     try {
       const data = await apiFetchJson<{ lines: WhatsAppLine[] }>('/api/lines');
-      setLines(data.lines || []);
+      const fetched = data.lines || [];
+      setLines(fetched);
+      // Auto-show QR if backend already has a pending QR (e.g. after pod restart)
+      const pending = fetched.find(l => l.status === 'QR_PENDING' && l.qrCode);
+      if (pending) {
+        setActiveQrLine(pending.id);
+        setCurrentQr(pending.qrCode!);
+      }
     } catch { /* silent */ } finally { setLoading(false); }
   };
 
@@ -64,8 +71,9 @@ const WhatsAppConnections = () => {
         } : l
       ));
 
-      // Auto-show QR when backend emits it for the active line
-      if (status === 'QR_PENDING' && qrCode && lineId === activeQrLine) {
+      // Auto-show QR whenever backend emits one (active line or auto-reconnect)
+      if (status === 'QR_PENDING' && qrCode) {
+        setActiveQrLine(lineId);
         setCurrentQr(qrCode);
       }
       // Auto-close QR panel when line connects
