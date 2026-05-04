@@ -21,7 +21,7 @@ export function AppShell({
   children,
 }: AppShellProps) {
   return (
-    <div className="min-h-screen bg-background flex">
+    <div className="min-h-screen bg-slate-50 flex">
       {/* Sidebar - Desktop */}
       <Sidebar user={user} onLogout={onLogout} items={items} />
 

@@ -8,7 +8,6 @@ import {
   resetPassword,
   getIdToken,
   firebaseSignOut,
-  resendVerificationEmail,
 } from '../lib/firebase';
 import { apiFetchJson } from '../lib/apiClient';
 import { cn } from './ui/cn';
@@ -99,12 +98,7 @@ export default function Login({ onLogin }: LoginProps) {
 
         if (legacyMode) throw new Error('Email o contraseña incorrectos.');
 
-        const firebaseUser = await signInWithEmail(loginIdentifier, password);
-        if (!firebaseUser.emailVerified) {
-          await resendVerificationEmail(firebaseUser).catch(() => {});
-          await firebaseSignOut();
-          throw new Error(`Email no verificado. Te reenviamos el link a ${firebaseUser.email}.`);
-        }
+        await signInWithEmail(loginIdentifier, password);
         const { token, user } = await resolveFirebaseSession();
         onLogin(token, user);
       }

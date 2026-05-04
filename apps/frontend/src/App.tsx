@@ -182,8 +182,7 @@ const App = () => {
         const userData = await apiFetchJson<any>('/api/auth/me');
         setUser(userData);
       } catch {
-        localStorage.removeItem('token');
-        setToken(null);
+        // auth:unauthorized handles actual 401 — don't log out on transient network errors
       } finally {
         setLoading(false);
       }

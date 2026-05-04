@@ -155,11 +155,12 @@ const WhatsAppConnections = () => {
                           <div className="flex flex-col items-end gap-2">
                              <Badge variant={cfg.tone} size="sm" className="px-2">{cfg.label}</Badge>
                              {line.status !== 'CONNECTED' && (
-                               <button 
+                               <button
                                 onClick={() => handleConnect(line.id)}
-                                className="opacity-0 group-hover:opacity-100 transition-opacity text-[10px] font-black text-primary hover:underline"
+                                disabled={submitting}
+                                className="text-[10px] font-black text-primary hover:text-action hover:underline transition-colors disabled:opacity-40"
                                >
-                                 ENLAZAR
+                                 {line.status === 'DISCONNECTED' ? 'RECONECTAR' : 'ENLAZAR'}
                                </button>
                              )}
                           </div>
