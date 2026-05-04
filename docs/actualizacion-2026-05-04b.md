@@ -188,6 +188,36 @@ La escala de opacidad estándar es: `5, 10, 15, 20, 25, 30, 40, 50, 60, 70, 75, 
 
 ---
 
+## Baseline de migraciones en producción (operación manual)
+
+**Problema:** La DB de producción usaba `prisma db push` históricamente. Cuando se intentó correr `prisma migrate deploy` por primera vez, falló con `P3005: The database schema is not empty` porque no existía la tabla `_prisma_migrations`.
+
+**Síntoma visible:** `GET /api/contacts` y `GET /api/chats` retornaban:
+```
+The column `Client.avatarUrl` does not exist in the current database.
+```
+
+**Solución aplicada manualmente vía kubectl:**
+
+```bash
+kubectl exec -it deployment/boti-backend -n boti -- sh -c '
+  for dir in $(ls prisma/migrations | grep -v "^20260504"); do
+    npx prisma migrate resolve --applied "$dir" --schema prisma/schema.prisma
+  done
+  npx prisma migrate deploy --schema prisma/schema.prisma
+'
+```
+
+El script:
+1. Marca las 12 migraciones históricas como aplicadas (sin ejecutarlas — ya estaban en la DB).
+2. Aplica las 2 migraciones nuevas que sí faltaban: `avatarUrl` y `failureStage/failureReason`.
+
+**Resultado:** 14 migraciones aplicadas. La tabla `_prisma_migrations` quedó correctamente inicializada. Los futuros `migrate deploy` (vía `start.sh`) funcionarán sin intervención manual.
+
+**Nota:** Este problema no volverá a ocurrir. La causa raíz fue el cambio de `db push` a `migrate deploy` en `start.sh` sin haber baslineado antes. Ya está baslineado.
+
+---
+
 ## Commits de esta sesión
 
 ```
