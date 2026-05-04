@@ -341,8 +341,8 @@ export function createRouter(
       const dbLines = await prisma.whatsAppLine.findMany({ where: { ...orgScope(req) } });
       const lines = await Promise.all(dbLines.map(async (line) => ({
         id: line.id,
-        name: line.name, // Use actual name
-        phone: line.id, // Actually the phone is usually the ID in this setup or we get it from baileys
+        name: line.name,
+        phone: line.phone ?? null,
         status: await whatsApp.getLineStatus(line.id),
         qrCode: await whatsApp.getQrCode(line.id),
       })));

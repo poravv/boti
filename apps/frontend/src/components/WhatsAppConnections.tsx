@@ -52,11 +52,16 @@ const WhatsAppConnections = () => {
     const handleWSEvent = (event: Event) => {
       const detail = (event as CustomEvent).detail;
       if (!detail || detail.event !== 'line:status') return;
-      const { lineId, status, qrCode } = detail.data || {};
+      const { lineId, status, qrCode, phone } = detail.data || {};
       if (!lineId) return;
 
       setLines(prev => prev.map(l =>
-        l.id === lineId ? { ...l, status, ...(qrCode !== undefined && { qrCode }) } : l
+        l.id === lineId ? {
+          ...l,
+          status,
+          ...(qrCode !== undefined && { qrCode }),
+          ...(phone && { phone }),
+        } : l
       ));
 
       // Auto-show QR when backend emits it for the active line
@@ -186,9 +191,11 @@ const WhatsAppConnections = () => {
                           <p className="text-sm font-bold text-foreground truncate">{line.name}</p>
                           <Badge variant={cfg.tone} size="sm">{cfg.label}</Badge>
                         </div>
-                        <p className="text-[11px] text-muted-foreground mt-0.5">
-                          {line.phone || 'Sin número'}
-                        </p>
+                        {line.phone && (
+                          <p className="text-[11px] text-muted-foreground mt-0.5">
+                            +{line.phone}
+                          </p>
+                        )}
 
                         {/* Actions */}
                         <div className="flex items-center gap-3 mt-2">

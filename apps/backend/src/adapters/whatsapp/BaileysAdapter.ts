@@ -43,7 +43,7 @@ export class BaileysWhatsAppAdapter implements IWhatsAppProvider {
 
   constructor(
     private readonly redis: Redis,
-    private readonly onStatusChange?: (lineId: string, status: LineState['status'], qrCode?: string) => void,
+    private readonly onStatusChange?: (lineId: string, status: LineState['status'], qrCode?: string, phone?: string) => void,
   ) {
     // Purge seen IDs older than 10 minutes every 5 minutes.
     setInterval(() => {
@@ -196,8 +196,10 @@ export class BaileysWhatsAppAdapter implements IWhatsAppProvider {
           lineState.status = 'CONNECTED';
           lineState.qrCode = null;
           this.reconnectAttempts.delete(lineId); // reset backoff on successful connection
-          baileysLogger.info({ lineId }, 'WhatsApp connection opened successfully');
-          this.onStatusChange?.(lineId, 'CONNECTED');
+          // Extract the authenticated phone number from Baileys user JID (e.g. "5959XXXXXXX:0@s.whatsapp.net")
+          const phone = sock.user?.id?.split(':')[0]?.split('@')[0] ?? undefined;
+          baileysLogger.info({ lineId, phone }, 'WhatsApp connection opened successfully');
+          this.onStatusChange?.(lineId, 'CONNECTED', undefined, phone);
           if (!resolved) {
             resolved = true;
             clearTimeout(timeout);

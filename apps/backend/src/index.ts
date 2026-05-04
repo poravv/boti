@@ -111,9 +111,16 @@ async function bootstrap() {
   const contextFetcher = new ContextFetcherAdapter(prisma);
 
   // ─── WhatsApp Adapter ────────────────────────────────────────────────
-  const whatsApp = new BaileysWhatsAppAdapter(redis, (lineId, status, qrCode) => {
-    wsManager.broadcast('line:status', { lineId, status, qrCode });
-    logger.info({ lineId, status }, 'WhatsApp line status changed');
+  const whatsApp = new BaileysWhatsAppAdapter(redis, async (lineId, status, qrCode, phone) => {
+    wsManager.broadcast('line:status', { lineId, status, qrCode, phone });
+    logger.info({ lineId, status, phone }, 'WhatsApp line status changed');
+    if (status === 'CONNECTED' && phone) {
+      try {
+        await prisma.whatsAppLine.update({ where: { id: lineId }, data: { phone } });
+      } catch (err) {
+        logger.warn({ lineId, phone, err }, 'Could not persist phone number for line');
+      }
+    }
   });
 
   // ─── Use Cases ───────────────────────────────────────────────────────
