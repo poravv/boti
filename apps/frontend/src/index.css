@@ -44,7 +44,7 @@
   }
 
   .glass-elevated {
-    @apply bg-white/98 backdrop-blur-xl border border-white/60 shadow-glass-lg rounded-xl;
+    @apply bg-white backdrop-blur-xl border border-white/60 shadow-glass-lg rounded-xl;
   }
 
   .glass-dark {
