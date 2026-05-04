@@ -88,6 +88,17 @@ const WhatsAppConnections = () => {
     return () => window.removeEventListener('boti:ws-event', handleWSEvent);
   }, [activeQrLine]);
 
+  const cancelQr = async (lineId: string) => {
+    setActiveQrLine(null);
+    setCurrentQr(null);
+    setLines(prev => prev.map(l =>
+      l.id === lineId ? { ...l, status: 'DISCONNECTED' as const, qrCode: undefined } : l
+    ));
+    try {
+      await apiFetch(`/api/lines/${lineId}/disconnect`, { method: 'POST' });
+    } catch { /* ignore */ }
+  };
+
   const handleConnect = async (lineId: string) => {
     if (submitting) return;
     setSubmitting(true);
@@ -278,7 +289,9 @@ const WhatsAppConnections = () => {
                 ))}
               </div>
 
-              <Button variant="ghost" size="sm" onClick={() => { setActiveQrLine(null); setCurrentQr(null); }}>
+              <Button variant="ghost" size="sm" onClick={() => {
+                if (activeQrLine) cancelQr(activeQrLine);
+              }}>
                 <Icon name="close" size="xs" className="mr-1.5" /> Cancelar
               </Button>
             </div>
@@ -290,7 +303,9 @@ const WhatsAppConnections = () => {
                 <h3 className="text-lg font-bold text-foreground">Generando código QR…</h3>
                 <p className="text-sm text-muted-foreground mt-1">Esto puede tardar unos segundos.</p>
               </div>
-              <Button variant="ghost" size="sm" onClick={() => setActiveQrLine(null)}>Cancelar</Button>
+              <Button variant="ghost" size="sm" onClick={() => {
+                if (activeQrLine) cancelQr(activeQrLine);
+              }}>Cancelar</Button>
             </div>
           ) : (
             // Idle — prompt to select a line
