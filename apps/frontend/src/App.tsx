@@ -75,27 +75,67 @@ const App = () => {
     const socketUrl = import.meta.env.VITE_WS_URL
       ?? (window.location.protocol === 'https:'
         ? `wss://${window.location.host}/ws`
-        : 'ws://localhost:3001/ws');
+        : `ws://${window.location.hostname || 'localhost'}:3001/ws`);
 
-    const ws = new WebSocket(socketUrl);
+    let ws: WebSocket | null = null;
+    let closedByEffect = false;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let heartbeat: ReturnType<typeof setInterval> | null = null;
+    let reconnectAttempt = 0;
 
-    ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (data.event === 'message:new') fetchUnreadCount();
-        window.dispatchEvent(new CustomEvent('boti:ws-event', { detail: data }));
-      } catch {
-        // Ignore malformed WS payloads.
-      }
+    const clearHeartbeat = () => {
+      if (heartbeat) clearInterval(heartbeat);
+      heartbeat = null;
     };
 
-    const heartbeat = setInterval(() => {
-      if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ event: 'ping' }));
-    }, 30000);
+    const scheduleReconnect = () => {
+      if (closedByEffect) return;
+      clearHeartbeat();
+      const delay = Math.min(1000 * 2 ** reconnectAttempt, 15000);
+      reconnectAttempt += 1;
+      reconnectTimer = setTimeout(connect, delay);
+    };
+
+    const connect = () => {
+      ws = new WebSocket(socketUrl);
+
+      ws.onopen = () => {
+        reconnectAttempt = 0;
+        window.dispatchEvent(new CustomEvent('boti:ws-status', { detail: { status: 'CONNECTED' } }));
+        clearHeartbeat();
+        heartbeat = setInterval(() => {
+          if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ event: 'ping' }));
+        }, 25000);
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.event === 'pong') return;
+          if (data.event === 'message:new') fetchUnreadCount();
+          window.dispatchEvent(new CustomEvent('boti:ws-event', { detail: data }));
+        } catch {
+          // Ignore malformed WS payloads.
+        }
+      };
+
+      ws.onerror = () => {
+        ws?.close();
+      };
+
+      ws.onclose = () => {
+        window.dispatchEvent(new CustomEvent('boti:ws-status', { detail: { status: 'DISCONNECTED' } }));
+        scheduleReconnect();
+      };
+    };
+
+    connect();
 
     return () => {
-      clearInterval(heartbeat);
-      ws.close();
+      closedByEffect = true;
+      clearHeartbeat();
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      ws?.close();
     };
   }, [token, fetchUnreadCount]);
 
@@ -210,20 +250,20 @@ const App = () => {
   const isSuperAdmin = user?.role === 'SUPERADMIN';
 
   const navItems: SidebarNavItem[] = [
-    { name: 'Dashboard',   path: '/dashboard',     icon: 'dashboard',              mobileNav: true },
-    { name: 'Mensajes',    path: '/messages',       icon: 'forum',   badge: unreadTotal, section: 'Conversaciones', mobileNav: true },
-    { name: 'Contactos',   path: '/contacts',       icon: 'contacts',               section: 'Conversaciones' },
+    { name: 'Dashboard',   path: '/dashboard',     icon: 'space_dashboard',        mobileNav: true },
+    { name: 'Mensajes',    path: '/messages',       icon: 'chat_bubble', badge: unreadTotal, section: 'Conversaciones', mobileNav: true },
+    { name: 'Contactos',   path: '/contacts',       icon: 'contact_page',           section: 'Conversaciones' },
     ...(isAdmin ? [
-      { name: 'Conexiones', path: '/connections',   icon: 'link',        section: 'Configuración', mobileNav: true },
-      { name: 'IA',         path: '/ai-config',     icon: 'psychology',  section: 'Configuración' },
-      { name: 'APIs',       path: '/external-apis', icon: 'api',         section: 'Configuración' },
-      { name: 'Ventas',     path: '/sales',         icon: 'storefront',  section: 'Configuración' },
-      { name: 'Calendario', path: '/calendar',      icon: 'calendar_month', section: 'Configuración' },
-      { name: 'Equipo',     path: '/settings/team', icon: 'group',       section: 'Cuenta' },
+      { name: 'Conexiones', path: '/connections',   icon: 'hub',                    section: 'Configuración', mobileNav: true },
+      { name: 'IA',         path: '/ai-config',     icon: 'model_training',         section: 'Configuración' },
+      { name: 'APIs',       path: '/external-apis', icon: 'integration_instructions', section: 'Configuración' },
+      { name: 'Ventas',     path: '/sales',         icon: 'point_of_sale',          section: 'Configuración' },
+      { name: 'Calendario', path: '/calendar',      icon: 'event_note',             section: 'Configuración' },
+      { name: 'Equipo',     path: '/settings/team', icon: 'badge',                  section: 'Cuenta' },
     ] as SidebarNavItem[] : []),
-    { name: 'Perfil',      path: '/profile',        icon: 'account_circle', section: 'Cuenta', mobileNav: true },
-    { name: 'Ayuda',       path: '/help',           icon: 'help',           section: 'Cuenta' },
-    ...(isSuperAdmin ? [{ name: 'Super Admin', path: '/super-admin', icon: 'admin_panel_settings', section: 'Admin' }] as SidebarNavItem[] : []),
+    { name: 'Perfil',      path: '/profile',        icon: 'person',                 section: 'Cuenta', mobileNav: true },
+    { name: 'Ayuda',       path: '/help',           icon: 'support_agent',          section: 'Cuenta' },
+    ...(isSuperAdmin ? [{ name: 'Super Admin', path: '/super-admin', icon: 'shield_person', section: 'Admin' }] as SidebarNavItem[] : []),
   ];
 
   return (

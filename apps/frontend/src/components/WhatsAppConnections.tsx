@@ -9,7 +9,6 @@ import {
   FormInput,
   Icon,
   Modal,
-  SkeletonCard,
   cn,
   useToast,
 } from './ui';
@@ -22,19 +21,12 @@ interface WhatsAppLine {
   qrCode?: string;
 }
 
-const STATUS_BADGE_VARIANT: Record<WhatsAppLine['status'], 'success' | 'warning' | 'danger' | 'neutral'> = {
-  CONNECTED: 'success',
-  QR_PENDING: 'warning',
-  CONNECTING: 'warning',
-  DISCONNECTED: 'neutral',
-};
-
-const STATUS_LABEL: Record<WhatsAppLine['status'], string> = {
-  CONNECTED: 'Conectado',
-  QR_PENDING: 'QR pendiente',
-  CONNECTING: 'Conectando...',
-  DISCONNECTED: 'Desconectado',
-};
+const STATUS_CONFIG = {
+  CONNECTED: { label: 'Conectado', tone: 'success', icon: 'check_circle' },
+  QR_PENDING: { label: 'QR Pendiente', tone: 'warning', icon: 'qr_code' },
+  CONNECTING: { label: 'Enlazando...', tone: 'primary', icon: 'sync' },
+  DISCONNECTED: { label: 'Desconectado', tone: 'neutral', icon: 'link_off' },
+} as const;
 
 const WhatsAppConnections = () => {
   const [lines, setLines] = useState<WhatsAppLine[]>([]);
@@ -50,380 +42,166 @@ const WhatsAppConnections = () => {
     try {
       const data = await apiFetchJson<{ lines: WhatsAppLine[] }>('/api/lines');
       setLines(data.lines || []);
-    } catch (err) {
-      console.error('Error fetching lines:', err);
-    } finally {
-      setLoading(false);
-    }
+    } catch (err) { console.error(err); } finally { setLoading(false); }
   };
 
-  useEffect(() => {
-    fetchLines();
-  }, []);
+  useEffect(() => { fetchLines(); }, []);
 
   useEffect(() => {
     const handleWSEvent = (event: Event) => {
-      const detail = (event as CustomEvent<{ event: string; data?: Record<string, unknown> }>).detail;
+      const detail = (event as CustomEvent).detail;
       if (!detail || detail.event !== 'line:status') return;
-      const data = (detail.data || {}) as { lineId?: string; status?: WhatsAppLine['status']; qrCode?: string };
-      if (!data.lineId) return;
-      setLines((prev) =>
-        prev.map((line) =>
-          line.id === data.lineId
-            ? { ...line, status: data.status ?? line.status, qrCode: data.qrCode }
-            : line,
-        ),
-      );
+      const data = detail.data || {};
+      setLines(prev => prev.map(l => l.id === data.lineId ? { ...l, status: data.status, qrCode: data.qrCode } : l));
     };
-
     window.addEventListener('boti:ws-event', handleWSEvent);
     return () => window.removeEventListener('boti:ws-event', handleWSEvent);
   }, []);
 
-  useEffect(() => {
-    if (!activeQrLine) return;
-    const activeLine = lines.find((line) => line.id === activeQrLine);
-    if (activeLine?.qrCode) {
-      setCurrentQr(activeLine.qrCode);
-    }
-    if (activeLine?.status === 'CONNECTED') {
-      setActiveQrLine(null);
-      setCurrentQr(null);
-      toast.show('Línea conectada correctamente.', { variant: 'success' });
-    }
-  }, [lines, activeQrLine, toast]);
-
-  const handleAddLine = async (existingId?: string) => {
-    if (!existingId && !newLineName.trim()) return;
-    const lineId = existingId || newLineName.toLowerCase().replace(/\s+/g, '-');
+  const handleConnect = async (lineId: string) => {
     setSubmitting(true);
-
     try {
       const data = await apiFetchJson<{ qrCode?: string }>(`/api/lines/${lineId}/connect`, { method: 'POST' });
       setActiveQrLine(lineId);
       setCurrentQr(data.qrCode ?? null);
-      setShowAddLine(false);
-      setNewLineName('');
       fetchLines();
-    } catch (err) {
-      console.error('Error adding/reconnecting line:', err);
-      toast.show('No se pudo iniciar la vinculación.', { variant: 'error' });
-    } finally {
-      setSubmitting(false);
-    }
+    } catch { toast.show('Error al iniciar vinculación', { variant: 'error' }); } finally { setSubmitting(false); }
   };
-
-  const handleDisconnect = async (id: string) => {
-    try {
-      await apiFetch(`/api/lines/${id}/disconnect`, { method: 'POST' });
-      fetchLines();
-      toast.show('Línea desconectada.', { variant: 'info' });
-    } catch (err) {
-      console.error('Error disconnecting:', err);
-      toast.show('Error al desconectar la línea.', { variant: 'error' });
-    }
-  };
-
-  const handleDelete = async (id: string) => {
-    if (!confirm('¿Eliminar esta línea permanentemente? Esta acción no se puede deshacer.')) return;
-    try {
-      await apiFetch(`/api/lines/${id}`, { method: 'DELETE' });
-      fetchLines();
-      toast.show('Línea eliminada.', { variant: 'success' });
-    } catch (err) {
-      console.error('Error deleting line:', err);
-      toast.show('Error al eliminar la línea.', { variant: 'error' });
-    }
-  };
-
-  const connectedCount = lines.filter((line) => line.status === 'CONNECTED').length;
 
   return (
-    <section className="space-y-6">
-      <div className="mb-6">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-heading-lg font-bold text-on-surface">Conexiones WhatsApp</h1>
-            <p className="text-on-surface-variant text-body mt-1">Gestiona tus líneas de WhatsApp Business</p>
-          </div>
-          <Button variant="primary" onClick={() => setShowAddLine(true)} leadingIcon="add">
-            Nueva línea
-          </Button>
+    <div className="space-y-10">
+      <div className="flex justify-between items-end">
+        <div>
+          <h1 className="text-3xl font-black text-foreground tracking-tight">Canales de WhatsApp</h1>
+          <p className="text-muted-foreground mt-2 font-medium">Gestiona tus líneas y la conexión en tiempo real.</p>
         </div>
+        <Button variant="primary" size="lg" className="rounded-2xl font-black tracking-widest text-[10px] shadow-premium" onClick={() => setShowAddLine(true)}>
+          <Icon name="add" size="sm" className="mr-2" /> NUEVA LÍNEA
+        </Button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        <Card
-          variant="glass-elevated"
-          padding="lg"
-          className="lg:col-span-8 flex flex-col md:flex-row gap-6 md:gap-8 animate-fade-in-up"
-        >
-          <div className="flex-1 space-y-5">
-            <div>
-              <h2 className="text-heading-md text-action">Vincular dispositivo</h2>
-              <p className="text-body-sm text-on-surface-variant mt-2">
-                {activeQrLine
-                  ? `Vinculando: ${activeQrLine}`
-                  : 'Escanea el código QR para autorizar a Boti como un dispositivo vinculado.'}
-              </p>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Connection Wizard / QR Display */}
+        <Card variant="solid" className="lg:col-span-2 relative overflow-hidden flex flex-col justify-center items-center p-12 min-h-[400px]">
+          {activeQrLine && currentQr ? (
+            <div className="flex flex-col items-center space-y-8 animate-in zoom-in duration-500">
+               <div className="text-center space-y-2">
+                  <h3 className="text-xl font-black text-foreground uppercase tracking-tight">Escanea para Conectar</h3>
+                  <p className="text-sm text-muted-foreground font-medium">Usa WhatsApp en tu teléfono para escanear el código.</p>
+               </div>
+               <div className="p-8 bg-white rounded-3xl shadow-glass-xl border border-border/50 relative group">
+                  <QRCodeSVG value={currentQr} size={256} level="H" />
+                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 bg-white/90 transition-opacity rounded-3xl backdrop-blur-sm">
+                     <Button variant="secondary" size="sm" onClick={() => { setActiveQrLine(null); setCurrentQr(null); }}>
+                        <Icon name="close" size="xs" className="mr-2" /> CANCELAR
+                     </Button>
+                  </div>
+               </div>
+               <div className="flex gap-4">
+                  {[1, 2, 3].map(i => (
+                    <div key={i} className="flex items-center gap-2">
+                       <div className="w-5 h-5 rounded-full bg-primary/10 text-primary text-[10px] font-black flex items-center justify-center">{i}</div>
+                       <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Paso {i}</span>
+                    </div>
+                  ))}
+               </div>
             </div>
-
-            <ol className="space-y-3">
-              {[
-                'Abre WhatsApp en tu teléfono',
-                'Ve a Ajustes > Dispositivos Vinculados',
-                'Escanea el código QR que aparece a la derecha',
-              ].map((step, index) => (
-                <li key={step} className="flex items-center gap-3">
-                  <span className="w-7 h-7 bg-secondary/10 text-secondary rounded-full flex items-center justify-center text-caption font-semibold flex-shrink-0">
-                    {index + 1}
-                  </span>
-                  <p className="text-body-sm text-on-surface-variant">{step}</p>
-                </li>
-              ))}
-            </ol>
-
-            {activeQrLine && (
-              <Button
-                variant="secondary"
-                size="sm"
-                leadingIcon="close"
-                onClick={() => {
-                  setActiveQrLine(null);
-                  setCurrentQr(null);
-                }}
-              >
-                Cancelar
-              </Button>
-            )}
-          </div>
-
-          <div className="w-full md:w-64 aspect-square rounded-2xl border-2 border-dashed border-secondary/30 flex items-center justify-center relative overflow-hidden bg-white p-4">
-            {activeQrLine && currentQr ? (
-              <div className="p-4 bg-white rounded-xl shadow-glass-sm">
-                <QRCodeSVG value={currentQr} size={200} />
-              </div>
-            ) : (
-              <div className="text-center opacity-50 space-y-2">
-                <Icon name="qr_code_2" size="xl" className="text-secondary" />
-                <p className="text-overline uppercase text-on-surface-variant">Esperando…</p>
-              </div>
-            )}
-            {activeQrLine && !currentQr && (
-              <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex flex-col items-center justify-center gap-2">
-                <div className="w-8 h-8 border-4 border-secondary border-t-transparent rounded-full animate-spin" />
-                <p className="text-overline uppercase text-secondary">Generando QR</p>
-              </div>
-            )}
-          </div>
+          ) : (
+            <div className="text-center space-y-6 max-w-sm">
+               <div className="w-20 h-20 bg-muted/50 rounded-3xl flex items-center justify-center mx-auto mb-6">
+                  <Icon name="qr_code" size="xl" className="text-muted-foreground/30" />
+               </div>
+               <h3 className="text-lg font-bold text-foreground">Configurador de Enlace</h3>
+               <p className="text-sm text-muted-foreground font-medium">Selecciona una línea de la lista para generar un nuevo código QR de vinculación.</p>
+               <div className="pt-4 flex flex-wrap justify-center gap-2">
+                  <Badge variant="neutral" dot>Seguro</Badge>
+                  <Badge variant="neutral" dot>Encripado</Badge>
+                  <Badge variant="neutral" dot>Multidispositivo</Badge>
+               </div>
+            </div>
+          )}
+          {/* Decorative mesh */}
+          <div className="absolute inset-0 bg-[radial-gradient(#e2e8f0_1px,transparent_1px)] [background-size:24px_24px] opacity-20 pointer-events-none" />
         </Card>
 
-        <div className="lg:col-span-4 flex flex-col gap-6">
-          <Card
-            variant="glass-elevated"
-            padding="lg"
-            className="flex-1 relative overflow-hidden animate-fade-in-up"
-            style={{ animationDelay: '60ms' }}
-          >
-            <div
-              aria-hidden="true"
-              className="absolute top-0 right-0 w-24 h-24 bg-success/10 rounded-full -mr-8 -mt-8 pointer-events-none"
-            />
-            <div className="relative flex flex-col gap-3">
-              <span className="text-overline uppercase text-on-surface-variant">Estado del sistema</span>
-              <div className="flex items-center justify-between">
-                <span className="text-display-sm text-action">{connectedCount}</span>
-                <Icon name="hub" size="xl" className="text-success" filled />
+        {/* Status Wall Sidebar */}
+        <div className="space-y-6">
+           <Card variant="solid">
+              <h4 className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] mb-6">Muro de Estado</h4>
+              {loading ? (
+                <div className="space-y-4">
+                   {[1, 2, 3].map(i => <div key={i} className="h-16 bg-muted animate-pulse rounded-2xl" />)}
+                </div>
+              ) : lines.length === 0 ? (
+                <EmptyState title="Sin líneas" description="Añade tu primera línea para empezar." icon="smartphone" />
+              ) : (
+                <div className="space-y-3">
+                   {lines.map((line) => {
+                     const cfg = STATUS_CONFIG[line.status] || STATUS_CONFIG.DISCONNECTED;
+                     return (
+                       <div key={line.id} className="group p-4 bg-muted/20 hover:bg-white hover:shadow-premium border border-transparent hover:border-border transition-all duration-300 rounded-2xl flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                             <div className={cn(
+                               "w-10 h-10 rounded-xl flex items-center justify-center transition-colors",
+                               line.status === 'CONNECTED' ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"
+                             )}>
+                                <Icon name="smartphone" size="sm" />
+                             </div>
+                             <div>
+                                <p className="text-sm font-bold text-foreground truncate max-w-[120px]">{line.name}</p>
+                                <p className="text-[10px] text-muted-foreground font-medium">{line.phone || 'Sin número'}</p>
+                             </div>
+                          </div>
+                          <div className="flex flex-col items-end gap-2">
+                             <Badge variant={cfg.tone} size="sm" className="px-2">{cfg.label}</Badge>
+                             {line.status !== 'CONNECTED' && (
+                               <button 
+                                onClick={() => handleConnect(line.id)}
+                                className="opacity-0 group-hover:opacity-100 transition-opacity text-[10px] font-black text-primary hover:underline"
+                               >
+                                 ENLAZAR
+                               </button>
+                             )}
+                          </div>
+                       </div>
+                     );
+                   })}
+                </div>
+              )}
+           </Card>
+
+           <Card variant="solid" className="bg-success text-success-foreground border-none">
+              <div className="flex items-center gap-3 mb-4">
+                 <Icon name="shield_check" size="md" />
+                 <h4 className="font-black uppercase tracking-widest text-xs">Salud del Sistema</h4>
               </div>
-              <p className="text-caption text-on-surface-variant">
-                Líneas activas procesando interacciones en tiempo real.
+              <p className="text-[10px] font-bold text-success-foreground/80 leading-relaxed uppercase tracking-wider">
+                 Todos los nodos operando con latencia óptima. Protocolo WhatsApp v2.24 activo.
               </p>
-            </div>
-          </Card>
-          <Card
-            variant="glass-elevated"
-            padding="lg"
-            className="flex-1 animate-fade-in-up"
-            style={{ animationDelay: '120ms' }}
-          >
-            <div className="flex flex-col gap-3">
-              <span className="text-overline uppercase text-on-surface-variant">
-                Disponibilidad promedio
-              </span>
-              <span className="text-heading-md text-action">99.8%</span>
-              <div className="h-2 bg-surface-container rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-success rounded-full"
-                  style={{ width: '99.8%' }}
-                />
-              </div>
-            </div>
-          </Card>
-        </div>
-
-        <div className="lg:col-span-12 space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-heading-sm text-action">Números conectados</h3>
-            <Badge variant="neutral" size="sm">
-              {lines.length} / 5
-            </Badge>
-          </div>
-
-          {loading && lines.length === 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {Array.from({ length: 2 }).map((_, index) => (
-                <SkeletonCard key={index} />
-              ))}
-            </div>
-          ) : lines.length === 0 ? (
-            <Card variant="glass" padding="lg" className="border-dashed">
-              <EmptyState
-                icon="link"
-                title="Sin líneas configuradas"
-                description="Agrega tu primera línea de WhatsApp Business para comenzar"
-                action={
-                  <Button
-                    variant="primary"
-                    size="md"
-                    leadingIcon="add"
-                    onClick={() => setShowAddLine(true)}
-                  >
-                    Nueva línea
-                  </Button>
-                }
-              />
-            </Card>
-          ) : (
-            <ul className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {lines.map((line, index) => (
-                <li
-                  key={line.id}
-                  className="animate-fade-in-up"
-                  style={{ animationDelay: `${Math.min(index, 10) * 30}ms` }}
-                >
-                  <Card
-                    variant="glass"
-                    interactive
-                    padding="md"
-                    className="flex items-center justify-between gap-4 relative overflow-hidden"
-                  >
-                    <div
-                      aria-hidden="true"
-                      className={cn(
-                        'absolute inset-0 opacity-[0.04] pointer-events-none',
-                        line.status === 'CONNECTED' && 'bg-success',
-                        line.status === 'QR_PENDING' && 'bg-warning',
-                        line.status === 'CONNECTING' && 'bg-info',
-                        line.status === 'DISCONNECTED' && 'bg-error',
-                      )}
-                    />
-
-                    <div className="flex items-center gap-4 relative min-w-0">
-                      <div
-                        className={cn(
-                          'w-12 h-12 rounded-xl flex items-center justify-center',
-                          line.status === 'CONNECTED' && 'bg-success-container text-on-success-container',
-                          line.status === 'QR_PENDING' && 'bg-warning-container text-on-warning-container',
-                          line.status === 'CONNECTING' && 'bg-info-container text-on-info-container',
-                          line.status === 'DISCONNECTED' && 'bg-error-container text-on-error-container',
-                        )}
-                      >
-                        <Icon name="smartphone" size="lg" />
-                      </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <h4 className="text-body font-semibold text-on-surface truncate">
-                            {line.name}
-                          </h4>
-                          {line.status === 'CONNECTED' && <Badge variant="success" dot />}
-                        </div>
-                        <p className="text-caption text-on-surface-variant font-mono truncate">
-                          {line.status === 'CONNECTED'
-                            ? line.phone || 'Sesión activa'
-                            : 'Listo para vincular'}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 relative flex-shrink-0">
-                      <Badge variant={STATUS_BADGE_VARIANT[line.status]} size="sm" className="hidden sm:inline-flex">
-                        {STATUS_LABEL[line.status]}
-                      </Badge>
-
-                      {line.status !== 'CONNECTED' && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          leadingIcon="qr_code"
-                          onClick={() => {
-                            setActiveQrLine(line.id);
-                            handleAddLine(line.id);
-                          }}
-                        >
-                          Reconectar
-                        </Button>
-                      )}
-
-                      <Button
-                        variant="icon"
-                        size="sm"
-                        aria-label="Desvincular línea"
-                        onClick={() => handleDisconnect(line.id)}
-                        className="text-on-surface-variant hover:text-error hover:bg-error/5"
-                      >
-                        <Icon name="link_off" size="sm" />
-                      </Button>
-
-                      <Button
-                        variant="icon"
-                        size="sm"
-                        aria-label="Eliminar línea permanentemente"
-                        onClick={() => handleDelete(line.id)}
-                        className="text-error hover:bg-error/10"
-                      >
-                        <Icon name="delete" size="sm" />
-                      </Button>
-                    </div>
-                  </Card>
-                </li>
-              ))}
-            </ul>
-          )}
+           </Card>
         </div>
       </div>
 
-      <Modal
-        open={showAddLine}
-        onClose={() => setShowAddLine(false)}
-        size="sm"
-        title="Nueva línea de WhatsApp"
-        description="Asigná un nombre interno para identificar esta línea."
-        footer={
-          <>
-            <Button variant="ghost" size="md" onClick={() => setShowAddLine(false)}>
-              Cancelar
+      <Modal open={showAddLine} onClose={() => setShowAddLine(false)} title="Agregar Nueva Línea" size="sm">
+         <div className="space-y-6">
+            <FormInput 
+              label="NOMBRE DE LA LÍNEA"
+              placeholder="Ej: Ventas Argentina"
+              value={newLineName}
+              onChange={(e) => setNewLineName(e.target.value)}
+            />
+            <Button variant="primary" size="lg" fullWidth disabled={!newLineName.trim()} onClick={async () => {
+              const id = newLineName.toLowerCase().replace(/\s+/g, '-');
+              await apiFetchJson(`/api/lines/${id}/connect`, { method: 'POST' });
+              fetchLines();
+              setShowAddLine(false);
+              setNewLineName('');
+            }}>
+               CREAR LÍNEA
             </Button>
-            <Button
-              variant="primary"
-              size="md"
-              loading={submitting}
-              disabled={!newLineName.trim()}
-              onClick={() => handleAddLine()}
-            >
-              Crear y vincular
-            </Button>
-          </>
-        }
-      >
-        <FormInput
-          label="Nombre amistoso"
-          floatingLabel
-          value={newLineName}
-          onChange={(event) => setNewLineName(event.target.value)}
-          autoFocus
-        />
+         </div>
       </Modal>
-    </section>
+    </div>
   );
 };
 

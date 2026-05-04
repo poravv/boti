@@ -44,13 +44,14 @@ Boti es una plataforma de gestión y automatización de WhatsApp orientada a neg
 ### 3. Centro de Mensajes (Inbox)
 
 - Lista de conversaciones con búsqueda por nombre o teléfono
+- Fotos reales de WhatsApp cuando Baileys puede resolver el avatar del contacto
 - Vista de hilo por contacto con mensajes ordenados cronológicamente
 - Diferenciación visual entre mensajes entrantes (cliente) y salientes (bot/operador)
 - Envío manual de mensajes desde la web hacia cualquier contacto
 - Indicadores de estado de entrega: Pendiente → Enviado → Fallido
 - Conteo de mensajes no leídos por conversación y contador global
 - Marcado automático de mensajes como leídos al abrir la conversación
-- Actualización en tiempo real sin necesidad de recargar la página (WebSocket)
+- Actualización en tiempo real sin necesidad de recargar la página (WebSocket con heartbeat y reconexión)
 - Latencia de entrega: mensaje procesado en ~1-2 segundos vía BullMQ
 
 ### 4. Gestión de Contactos (Clientes)
@@ -93,7 +94,25 @@ Boti es una plataforma de gestión y automatización de WhatsApp orientada a neg
 - Registro de actividad reciente (últimas 5 entradas de auditoría)
 - Actualización automática cada 10 segundos
 
-### 8. Auditoría
+### 8. Ventas Autónomas
+
+- Generación de links de pago PagoPar desde conversaciones de WhatsApp
+- Registro persistente de pedidos, pagos, facturas y errores en `SaleRecord`
+- Tabla operativa en `/sales` con ventas y reuniones en una sola vista
+- Estados normalizados: pedido, pagado, facturado, error de facturación, error de pedido y reunión
+- Si el cliente pagó pero falló la facturación, la venta queda marcada como vendida y pendiente de factura manual
+- Conservación de datos fiscales relevantes: documento/RUC, nombre o razón social, email y JSON fiscal completo
+- Integración opcional con facturador externo mediante body template configurable por línea
+
+### 9. Calendario
+
+- Calendario local basado en Prisma, sin dependencia de Google Calendar
+- Citas por línea y cliente
+- Creación, reagendamiento y cancelación desde herramientas de IA
+- Validación de conflictos, duración y rango máximo de 90 días
+- Las compras no se calendarizan automáticamente; solo se crea cita cuando el flujo requiere reunión, turno o servicio agendado
+
+### 10. Auditoría
 
 - Registro persistente en base de datos de todos los eventos relevantes:
   - Mensajes enviados y recibidos
@@ -103,7 +122,7 @@ Boti es una plataforma de gestión y automatización de WhatsApp orientada a neg
 - Cada entrada incluye: usuario, acción, detalles JSON, IP y timestamp
 - Acceso desde el Dashboard con modal de log completo
 
-### 9. Autenticación y Control de Acceso
+### 11. Autenticación y Control de Acceso
 
 - Autenticación JWT con expiración de 7 días
 - Roles: `ADMIN` y `OPERATOR`
@@ -111,7 +130,7 @@ Boti es una plataforma de gestión y automatización de WhatsApp orientada a neg
 - Logout automático ante token expirado o inválido (evento `auth:unauthorized`)
 - Todas las rutas protegidas excepto `/api/health` y `/api/auth/login`
 
-### 10. Cola de Mensajes Salientes
+### 12. Cola de Mensajes Salientes
 
 - BullMQ sobre Redis para procesamiento asíncrono de mensajes salientes
 - 20 workers concurrentes
@@ -143,6 +162,7 @@ Boti es una plataforma de gestión y automatización de WhatsApp orientada a neg
 |-------|------|-------------|
 | `phone` | String | Número (clave única) |
 | `name` | String | Nombre del contacto |
+| `avatarUrl` | String? | Foto de perfil resuelta desde WhatsApp |
 | `isBlocked` | Bool | Si está bloqueado |
 | `blockedUntil` | DateTime? | Expiración del bloqueo temporal |
 | `aiPausedUntil` | DateTime? | IA pausada hasta esta fecha |
@@ -159,6 +179,24 @@ Boti es una plataforma de gestión y automatización de WhatsApp orientada a neg
 | `status` | Enum | PENDING, SUCCESS, FAILED |
 | `isRead` | Bool | Si fue leído por el operador |
 
+### SaleRecord
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `lineId` | UUID | Línea donde ocurrió la venta |
+| `clientPhone` | String | Teléfono del comprador |
+| `productName` | String | Producto o servicio solicitado |
+| `description` | String? | Detalle del pedido |
+| `amount` | Int | Monto en PYG |
+| `status` | Enum | PENDING, PAID, INVOICED, PAID_INVOICE_FAILED, FAILED |
+| `paymentUrl` | String? | Link de pago PagoPar |
+| `invoiceId` | String? | ID de factura si fue emitida |
+| `receptorDocumento` | String? | Documento/RUC para factura manual |
+| `receptorNombre` | String? | Nombre o razón social |
+| `receptorEmail` | String? | Email fiscal |
+| `fiscalData` | JSON? | Datos fiscales completos |
+| `failureStage` | String? | Etapa donde falló el flujo |
+| `failureReason` | String? | Detalle del error |
+
 ---
 
 ## Flujos Principales
@@ -166,13 +204,14 @@ Boti es una plataforma de gestión y automatización de WhatsApp orientada a neg
 ### Mensaje entrante (cliente → bot)
 1. Baileys recibe el mensaje de WhatsApp
 2. Filtro anti-spam: si supera el umbral, bloquea y notifica
-3. Se guarda el mensaje en la base de datos
-4. Se verifica si la IA está pausada para ese contacto
-5. Se obtiene el contexto del negocio y el historial de conversación
-6. Se llama a la IA con system prompt + contexto + historial
-7. La respuesta se encola en BullMQ
-8. BullMQ worker envía el mensaje vía Baileys
-9. Se emite `message:new` por WebSocket → la UI se actualiza en tiempo real
+3. Se guarda el cliente, chat y mensaje en la base de datos
+4. Se emite `message:new` por WebSocket con el `message` y `chat` reales
+5. Se verifica si la IA está pausada para ese contacto
+6. Se obtiene el contexto del negocio y el historial de conversación
+7. Se llama a la IA con system prompt + contexto + historial
+8. La respuesta se encola en BullMQ
+9. BullMQ worker envía el mensaje vía Baileys
+10. Se emite el mensaje saliente por WebSocket → la UI se actualiza en tiempo real
 
 ### Conexión de nueva línea
 1. Admin abre `/connections` y hace clic en "Nueva Conexión"
@@ -206,6 +245,7 @@ Boti es una plataforma de gestión y automatización de WhatsApp orientada a neg
 | GET | `/api/messages/unread-count` | Contador global de no leídos |
 | POST | `/api/clients/:phone/pause` | Pausar IA para un contacto |
 | POST | `/api/clients/:phone/assign` | Asignar contacto a operador |
+| GET | `/api/lines/:lineId/sales` | Historial unificado de ventas, pagos, facturas, errores y reuniones |
 | GET | `/api/agents` | Listar operadores activos |
 | GET | `/api/stats` | Métricas del dashboard |
 | GET | `/api/audit-logs` | Últimas 50 entradas de auditoría |
@@ -222,4 +262,5 @@ Boti es una plataforma de gestión y automatización de WhatsApp orientada a neg
 - **cert-manager** con Let's Encrypt para TLS automático
 - **nginx Ingress** con soporte WebSocket nativo en `/ws`
 - **GitHub Actions** con runner self-hosted: build → push a GHCR → deploy en K8s
+- **Prisma migrations** aplicadas con `npx prisma migrate deploy` al iniciar el backend
 - **Health checks** automáticos en el pipeline; rollback manual en caso de falla

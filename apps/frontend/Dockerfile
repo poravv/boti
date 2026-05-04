@@ -5,14 +5,14 @@ WORKDIR /app
 # Install build dependencies
 RUN apk add --no-cache git
 
-# Copy all package.json files for dependency resolution
-COPY package.json ./
+# Copy manifests for dependency resolution (lock file ensures exact versions)
+COPY package.json package-lock.json ./
 COPY packages/core/package.json ./packages/core/
 COPY apps/backend/package.json ./apps/backend/
 COPY apps/frontend/package.json ./apps/frontend/
 
-# Install dependencies
-RUN npm install
+# Install all workspace dependencies with exact lock file versions
+RUN npm ci
 
 # Copy source code
 COPY packages/core ./packages/core

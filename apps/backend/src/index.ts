@@ -180,18 +180,85 @@ async function bootstrap() {
   // Debounce: wait before processing so rapid consecutive messages from the
   // same client are accumulated and sent to the AI as a single turn.
   const debounceMs = parseInt(process.env.INBOUND_DEBOUNCE_MS ?? '3000', 10);
-  interface Pending { content: string; fromName: string; lineId: string; timer: ReturnType<typeof setTimeout> }
+  interface Pending {
+    content: string;
+    fromName: string;
+    avatarUrl?: string | null;
+    lineId: string;
+    inboundMessageId: string;
+    isNewSession: boolean;
+    lineOrgId?: string;
+    timer: ReturnType<typeof setTimeout>;
+  }
   const pending = new Map<string, Pending>();
 
-  whatsApp.setOnMessage(async (lineId, fromPhone, fromName, content, type) => {
+  whatsApp.setOnMessage(async (lineId, fromPhone, fromName, content, type, avatarUrl) => {
     const isSpam = await spamFilter.check(fromPhone);
     if (isSpam) {
       wsManager.broadcast('operator:notification', { lineId, event: 'SPAM_DETECTED', details: { phone: fromPhone } });
       return;
     }
 
-    // Broadcast immediately so the UI shows the message without waiting for AI.
-    wsManager.broadcast('message:new', { lineId, fromPhone, clientPhone: fromPhone, fromName, content, type });
+    const lineOrgId = await resolveOrgIdFromLine(prisma, lineId);
+    if (lineOrgId) {
+      const org = await prisma.organization.findUnique({
+        where: { id: lineOrgId },
+        select: { isActive: true, trialEndsAt: true, conversationsThisMonth: true, plan: { select: { maxConversationsPerMonth: true } } },
+      });
+      if (!org || !org.isActive) return;
+      if (org.trialEndsAt && org.trialEndsAt < new Date()) return;
+      if (org.plan && org.plan.maxConversationsPerMonth > 0 && org.conversationsThisMonth >= org.plan.maxConversationsPerMonth) return;
+    }
+
+    const previousClient = await prisma.client.findUnique({
+      where: { phone: fromPhone },
+      select: {
+        id: true,
+        updatedAt: true,
+        assignedTo: { select: { id: true, name: true, email: true } },
+      },
+    });
+    const SIX_HOURS = 6 * 60 * 60 * 1000;
+    const isNewSession = !previousClient || (Date.now() - previousClient.updatedAt.getTime()) > SIX_HOURS;
+
+    baseClientRepo.currentOrgId = lineOrgId;
+    const client = await baseClientRepo.upsert({ phone: fromPhone, name: fromName, avatarUrl, isBlocked: false }, lineOrgId);
+    baseClientRepo.currentOrgId = undefined;
+
+    const inboundMessage = await messageRepo.save({
+      lineId,
+      clientPhone: fromPhone,
+      content,
+      type: type as any,
+      direction: 'INBOUND',
+      status: 'SUCCESS',
+      sentAt: new Date(),
+    });
+
+    wsManager.broadcast('message:new', {
+      lineId,
+      fromPhone,
+      clientPhone: fromPhone,
+      fromName,
+      avatarUrl,
+      content,
+      type,
+      message: inboundMessage,
+      chat: {
+        id: client.id,
+        name: client.name,
+        phone: client.phone,
+        avatarUrl: client.avatarUrl ?? avatarUrl ?? null,
+        lastMsg: content,
+        time: inboundMessage.createdAt,
+        status: 'ACTIVE',
+        assignedTo: previousClient?.assignedTo ?? null,
+        aiPausedUntil: client.aiPausedUntil,
+        unreadCount: 1,
+        lineId,
+        conversationStatus: client.conversationStatus ?? 'OPEN',
+      },
+    });
 
     const key = `${lineId}:${fromPhone}`;
     const existing = pending.get(key);
@@ -200,46 +267,48 @@ async function bootstrap() {
       // Append new content and reset the timer.
       clearTimeout(existing.timer);
       existing.content = existing.content + '\n' + content;
+      existing.inboundMessageId = inboundMessage.id;
+      existing.avatarUrl = avatarUrl ?? existing.avatarUrl;
     }
 
     const accumulated = existing?.content ?? content;
 
     const timer = setTimeout(async () => {
+      const current = pending.get(key) ?? existing;
       pending.delete(key);
-      const lineOrgId = await resolveOrgIdFromLine(prisma, lineId);
-      baseClientRepo.currentOrgId = lineOrgId;
+      baseClientRepo.currentOrgId = current?.lineOrgId;
 
-      // Plan enforcement: block processing if trial expired or conversation limit reached
-      if (lineOrgId) {
-        const org = await prisma.organization.findUnique({
-          where: { id: lineOrgId },
-          select: { isActive: true, trialEndsAt: true, conversationsThisMonth: true, plan: { select: { maxConversationsPerMonth: true } } },
-        });
-        if (!org || !org.isActive) { baseClientRepo.currentOrgId = undefined; return; }
-        if (org.trialEndsAt && org.trialEndsAt < new Date()) { baseClientRepo.currentOrgId = undefined; return; }
-        if (org.plan && org.plan.maxConversationsPerMonth > 0 && org.conversationsThisMonth >= org.plan.maxConversationsPerMonth) {
-          baseClientRepo.currentOrgId = undefined; return;
-        }
-      }
-
-      // Snapshot updatedAt before processing to detect new session (>6h since last activity)
-      const SIX_HOURS = 6 * 60 * 60 * 1000;
-      const existingClient = await prisma.client.findUnique({ where: { phone: fromPhone }, select: { updatedAt: true } });
-      const isNewSession = !existingClient || (Date.now() - existingClient.updatedAt.getTime()) > SIX_HOURS;
-
-      await handleInbound.execute({ lineId, fromPhone, fromName, content: accumulated, type });
+      await handleInbound.execute({
+        lineId,
+        fromPhone,
+        fromName: current?.fromName ?? fromName,
+        avatarUrl: current?.avatarUrl,
+        content: current?.content ?? accumulated,
+        type,
+        persistInbound: false,
+        inboundMessageId: current?.inboundMessageId ?? inboundMessage.id,
+      });
       baseClientRepo.currentOrgId = undefined;
 
       // Increment monthly conversation counter once per session, non-blocking
-      if (isNewSession && lineOrgId) {
+      if ((current?.isNewSession ?? isNewSession) && current?.lineOrgId) {
         prisma.organization.update({
-          where: { id: lineOrgId },
+          where: { id: current.lineOrgId },
           data: { conversationsThisMonth: { increment: 1 } },
         }).catch(() => {});
       }
     }, debounceMs);
 
-    pending.set(key, { content: accumulated, fromName, lineId, timer });
+    pending.set(key, {
+      content: accumulated,
+      fromName,
+      avatarUrl: avatarUrl ?? existing?.avatarUrl,
+      lineId,
+      inboundMessageId: inboundMessage.id,
+      isNewSession: existing?.isNewSession ?? isNewSession,
+      lineOrgId,
+      timer,
+    });
   });
 
   // Root Health Check

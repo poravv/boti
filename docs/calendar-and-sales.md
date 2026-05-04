@@ -139,10 +139,12 @@ Cliente expresa intención de compra
             → PagoPar llama webhook POST /api/webhook/pagopar/{lineId}
               → SalesService marca venta como PAID
                 → (Opcional) Llama al Facturador
-                  → Bot envía confirmación de pago al cliente
+              → Bot envía confirmación de pago al cliente
 ```
 
 Las ventas autónomas solo están activas si `autonomousSalesEnabled = true` **y** existe un `pagoParConfig` para la línea.
+
+Una compra por WhatsApp no crea una cita automáticamente. El pedido queda registrado como venta/pedido en `SaleRecord`; solo se calendariza cuando la conversación requiere explícitamente una reunión, turno, instalación, visita o servicio agendado mediante las herramientas del calendario.
 
 ---
 
@@ -214,16 +216,77 @@ Se llama automáticamente después de confirmar un pago, si está activo.
 3. Actualiza el estado a `PAID`.
 4. Si hay `facturadorConfig` activo, llama al facturador con el body template resuelto.
 5. Si el facturador responde con éxito, el estado pasa a `INVOICED` y se guarda el `invoiceId`.
-6. Si el facturador falla (excepción), el estado queda en `PAID` y el error se loguea — no interrumpe la confirmación al cliente.
+6. Si el facturador falla, el estado pasa a `PAID_INVOICE_FAILED`. La venta queda marcada como pagada/vendida, pero con error de facturación pendiente.
 7. El caller (router) envía el mensaje de confirmación de pago por WhatsApp.
 
 ---
+
+## 3. Historial de ventas y reuniones
+
+La pantalla `/sales` consume `GET /api/lines/:lineId/sales` y muestra una tabla operativa con ventas, pedidos, pagos, facturas, errores y reuniones.
+
+### Endpoint
+
+`GET /api/lines/:lineId/sales?limit=100`
+
+Respuesta principal:
+
+| Campo | Descripción |
+|-------|-------------|
+| `sales` | Registros crudos de `SaleRecord` |
+| `appointments` | Citas recientes de la línea |
+| `events` | Lista unificada para tabla de ventas/reuniones |
+| `summary` | Métricas agregadas para la cabecera |
+
+### Estados normalizados en `events`
+
+| Estado UI | Origen | Significado |
+|-----------|--------|-------------|
+| `ORDER` | `SaleRecord.PENDING` | Pedido generado, link de pago pendiente |
+| `PAID` | `SaleRecord.PAID` | Pago confirmado, sin factura emitida |
+| `INVOICED` | `SaleRecord.INVOICED` | Pago confirmado y factura emitida |
+| `PAID_INVOICE_ERROR` | `SaleRecord.PAID_INVOICE_FAILED` | Pago confirmado, facturación fallida |
+| `ERROR` | `SaleRecord.FAILED` | Falló la creación del pedido/link o una etapa previa al pago |
+| `MEETING` | `Appointment.SCHEDULED` | Reunión/cita programada |
+| `CANCELLED` | `Appointment.CANCELLED` | Reunión/cita cancelada |
+
+### Campos relevantes por evento
+
+| Campo | Descripción |
+|-------|-------------|
+| `kind` | `SALE` o `MEETING` |
+| `sold` | `true` cuando hubo pago confirmado, incluso si falló la factura |
+| `status` | Estado normalizado para la UI |
+| `productName` | Producto o servicio comprado/solicitado |
+| `description` | Detalle del pedido o notas de la reunión |
+| `amount` | Monto en PYG |
+| `clientPhone` | Teléfono del cliente |
+| `receptorDocumento` | Documento/RUC para facturación manual |
+| `receptorNombre` | Nombre o razón social para facturación manual |
+| `receptorEmail` | Email fiscal, si fue informado |
+| `fiscalData` | JSON fiscal completo cuando exista |
+| `paymentUrl` | Link de pago PagoPar |
+| `invoiceId` | Identificador de factura emitida |
+| `failureStage` | Etapa donde ocurrió el error |
+| `failureReason` | Mensaje técnico/operativo del error |
+
+### Reglas de negocio
+
+- Si el cliente pagó y falló la facturación, el evento debe quedar como vendido (`sold = true`) y visible como `PAID_INVOICE_ERROR`.
+- Los datos fiscales deben permanecer disponibles para emitir la factura manualmente.
+- Los errores de creación de link de pago quedan como `FAILED` con `failureStage = PAYMENT_LINK`.
+- Una factura emitida correctamente queda marcada como `INVOICED` y muestra `invoiceId`.
+- Las reuniones aparecen en la misma tabla para que ventas y agenda se puedan auditar desde una sola pantalla.
 
 ### UI — AutonomousSalesPage
 
 **Archivo:** `apps/frontend/src/components/pages/AutonomousSalesPage.tsx`
 
 - Selector de línea WhatsApp en la parte superior.
+- Métricas resumidas: ingresos vendidos, órdenes/pedidos, facturas, reuniones y errores.
+- Tabla de historial con fecha, cliente, estado, detalle, monto, datos fiscales y referencia.
+- Los estados pagados con error de factura se muestran como vendidos, pero con alerta operativa.
+- Los datos fiscales visibles permiten emitir una factura manual si el proveedor externo falló.
 - Toggle de activación/desactivación de ventas autónomas con badge de estado.
 - Dos pestañas: **PagoPar** y **Facturador**.
 - Un único botón "Guardar configuración" que persiste ambas configuraciones en el mismo request (`PUT /api/lines/{lineId}/sales-config`).

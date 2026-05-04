@@ -555,6 +555,7 @@ export function createRouter(
         id: c.id,
         name: c.name,
         phone: c.phone,
+        avatarUrl: (c as any).avatarUrl ?? null,
         lastMsg: c.messages[0]?.content || '',
         time: c.messages[0]?.createdAt || c.updatedAt,
         status: 'ACTIVE',
@@ -586,6 +587,7 @@ export function createRouter(
         where,
         select: {
           id: true, phone: true, name: true,
+          avatarUrl: true,
           conversationStatus: true, createdAt: true, updatedAt: true,
           isBlocked: true, orgId: true,
           assignedTo: { select: { id: true, name: true } },
@@ -597,7 +599,7 @@ export function createRouter(
       });
       res.json({
         contacts: contacts.map(c => ({
-          id: c.id, phone: c.phone, name: c.name,
+          id: c.id, phone: c.phone, name: c.name, avatarUrl: (c as any).avatarUrl ?? null,
           conversationStatus: c.conversationStatus,
           createdAt: c.createdAt, updatedAt: c.updatedAt,
           isBlocked: c.isBlocked,
@@ -1081,12 +1083,115 @@ export function createRouter(
   // GET /lines/:lineId/sales — sale records for a line
   router.get('/lines/:lineId/sales', authMiddleware, requireLineOwnership, async (req, res) => {
     try {
-      const sales = await prisma.saleRecord.findMany({
-        where: { lineId: req.params.lineId },
-        orderBy: { createdAt: 'desc' },
-        take: 50,
+      const limit = Math.min(Number(req.query.limit) || 100, 250);
+      const [sales, appointments] = await Promise.all([
+        prisma.saleRecord.findMany({
+          where: { lineId: req.params.lineId },
+          orderBy: { createdAt: 'desc' },
+          take: limit,
+        }),
+        prisma.appointment.findMany({
+          where: { lineId: req.params.lineId },
+          orderBy: { createdAt: 'desc' },
+          take: limit,
+        }),
+      ]);
+
+      const saleEvents = sales.map((sale) => {
+        const items = Array.isArray(sale.items) ? sale.items as any[] : [];
+        const firstItem = items[0] ?? {};
+        const itemName = String(firstItem.nombre ?? firstItem.name ?? 'Venta WhatsApp');
+        const itemDescription = firstItem.descripcion ?? firstItem.description ?? null;
+        const status =
+          sale.status === 'PENDING' ? 'ORDER' :
+          sale.status === 'PAID' ? 'PAID' :
+          sale.status === 'INVOICED' ? 'INVOICED' :
+          sale.status === 'PAID_INVOICE_FAILED' ? 'PAID_INVOICE_ERROR' :
+          sale.status === 'FAILED' ? 'ERROR' :
+          sale.status;
+        const sold = status === 'PAID' || status === 'INVOICED' || status === 'PAID_INVOICE_ERROR';
+
+        return {
+          id: sale.id,
+          kind: 'SALE',
+          status,
+          rawStatus: sale.status,
+          sold,
+          lineId: sale.lineId,
+          clientPhone: sale.clientPhone,
+          clientName: sale.clientName,
+          receptorDocumento: (sale as any).receptorDocumento ?? null,
+          receptorNombre: (sale as any).receptorNombre ?? null,
+          receptorEmail: (sale as any).receptorEmail ?? null,
+          fiscalData: {
+            documento: (sale as any).receptorDocumento ?? null,
+            nombre: (sale as any).receptorNombre ?? null,
+            email: (sale as any).receptorEmail ?? null,
+          },
+          title: itemName,
+          description: itemDescription,
+          amount: sale.amount,
+          currency: sale.currency,
+          paymentLinkUrl: sale.paymentLinkUrl,
+          hashPedido: sale.hashPedido,
+          pagoParOrderId: sale.pagoParOrderId,
+          invoiceId: sale.invoiceId,
+          failureStage: (sale as any).failureStage ?? null,
+          failureReason: (sale as any).failureReason ?? null,
+          items,
+          createdAt: sale.createdAt,
+          paidAt: sale.paidAt,
+          invoicedAt: sale.invoicedAt,
+        };
       });
-      res.json({ sales });
+
+      const appointmentEvents = appointments.map((appointment) => ({
+        id: appointment.id,
+        kind: 'APPOINTMENT',
+        status: appointment.status === 'CANCELLED' ? 'CANCELLED' : 'MEETING',
+        rawStatus: appointment.status,
+        sold: false,
+        lineId: appointment.lineId,
+        clientPhone: appointment.clientPhone,
+        clientName: appointment.clientName,
+        receptorDocumento: null,
+        receptorNombre: null,
+        receptorEmail: null,
+        fiscalData: { documento: null, nombre: null, email: null },
+        title: appointment.title,
+        description: appointment.notes,
+        amount: null,
+        currency: null,
+        paymentLinkUrl: null,
+        hashPedido: null,
+        pagoParOrderId: null,
+        invoiceId: null,
+        failureStage: null,
+        failureReason: null,
+        items: [],
+        startAt: appointment.startAt,
+        endAt: appointment.endAt,
+        createdAt: appointment.createdAt,
+        paidAt: null,
+        invoicedAt: null,
+      }));
+
+      const events = [...saleEvents, ...appointmentEvents]
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .slice(0, limit);
+
+      const summary = {
+        orders: saleEvents.filter((event) => event.status === 'ORDER').length,
+        paid: saleEvents.filter((event) => event.sold).length,
+        invoiced: saleEvents.filter((event) => event.status === 'INVOICED').length,
+        errors: saleEvents.filter((event) => event.status === 'ERROR' || event.status === 'PAID_INVOICE_ERROR').length,
+        meetings: appointmentEvents.filter((event) => event.status === 'MEETING').length,
+        revenue: saleEvents
+          .filter((event) => event.sold)
+          .reduce((sum, event) => sum + event.amount, 0),
+      };
+
+      res.json({ sales, appointments, events, summary });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }

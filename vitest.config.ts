@@ -5,6 +5,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
+    exclude: ['**/node_modules/**', '**/dist/**'],
     // Load .env for integration tests that need OPENAI_API_KEY
     env: Object.fromEntries(
       Object.entries(

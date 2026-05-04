@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { apiFetchJson } from '../../lib/apiClient';
-import { Badge, Button, Card, FormInput, Icon, useToast } from '../ui';
+import { Badge, Button, Card, FormInput, Icon, useToast, cn } from '../ui';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -16,8 +16,8 @@ interface FacturadorFormState {
   accessKey: string;
   secretKey: string;
   emisorId: string;
-  bodyTemplate: string; // JSON string for editing
-  successExample: string; // JSON string for display
+  bodyTemplate: string; 
+  successExample: string; 
   isActive: boolean;
 }
 
@@ -43,512 +43,358 @@ interface SalesConfig {
   } | null;
 }
 
-// ─── Default facturador body template ────────────────────────────────────────
-const DEFAULT_BODY_TEMPLATE = JSON.stringify(
-  {
-    transactionId: '{{TRANSACTION_ID}}',
-    emisorId: 'COMPLETAR-EMISOR-ID',
-    fechaEmision: '{{FECHA_EMISION}}',
-    receptor: {
-      tipoDocumento: '{{CLIENTE_TIPO_DOCUMENTO}}',
-      numeroDocumento: '{{CLIENTE_RUC}}',
-      razonSocial: '{{CLIENTE_NOMBRE}}',
-      email: '{{CLIENTE_EMAIL}}',
-    },
-    detail: [
-      {
-        descripcion: '{{PRODUCTO}}',
-        cantidad: '{{CANTIDAD}}',
-        precioUnitario: '{{PRECIO_UNITARIO}}',
-        ivaTipo: '10',
-        unidadMedida: 'UNI',
-      },
-    ],
-  },
-  null,
-  2,
-);
+type CommercialStatus = 'ORDER' | 'PAID' | 'INVOICED' | 'ERROR' | 'MEETING' | 'CANCELLED' | string;
 
-// ─── Component ───────────────────────────────────────────────────────────────
+interface CommercialEvent {
+  id: string;
+  kind: 'SALE' | 'APPOINTMENT';
+  status: CommercialStatus;
+  rawStatus: string;
+  sold: boolean;
+  clientPhone: string | null;
+  clientName: string | null;
+  receptorDocumento: string | null;
+  receptorNombre: string | null;
+  receptorEmail: string | null;
+  fiscalData: {
+    documento: string | null;
+    nombre: string | null;
+    email: string | null;
+  };
+  title: string;
+  description: string | null;
+  amount: number | null;
+  currency: string | null;
+  paymentLinkUrl: string | null;
+  hashPedido: string | null;
+  invoiceId: string | null;
+  failureStage: string | null;
+  failureReason: string | null;
+  items: unknown[];
+  startAt?: string;
+  endAt?: string;
+  createdAt: string;
+  paidAt: string | null;
+  invoicedAt: string | null;
+}
+
+interface SalesHistoryResponse {
+  events: CommercialEvent[];
+  summary: {
+    orders: number;
+    paid: number;
+    invoiced: number;
+    errors: number;
+    meetings: number;
+    revenue: number;
+  };
+}
+
+const EMPTY_HISTORY: SalesHistoryResponse = {
+  events: [],
+  summary: { orders: 0, paid: 0, invoiced: 0, errors: 0, meetings: 0, revenue: 0 },
+};
+
+const STATUS_CONFIG: Record<string, { label: string, variant: any }> = {
+  ORDER: { label: 'Pedido', variant: 'primary' },
+  PAID: { label: 'Pagado', variant: 'success' },
+  INVOICED: { label: 'Facturado', variant: 'success' },
+  PAID_INVOICE_ERROR: { label: 'Error Factura', variant: 'warning' },
+  ERROR: { label: 'Error', variant: 'danger' },
+  MEETING: { label: 'Reunión', variant: 'warning' },
+  CANCELLED: { label: 'Cancelado', variant: 'neutral' },
+};
+
+const formatCurrency = (amount: number | null) =>
+  amount === null ? '—' : `Gs. ${amount.toLocaleString('es-PY')}`;
 
 export const AutonomousSalesPage = () => {
   const [lines, setLines] = useState<{ id: string; name: string }[]>([]);
   const [selectedLineId, setSelectedLineId] = useState('');
   const [salesEnabled, setSalesEnabled] = useState(false);
-  const [hasFacturadorConfig, setHasFacturadorConfig] = useState(false);
-  const [pagopar, setPagopar] = useState<PagoParFormState>({
-    baseUrl: '',
-    publicKey: '',
-    privateKey: '',
-    sandboxMode: true,
-  });
+  const [pagopar, setPagopar] = useState<PagoParFormState>({ baseUrl: '', publicKey: '', privateKey: '', sandboxMode: true });
   const [facturador, setFacturador] = useState<FacturadorFormState>({
-    baseUrl: '',
-    accessKey: '',
-    secretKey: '',
-    emisorId: '',
-    bodyTemplate: DEFAULT_BODY_TEMPLATE,
-    successExample: '',
-    isActive: true,
+    baseUrl: '', accessKey: '', secretKey: '', emisorId: '', bodyTemplate: '{}', successExample: '', isActive: true
   });
-  const [showAdvancedTemplate, setShowAdvancedTemplate] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [history, setHistory] = useState<SalesHistoryResponse>(EMPTY_HISTORY);
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState<'pagopar' | 'facturador'>('pagopar');
+  const [activeTab, setActiveTab] = useState<'HISTORY' | 'PAYMENTS' | 'INVOICING'>('HISTORY');
   const toast = useToast();
 
-  // Load lines on mount
-  useEffect(() => {
-    apiFetchJson<{ lines: { id: string; name: string }[] }>('/api/lines')
-      .then((d) => {
-        setLines(d.lines || []);
-        if (d.lines?.length > 0) setSelectedLineId(d.lines[0].id);
-      })
-      .catch(console.error);
+  const loadHistory = useCallback(async (lineId: string) => {
+    setLoadingHistory(true);
+    try {
+      const data = await apiFetchJson<SalesHistoryResponse>(`/api/lines/${lineId}/sales?limit=100`);
+      setHistory(data);
+    } catch { setHistory(EMPTY_HISTORY); } finally { setLoadingHistory(false); }
   }, []);
 
-  // Load config when line changes
+  useEffect(() => {
+    apiFetchJson<any>('/api/lines').then(d => {
+      setLines(d.lines || []);
+      if (d.lines?.length > 0) setSelectedLineId(d.lines[0].id);
+    });
+  }, []);
+
   useEffect(() => {
     if (!selectedLineId) return;
-    setLoading(true);
-
-    apiFetchJson<SalesConfig>(`/api/lines/${selectedLineId}/sales-config`)
-      .then((data) => {
-        setSalesEnabled(data.autonomousSalesEnabled);
-
-        if (data.pagoParConfig) {
-          setPagopar({
-            baseUrl: data.pagoParConfig.baseUrl ?? '',
-            publicKey: data.pagoParConfig.publicKey,
-            privateKey: '', // never pre-filled — secret
-            sandboxMode: data.pagoParConfig.sandboxMode,
-          });
-        } else {
-          setPagopar({ baseUrl: '', publicKey: '', privateKey: '', sandboxMode: true });
-        }
-
-        setHasFacturadorConfig(!!data.facturadorConfig);
-        if (data.facturadorConfig) {
-          const tmpl = data.facturadorConfig.bodyTemplate as any;
-          const emisorId = tmpl?.emisorId ?? '';
-
-          setFacturador({
-            baseUrl: data.facturadorConfig.baseUrl,
-            accessKey: data.facturadorConfig.accessKey,
-            secretKey: '', // never pre-filled — secret
-            emisorId,
-            bodyTemplate: data.facturadorConfig.bodyTemplate
-              ? JSON.stringify(data.facturadorConfig.bodyTemplate, null, 2)
-              : DEFAULT_BODY_TEMPLATE,
-            successExample: data.facturadorConfig.successExample
-              ? JSON.stringify(data.facturadorConfig.successExample, null, 2)
-              : '',
-            isActive: data.facturadorConfig.isActive,
-          });
-        } else {
-          setFacturador((prev) => ({ ...prev, baseUrl: '', accessKey: '', secretKey: '', emisorId: '' }));
-        }
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, [selectedLineId]);
-
-  const buildGeneratedTemplate = () => ({
-    transactionId: '{{TRANSACTION_ID}}',
-    emisorId: facturador.emisorId || 'COMPLETAR-EMISOR-ID',
-    fechaEmision: '{{FECHA_EMISION}}',
-    receptor: {
-      tipoDocumento: '{{CLIENTE_TIPO_DOCUMENTO}}',
-      numeroDocumento: '{{CLIENTE_RUC}}',
-      razonSocial: '{{CLIENTE_NOMBRE}}',
-      email: '{{CLIENTE_EMAIL}}',
-    },
-    detail: [
-      {
-        descripcion: '{{PRODUCTO}}',
-        cantidad: '{{CANTIDAD}}',
-        precioUnitario: '{{PRECIO_UNITARIO}}',
-        ivaTipo: '10',
-        unidadMedida: 'UNI',
-      },
-    ],
-  });
+    loadHistory(selectedLineId);
+    apiFetchJson<SalesConfig>(`/api/lines/${selectedLineId}/sales-config`).then(data => {
+      setSalesEnabled(data.autonomousSalesEnabled);
+      if (data.pagoParConfig) setPagopar({ ...pagopar, publicKey: data.pagoParConfig.publicKey, sandboxMode: data.pagoParConfig.sandboxMode });
+      if (data.facturadorConfig) setFacturador({ ...facturador, baseUrl: data.facturadorConfig.baseUrl, accessKey: data.facturadorConfig.accessKey, isActive: data.facturadorConfig.isActive });
+    });
+  }, [selectedLineId, loadHistory]);
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      let bodyTemplateJson: unknown;
-      if (showAdvancedTemplate) {
-        try {
-          bodyTemplateJson = JSON.parse(facturador.bodyTemplate);
-        } catch {
-          toast.show('El body template del facturador no es JSON válido.', { variant: 'error' });
-          return;
-        }
-      } else {
-        bodyTemplateJson = buildGeneratedTemplate();
-      }
-
-      let successExampleJson: unknown = null;
-      if (facturador.successExample.trim()) {
-        try {
-          successExampleJson = JSON.parse(facturador.successExample);
-        } catch {
-          toast.show('El ejemplo de respuesta del facturador no es JSON válido.', { variant: 'error' });
-          return;
-        }
-      }
-
-      // Validate: first-time facturador config requires secretKey
-      if (!hasFacturadorConfig && (facturador.baseUrl || facturador.accessKey) && !facturador.secretKey) {
-        toast.show('Para guardar el facturador por primera vez, ingresá la X-Secret-Key.', { variant: 'error' });
-        setSaving(false);
-        return;
-      }
-
       await apiFetchJson(`/api/lines/${selectedLineId}/sales-config`, {
         method: 'PUT',
         body: JSON.stringify({
           autonomousSalesEnabled: salesEnabled,
-          pagoParConfig: {
-            baseUrl: pagopar.baseUrl || null,
-            publicKey: pagopar.publicKey,
-            ...(pagopar.privateKey ? { privateKey: pagopar.privateKey } : {}),
-            sandboxMode: pagopar.sandboxMode,
-          },
-          facturadorConfig: {
-            baseUrl: facturador.baseUrl,
-            accessKey: facturador.accessKey,
-            ...(facturador.secretKey ? { secretKey: facturador.secretKey } : {}),
-            bodyTemplate: bodyTemplateJson,
-            successExample: successExampleJson,
-            isActive: facturador.isActive,
-          },
+          pagoParConfig: { publicKey: pagopar.publicKey, sandboxMode: pagopar.sandboxMode },
+          facturadorConfig: { baseUrl: facturador.baseUrl, accessKey: facturador.accessKey, isActive: facturador.isActive }
         }),
       });
-
-      toast.show('Configuración guardada.', { variant: 'success' });
-    } catch (err: any) {
-      toast.show(err.message ?? 'Error al guardar.', { variant: 'error' });
-    } finally {
-      setSaving(false);
-    }
+      toast.show('Ventas configuradas correctamente.', { variant: 'success' });
+    } catch { toast.show('Error al guardar.', { variant: 'error' }); } finally { setSaving(false); }
   };
 
   return (
-    <div className="space-y-6 p-4 max-w-3xl mx-auto">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Ventas Autónomas</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          El bot detecta intención de compra, genera links de pago y factura automáticamente.
-        </p>
+    <div className="space-y-10">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div>
+          <h1 className="text-3xl font-black text-foreground tracking-tight">Ventas & Conversión</h1>
+          <p className="text-muted-foreground mt-2 font-medium">Automatiza el flujo comercial desde el primer chat hasta la factura final.</p>
+        </div>
+        <div className="flex items-center gap-3">
+           <div className="flex items-center gap-2 pr-4 border-r border-border/50">
+              <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Línea</span>
+              <select value={selectedLineId} onChange={e => setSelectedLineId(e.target.value)} className="bg-white border border-border rounded-xl px-3 py-1.5 text-xs font-bold outline-none focus:ring-2 focus:ring-primary/20 transition-all">
+                {lines.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+              </select>
+           </div>
+           <Button variant="primary" size="md" className="rounded-xl font-black text-[10px] tracking-widest shadow-premium" onClick={handleSave} loading={saving}>
+              SINCRONIZAR VENTAS
+           </Button>
+        </div>
       </div>
 
-      {/* Line selector */}
-      <Card className="p-4">
-        <label className="block text-sm font-medium text-foreground mb-2">Línea WhatsApp</label>
-        <select
-          value={selectedLineId}
-          onChange={(e) => setSelectedLineId(e.target.value)}
-          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-action/40"
-        >
-          {lines.map((l) => (
-            <option key={l.id} value={l.id}>
-              {l.name}
-            </option>
-          ))}
-        </select>
-      </Card>
+      {/* Stats Summary */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+         {[
+           { label: 'Pedidos', val: history.summary.orders, icon: 'receipt_long', color: 'text-primary' },
+           { label: 'Cobrados', val: history.summary.paid, icon: 'payments', color: 'text-success' },
+           { label: 'Citas', val: history.summary.meetings, icon: 'event', color: 'text-warning' },
+           { label: 'Revenue', val: formatCurrency(history.summary.revenue), icon: 'trending_up', color: 'text-primary', wide: true }
+         ].map((s, i) => (
+           <Card key={i} variant="solid" className={cn("p-6 flex flex-col justify-between h-32", s.wide && "md:col-span-1")}>
+              <div className="flex items-center justify-between">
+                 <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">{s.label}</span>
+                 <Icon name={s.icon} size="sm" className={s.color} />
+              </div>
+              <p className={cn("text-2xl font-black text-foreground tracking-tight", s.label === 'Revenue' && "text-lg")}>{s.val}</p>
+           </Card>
+         ))}
+      </div>
 
-      {loading ? (
-        <div className="flex justify-center py-12">
-          <div className="w-8 h-8 border-4 border-action/20 border-t-primary rounded-full animate-spin" />
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+        {/* Navigation Sidebar */}
+        <div className="space-y-6">
+           <Card variant="solid" className="p-2 border-none bg-muted/30">
+              <div className="flex flex-col gap-1">
+                 {[
+                   { id: 'HISTORY', label: 'Historial Comercial', icon: 'history' },
+                   { id: 'PAYMENTS', label: 'Pasarela de Pago', icon: 'credit_card' },
+                   { id: 'INVOICING', label: 'Facturación SIFEN', icon: 'receipt' }
+                 ].map(tab => (
+                   <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id as any)}
+                    className={cn(
+                      "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all",
+                      activeTab === tab.id ? "bg-white text-primary shadow-sm border border-border/50" : "text-muted-foreground hover:bg-white/50"
+                    )}
+                   >
+                     <Icon name={tab.icon} size="sm" />
+                     {tab.label}
+                   </button>
+                 ))}
+              </div>
+           </Card>
+
+           <Card variant="solid" className={cn("border-none transition-colors", salesEnabled ? "bg-success/5 border-success/10" : "bg-muted/20")}>
+              <div className="flex items-center justify-between mb-4">
+                 <h4 className="text-[10px] font-black text-foreground uppercase tracking-widest">Motor Autónomo</h4>
+                 <div 
+                  onClick={() => setSalesEnabled(!salesEnabled)}
+                  className={cn("w-10 h-5 rounded-full relative cursor-pointer transition-colors", salesEnabled ? "bg-success" : "bg-muted")}
+                 >
+                    <div className={cn("absolute top-1 w-3 h-3 bg-white rounded-full transition-all", salesEnabled ? "left-6" : "left-1")} />
+                 </div>
+              </div>
+              <p className="text-[10px] font-medium text-muted-foreground leading-relaxed">
+                 {salesEnabled ? "IA autorizada para cerrar ventas, generar links de PagoPar y agendar citas automáticamente." : "El bot solo actuará como informante. No podrá procesar transacciones."}
+              </p>
+           </Card>
         </div>
-      ) : (
-        <>
-          {/* Toggle */}
-          <Card className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="flex items-center gap-2">
-                  <Icon name="storefront" className="text-action" />
-                  <span className="font-semibold text-foreground">Ventas autónomas</span>
-                  <Badge variant={salesEnabled ? 'success' : 'neutral'}>
-                    {salesEnabled ? 'Activo' : 'Inactivo'}
-                  </Badge>
+
+        {/* Tab Content */}
+        <div className="lg:col-span-3">
+           {activeTab === 'HISTORY' && (
+             <Card variant="solid" className="p-0 border-none shadow-premium overflow-hidden">
+                <div className="p-6 border-b border-border/50 bg-muted/10 flex justify-between items-center">
+                   <h3 className="text-sm font-black text-foreground uppercase tracking-widest">Eventos de Conversión</h3>
+                   <Button variant="ghost" size="sm" onClick={() => loadHistory(selectedLineId)}><Icon name="refresh" size="xs" /></Button>
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Cuando está activo, el bot puede generar links de pago por sí solo al detectar una venta.
-                </p>
-              </div>
-              <button
-                onClick={() => setSalesEnabled((v) => !v)}
-                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none ${
-                  salesEnabled ? 'bg-action text-white' : 'bg-muted'
-                }`}
-                role="switch"
-                aria-checked={salesEnabled}
-              >
-                <span
-                  className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform transition-transform ${
-                    salesEnabled ? 'translate-x-5' : 'translate-x-0'
-                  }`}
-                />
-              </button>
-            </div>
-          </Card>
-
-          {/* Tabs */}
-          <div className="flex border-b border-border gap-4">
-            {(['pagopar', 'facturador'] as const).map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`pb-2 text-sm font-medium border-b-2 transition-colors ${
-                  activeTab === tab
-                    ? 'border-action text-action'
-                    : 'border-transparent text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                {tab === 'pagopar' ? '💳 PagoPar' : '🧾 Facturador'}
-              </button>
-            ))}
-          </div>
-
-          {/* PagoPar Tab */}
-          {activeTab === 'pagopar' && (
-            <Card className="p-5 space-y-4">
-              <div className="flex items-center gap-2 mb-2">
-                <Icon name="credit_card" className="text-action" />
-                <h2 className="font-semibold text-foreground">Configuración PagoPar</h2>
-                <Badge variant={pagopar.sandboxMode ? 'warning' : 'success'} >
-                  {pagopar.sandboxMode ? 'Sandbox (test)' : 'Producción'}
-                </Badge>
-              </div>
-
-              <p className="text-xs text-muted-foreground">
-                Obtené tu public key y private key en PagoPar → <strong>Integrar con mi sitio web</strong>.
-                El secret solo se muestra una vez al crearlo.
-              </p>
-
-              <div className="grid grid-cols-1 gap-4">
-                <FormInput
-                  label="Base URL de PagoPar (opcional)"
-                  value={pagopar.baseUrl}
-                  onChange={(e) => setPagopar((p) => ({ ...p, baseUrl: e.target.value }))}
-                  placeholder="https://api.pagopar.com (dejar vacío para usar el predeterminado)"
-                />
-                <FormInput
-                  label="Public Key"
-                  value={pagopar.publicKey}
-                  onChange={(e) => setPagopar((p) => ({ ...p, publicKey: e.target.value }))}
-                  placeholder="63820974a40fe7c5c5c53c429af8b25bed599dbf"
-
-                />
-                <FormInput
-                  label="Private Key"
-                  type="password"
-                  value={pagopar.privateKey}
-                  onChange={(e) => setPagopar((p) => ({ ...p, privateKey: e.target.value }))}
-                  placeholder="Dejar vacío para no cambiar"
-
-                />
-              </div>
-
-              <div className="rounded-lg bg-muted/50 border border-border px-3 py-2 text-xs text-muted-foreground">
-                <Icon name="info" size="xs" className="inline mr-1 align-text-bottom" />
-                Las notificaciones de pago se envían automáticamente al servidor de Boti. No es necesario configurar una URL de callback.
-              </div>
-
-              <div className="flex items-center gap-3 pt-2">
-                <button
-                  onClick={() => setPagopar((p) => ({ ...p, sandboxMode: !p.sandboxMode }))}
-                  className={`relative inline-flex h-5 w-10 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
-                    pagopar.sandboxMode ? 'bg-warning' : 'bg-action text-white'
-                  }`}
-                  role="switch"
-                  aria-checked={!pagopar.sandboxMode}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform ${
-                      pagopar.sandboxMode ? 'translate-x-0' : 'translate-x-5'
-                    }`}
-                  />
-                </button>
-                <span className="text-sm text-foreground">
-                  {pagopar.sandboxMode
-                    ? 'Modo sandbox activo — los links son de prueba'
-                    : 'Modo producción — los links cobran dinero real'}
-                </span>
-              </div>
-
-              {pagopar.sandboxMode && (
-                <div className="rounded-lg bg-warning/10 border border-warning/30 p-3 text-xs text-warning-foreground space-y-1">
-                  <p className="font-medium">Tarjetas de prueba PagoPar (Bancard vPOS):</p>
-                  <p>Visa: <code className="bg-background/50 px-1 rounded">4000 0000 0000 0001</code> — venc. 12/30 — CVV 123</p>
-                  <p>Mastercard: <code className="bg-background/50 px-1 rounded">5100 0000 0000 0000</code> — venc. 12/30 — CVV 123</p>
+                <div className="overflow-x-auto">
+                   <table className="w-full">
+                      <thead>
+                         <tr className="text-left bg-muted/20">
+                            <th className="px-6 py-4 text-[10px] font-black text-muted-foreground uppercase tracking-widest">Estado</th>
+                            <th className="px-6 py-4 text-[10px] font-black text-muted-foreground uppercase tracking-widest">Cliente</th>
+                            <th className="px-6 py-4 text-[10px] font-black text-muted-foreground uppercase tracking-widest">Concepto</th>
+                            <th className="px-6 py-4 text-[10px] font-black text-muted-foreground uppercase tracking-widest">Monto</th>
+                            <th className="px-6 py-4 text-[10px] font-black text-muted-foreground uppercase tracking-widest">Fecha</th>
+                         </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border/30">
+                         {loadingHistory ? (
+                           Array.from({ length: 3 }).map((_, i) => <tr key={i}><td colSpan={5} className="px-6 py-4 animate-pulse"><div className="h-10 bg-muted rounded-xl w-full" /></td></tr>)
+                         ) : history.events.length === 0 ? (
+                           <tr><td colSpan={5} className="px-6 py-20 text-center text-xs font-bold text-muted-foreground">Sin actividad registrada para esta línea.</td></tr>
+                         ) : history.events.map(ev => {
+                           const st = STATUS_CONFIG[ev.status] || { label: ev.status, variant: 'neutral' };
+                           return (
+                             <tr key={ev.id} className="hover:bg-muted/10 transition-colors">
+                                <td className="px-6 py-5"><Badge variant={st.variant} size="sm" className="font-black text-[9px] uppercase">{st.label}</Badge></td>
+                                <td className="px-6 py-5">
+                                   <p className="text-xs font-bold text-foreground">{ev.clientName || ev.clientPhone}</p>
+                                   <p className="text-[10px] text-muted-foreground font-medium">{ev.clientPhone}</p>
+                                </td>
+                                <td className="px-6 py-5 text-xs font-medium text-foreground truncate max-w-[200px]">{ev.title}</td>
+                                <td className="px-6 py-5 text-xs font-black text-foreground">{formatCurrency(ev.amount)}</td>
+                                <td className="px-6 py-5 text-[10px] font-bold text-muted-foreground/60">{new Date(ev.createdAt).toLocaleDateString()}</td>
+                             </tr>
+                           )
+                         })}
+                      </tbody>
+                   </table>
                 </div>
-              )}
-            </Card>
-          )}
+             </Card>
+           )}
 
-          {/* Facturador Tab */}
-          {activeTab === 'facturador' && (
-            <Card className="p-5 space-y-4">
-              {/* Header + active toggle */}
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <Icon name="receipt_long" className="text-action" />
-                  <h2 className="font-semibold text-foreground">Configuración Facturador</h2>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground">Activo</span>
-                  <button
-                    onClick={() => setFacturador((f) => ({ ...f, isActive: !f.isActive }))}
-                    className={`relative inline-flex h-5 w-10 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
-                      facturador.isActive ? 'bg-action text-white' : 'bg-muted'
-                    }`}
-                    role="switch"
-                    aria-checked={facturador.isActive}
-                  >
-                    <span
-                      className={`inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform ${
-                        facturador.isActive ? 'translate-x-5' : 'translate-x-0'
-                      }`}
-                    />
-                  </button>
-                </div>
-              </div>
+           {activeTab === 'PAYMENTS' && (
+             <div className="space-y-8 animate-in">
+                <Card variant="solid" className="bg-slate-900 border-none relative overflow-hidden group">
+                   <div className="relative z-10 space-y-6">
+                      <div className="flex items-center gap-4">
+                         <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center text-white"><Icon name="credit_card" size="md" /></div>
+                         <div>
+                            <h3 className="text-white font-black text-lg tracking-tight">Pasarela PagoPar</h3>
+                            <p className="text-white/40 text-xs font-medium">Conecta tu cuenta para procesar pagos de tarjetas y billeteras.</p>
+                         </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                         <div className="space-y-2">
+                            <label className="text-[10px] font-black text-white/50 uppercase tracking-widest">Public Key</label>
+                            <input value={pagopar.publicKey} onChange={e => setPagopar({...pagopar, publicKey: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-xs font-mono focus:border-white/30 outline-none" placeholder="pk_..." />
+                         </div>
+                         <div className="space-y-2">
+                            <label className="text-[10px] font-black text-white/50 uppercase tracking-widest">Entorno</label>
+                            <div className="flex gap-2">
+                               {['TEST', 'PROD'].map(m => (
+                                 <button 
+                                  key={m}
+                                  onClick={() => setPagopar({...pagopar, sandboxMode: m === 'TEST'})}
+                                  className={cn("flex-1 py-3 rounded-xl text-[10px] font-black tracking-widest transition-all", (m === 'TEST' ? pagopar.sandboxMode : !pagopar.sandboxMode) ? "bg-white text-slate-900 shadow-xl" : "bg-white/5 text-white/40 hover:bg-white/10")}
+                                 >
+                                   {m}
+                                 </button>
+                               ))}
+                            </div>
+                         </div>
+                      </div>
+                   </div>
+                   <Icon name="account_balance_wallet" size="xl" className="absolute -right-6 -bottom-6 w-48 h-48 text-white/5 rotate-12" />
+                </Card>
 
-              {/* Credenciales */}
-              <p className="text-xs text-muted-foreground">
-                Se llama automáticamente después de confirmar un pago. Las claves se obtienen en el dashboard del facturador → <strong>Workspace → API Keys</strong>.
-              </p>
-
-              <div className="grid grid-cols-1 gap-4">
-                <FormInput
-                  label="Base URL (endpoint POST de facturación)"
-                  value={facturador.baseUrl}
-                  onChange={(e) => setFacturador((f) => ({ ...f, baseUrl: e.target.value }))}
-                  placeholder="http://localhost:8081"
-                />
-                <div className="grid grid-cols-2 gap-4">
-                  <FormInput
-                    label="X-Access-Key"
-                    value={facturador.accessKey}
-                    onChange={(e) => setFacturador((f) => ({ ...f, accessKey: e.target.value }))}
-                    placeholder="tu-access-key"
-                  />
-                  <FormInput
-                    label="X-Secret-Key"
-                    type="password"
-                    value={facturador.secretKey}
-                    onChange={(e) => setFacturador((f) => ({ ...f, secretKey: e.target.value }))}
-                    placeholder="Dejar vacío para no cambiar"
-                  />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                   <Card variant="solid">
+                      <div className="flex items-center gap-3 mb-4">
+                         <div className="w-8 h-8 rounded-lg bg-info/10 text-info flex items-center justify-center"><Icon name="help" size="xs" /></div>
+                         <h4 className="text-[10px] font-black text-foreground uppercase tracking-widest">¿Cómo funciona?</h4>
+                      </div>
+                      <p className="text-xs text-muted-foreground font-medium leading-relaxed">
+                         Cuando un cliente confirma un interés de compra, la IA genera un link de pago único y lo envía por WhatsApp. Al confirmarse el pago, Boti te notifica en el Dashboard.
+                      </p>
+                   </Card>
+                   <Card variant="solid">
+                      <div className="flex items-center gap-3 mb-4">
+                         <div className="w-8 h-8 rounded-lg bg-success/10 text-success flex items-center justify-center"><Icon name="verified" size="xs" /></div>
+                         <h4 className="text-[10px] font-black text-foreground uppercase tracking-widest">Seguridad</h4>
+                      </div>
+                      <p className="text-xs text-muted-foreground font-medium leading-relaxed">
+                         Toda la transacción ocurre en los servidores seguros de PagoPar. Boti no almacena datos de tarjetas.
+                      </p>
+                   </Card>
                 </div>
-                <FormInput
-                  label="Emisor ID (workspace en el facturador)"
-                  value={facturador.emisorId}
-                  onChange={(e) => setFacturador((f) => ({ ...f, emisorId: e.target.value }))}
-                  placeholder="Andres01"
-                />
-              </div>
+             </div>
+           )}
 
-              {/* Nota sobre datos fiscales */}
-              <div className="rounded-lg bg-muted/50 border border-border px-4 py-3 text-xs text-muted-foreground space-y-1">
-                <div className="flex items-start gap-2">
-                  <Icon name="info" size="xs" className="inline shrink-0 mt-0.5" />
-                  <p>
-                    Los datos fiscales del emisor (RUC, timbrado, etc.) se configuran directamente en el
-                    dashboard del Facturador (electronico-sifen).
-                  </p>
-                </div>
-              </div>
+           {activeTab === 'INVOICING' && (
+             <div className="space-y-8 animate-in">
+                <Card variant="solid" className="relative overflow-hidden border-none bg-gradient-to-br from-indigo-600 to-violet-700 text-white shadow-xl">
+                   <div className="relative z-10 space-y-6">
+                      <div className="flex items-center gap-4">
+                         <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center"><Icon name="receipt" size="md" /></div>
+                         <div>
+                            <h3 className="text-white font-black text-lg tracking-tight">Facturación Electrónica SIFEN</h3>
+                            <p className="text-white/60 text-xs font-medium">Integración directa para emitir facturas legales automáticamente.</p>
+                         </div>
+                      </div>
 
-              {/* Datos del cliente (Receptor) — read-only info */}
-              <div className="border-t border-border pt-4 space-y-3">
-                <div className="flex items-center gap-2">
-                  <Icon name="person" className="text-action" />
-                  <h3 className="font-medium text-foreground text-sm">Datos del cliente (Receptor)</h3>
-                </div>
-                <div className="rounded-lg bg-action/5 border border-action/20 p-3 space-y-2">
-                  <div className="flex items-start gap-2">
-                    <Icon name="smart_toy" size="sm" className="text-action mt-0.5 shrink-0" />
-                    <div className="text-xs text-foreground/80 space-y-1">
-                      <p className="font-medium text-foreground">El bot recopila estos datos automáticamente</p>
-                      <p>Cuando el cliente quiera una factura, el bot le pedirá por WhatsApp:</p>
-                      <ul className="ml-3 space-y-0.5 list-disc">
-                        <li><strong>RUC o CI</strong> — para <code className="bg-background/70 px-1 rounded">{'{{CLIENTE_RUC}}'}</code></li>
-                        <li><strong>Nombre completo o Razón Social</strong> — para <code className="bg-background/70 px-1 rounded">{'{{CLIENTE_NOMBRE}}'}</code></li>
-                        <li><strong>Email</strong> — para <code className="bg-background/70 px-1 rounded">{'{{CLIENTE_EMAIL}}'}</code> (requerido por SIFEN)</li>
-                      </ul>
-                      <p className="text-muted-foreground">El nombre se pide explícitamente al cliente (no se usa el nombre de WhatsApp). Si no provee RUC/CI, se usa su número de teléfono.</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                         <div className="space-y-2">
+                            <label className="text-[10px] font-black text-white/50 uppercase tracking-widest">API Endpoint</label>
+                            <input value={facturador.baseUrl} onChange={e => setFacturador({...facturador, baseUrl: e.target.value})} className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white text-xs font-mono focus:border-white/40 outline-none" placeholder="https://api..." />
+                         </div>
+                         <div className="space-y-2">
+                            <label className="text-[10px] font-black text-white/50 uppercase tracking-widest">Access Key</label>
+                            <input value={facturador.accessKey} onChange={e => setFacturador({...facturador, accessKey: e.target.value})} className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white text-xs font-mono focus:border-white/40 outline-none" placeholder="ak_..." />
+                         </div>
+                      </div>
+                   </div>
+                   <Icon name="description" size="xl" className="absolute -right-8 -top-8 w-48 h-48 text-white/5 -rotate-12" />
+                </Card>
 
-              {/* Template avanzado — collapsible */}
-              <div className="border-t border-border pt-4">
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!showAdvancedTemplate) {
-                      setFacturador((f) => ({
-                        ...f,
-                        bodyTemplate: JSON.stringify(buildGeneratedTemplate(), null, 2),
-                      }));
-                    }
-                    setShowAdvancedTemplate((v) => !v);
-                  }}
-                  className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <Icon name={showAdvancedTemplate ? 'expand_less' : 'expand_more'} size="sm" />
-                  Template JSON avanzado {showAdvancedTemplate ? '(ocultar)' : '(ver/editar)'}
-                </button>
-                {showAdvancedTemplate && (
-                  <div className="mt-3 space-y-2">
-                    <p className="text-xs text-muted-foreground">
-                      Placeholders disponibles:{' '}
-                      {['TRANSACTION_ID', 'FECHA_EMISION', 'CANTIDAD', 'PRECIO_UNITARIO', 'CLIENTE_RUC', 'CLIENTE_TIPO_DOCUMENTO', 'CLIENTE_TELEFONO', 'CLIENTE_NOMBRE', 'CLIENTE_EMAIL', 'PRODUCTO'].map((k) => (
-                        <code key={k} className="bg-muted px-1 rounded mr-1">{`{{${k}}}`}</code>
+                <Card variant="solid">
+                   <div className="flex items-center justify-between mb-6">
+                      <h4 className="text-[10px] font-black text-foreground uppercase tracking-widest">Flujo de Factura</h4>
+                      <div className={cn("px-3 py-1 rounded-full text-[10px] font-black", facturador.isActive ? "bg-success/10 text-success" : "bg-muted text-muted-foreground")}>{facturador.isActive ? 'ACTIVO' : 'PAUSADO'}</div>
+                   </div>
+                   <div className="flex flex-col md:flex-row gap-8 items-center text-center">
+                      {[
+                        { label: 'Pago Exitoso', desc: 'PagoPar confirma la transacción' },
+                        { label: 'Captura de Datos', desc: 'IA pide RUC y Nombre por WhatsApp' },
+                        { label: 'Emisión SIFEN', desc: 'Se genera y envía la factura legal' }
+                      ].map((s, i) => (
+                        <div key={i} className="flex-1 space-y-2 relative">
+                           <div className="w-8 h-8 rounded-full bg-primary/10 text-primary font-black mx-auto flex items-center justify-center text-xs shadow-premium">{i+1}</div>
+                           <p className="text-xs font-bold text-foreground">{s.label}</p>
+                           <p className="text-[10px] text-muted-foreground font-medium">{s.desc}</p>
+                        </div>
                       ))}
-                    </p>
-                    <textarea
-                      value={facturador.bodyTemplate}
-                      onChange={(e) => setFacturador((f) => ({ ...f, bodyTemplate: e.target.value }))}
-                      rows={16}
-                      spellCheck={false}
-                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-action/40 resize-y"
-                    />
-                  </div>
-                )}
-              </div>
-            </Card>
-          )}
-
-          {/* Save */}
-          <div className="flex justify-end pb-8">
-            <Button
-              onClick={handleSave}
-              disabled={saving || !selectedLineId}
-              variant="primary"
-              className="min-w-32"
-            >
-              {saving ? (
-                <span className="flex items-center gap-2">
-                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Guardando…
-                </span>
-              ) : (
-                'Guardar configuración'
-              )}
-            </Button>
-          </div>
-        </>
-      )}
+                   </div>
+                </Card>
+             </div>
+           )}
+        </div>
+      </div>
     </div>
   );
 };

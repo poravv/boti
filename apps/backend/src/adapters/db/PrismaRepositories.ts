@@ -23,10 +23,11 @@ export class PrismaClientRepository implements IClientRepository {
       update: {
         conversationStatus: 'OPEN',
         ...(data.name && data.name !== data.phone ? { name: data.name } : {}),
+        ...(data.avatarUrl !== undefined ? { avatarUrl: data.avatarUrl } : {}),
       },
       create: effectiveOrgId
-        ? { phone: data.phone, name: data.name, orgId: effectiveOrgId }
-        : { phone: data.phone, name: data.name, orgId: '00000000-0000-0000-0000-000000000001' },
+        ? { phone: data.phone, name: data.name, avatarUrl: data.avatarUrl, orgId: effectiveOrgId }
+        : { phone: data.phone, name: data.name, avatarUrl: data.avatarUrl, orgId: '00000000-0000-0000-0000-000000000001' },
     }) as any;
   }
 

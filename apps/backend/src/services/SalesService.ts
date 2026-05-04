@@ -120,7 +120,7 @@ export class SalesService implements ISalesService {
           amount: monto,
           currency: 'PYG',
           status: 'PENDING',
-          items: [{ nombre: producto, cantidad: 1, precioUnitario: monto }],
+          items: [{ nombre: producto, descripcion, cantidad: 1, precioUnitario: monto }],
         },
       });
 
@@ -133,14 +133,39 @@ export class SalesService implements ISalesService {
     const pagopar = new PagoParAdapter(config.publicKey, config.privateKey, config.sandboxMode, config.baseUrl ?? undefined);
     const orderId = `BOTI-${lineId.slice(0, 8)}-${Date.now()}`;
 
-    const result = await pagopar.createPaymentOrder({
-      orderId,
-      totalAmount: monto,
-      buyerName: clientName || clientPhone,
-      buyerPhone: clientPhone,
-      items: [{ name: producto, qty: 1, pricePerUnit: monto, description: descripcion }],
-      callbackUrl,
-    });
+    let result: Awaited<ReturnType<PagoParAdapter['createPaymentOrder']>>;
+
+    try {
+      result = await pagopar.createPaymentOrder({
+        orderId,
+        totalAmount: monto,
+        buyerName: clientName || clientPhone,
+        buyerPhone: clientPhone,
+        items: [{ name: producto, qty: 1, pricePerUnit: monto, description: descripcion }],
+        callbackUrl,
+      });
+    } catch (err: any) {
+      await this.prisma.saleRecord.create({
+        data: {
+          lineId,
+          clientPhone,
+          clientName: clientName || null,
+          receptorDocumento,
+          receptorNombre,
+          receptorEmail,
+          hashPedido: orderId,
+          pagoParOrderId: null,
+          paymentLinkUrl: null,
+          amount: monto,
+          currency: 'PYG',
+          status: 'FAILED',
+          failureStage: 'PAYMENT_LINK',
+          failureReason: err?.message ?? 'No se pudo generar el link de pago.',
+          items: [{ nombre: producto, descripcion, cantidad: 1, precioUnitario: monto }],
+        },
+      });
+      return `No pude generar el link de pago por un error del proveedor: ${err?.message ?? 'error desconocido'}.`;
+    }
 
     await this.prisma.saleRecord.create({
       data: {
@@ -156,7 +181,7 @@ export class SalesService implements ISalesService {
         amount: monto,
         currency: 'PYG',
         status: 'PENDING',
-        items: [{ nombre: producto, cantidad: 1, precioUnitario: monto }],
+        items: [{ nombre: producto, descripcion, cantidad: 1, precioUnitario: monto }],
       },
     });
 
@@ -234,13 +259,25 @@ export class SalesService implements ISalesService {
       await this.prisma.saleRecord.update({
         where: { id: sale.id },
         data: {
-          status: invoiceResult.success ? 'INVOICED' : 'PAID',
+          status: invoiceResult.success ? 'INVOICED' : 'PAID_INVOICE_FAILED',
           invoiceId: invoiceResult.invoiceId ?? null,
           invoicedAt: invoiceResult.success ? new Date() : null,
+          failureStage: invoiceResult.success ? null : 'INVOICE',
+          failureReason: invoiceResult.success
+            ? null
+            : `Facturador respondió HTTP ${invoiceResult.statusCode}: ${JSON.stringify(invoiceResult.raw).slice(0, 800)}`,
         },
       });
     } catch (err: any) {
       console.error(`[SalesService] Facturador error for sale ${sale.id}:`, err.message);
+      await this.prisma.saleRecord.update({
+        where: { id: sale.id },
+        data: {
+          status: 'PAID_INVOICE_FAILED',
+          failureStage: 'INVOICE',
+          failureReason: err?.message ?? 'Error desconocido al emitir factura.',
+        },
+      });
     }
 
     return { clientPhone: sale.clientPhone, amount: sale.amount, productName, invoiceId, invoiceUrl };

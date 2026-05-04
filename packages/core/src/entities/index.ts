@@ -4,6 +4,7 @@ export interface Client {
   id: string;
   phone: string;
   name: string;
+  avatarUrl?: string | null;
   isBlocked: boolean;
   blockedUntil?: Date;
   aiPausedUntil?: Date;

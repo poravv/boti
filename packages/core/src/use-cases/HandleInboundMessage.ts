@@ -39,14 +39,17 @@ export class HandleInboundMessage implements HandleInboundMessageUseCase {
     lineId: string;
     fromPhone: string;
     fromName: string;
+    avatarUrl?: string | null;
     content: string;
     type: string;
+    persistInbound?: boolean;
+    inboundMessageId?: string;
   }): Promise<void> {
-    const { lineId, fromPhone, fromName, content } = input;
+    const { lineId, fromPhone, fromName, avatarUrl, content } = input;
     const { clientRepo, messageRepo, contextRepo, queue, aiService, contextFetcher, auditLogger, notifier, externalApiRepo, salesService, calendarService, maxMessages } = this.deps;
 
     // 1. Upsert client
-    const client = await clientRepo.upsert({ phone: fromPhone, name: fromName, isBlocked: false });
+    const client = await clientRepo.upsert({ phone: fromPhone, name: fromName, avatarUrl, isBlocked: false });
 
     // 2. Check if blocked
     if (client.isBlocked && client.blockedUntil && client.blockedUntil > new Date()) {
@@ -57,15 +60,17 @@ export class HandleInboundMessage implements HandleInboundMessageUseCase {
     const isAiPaused = client.aiPausedUntil && client.aiPausedUntil > new Date();
 
     // 3. Save inbound message
-    const inboundMessage = await messageRepo.save({
-      lineId,
-      clientPhone: fromPhone,
-      content,
-      type: 'TEXT',
-      direction: 'INBOUND',
-      status: 'SUCCESS',
-      sentAt: new Date(),
-    });
+    const inboundMessage = input.persistInbound === false
+      ? { id: input.inboundMessageId ?? `inbound-${Date.now()}` }
+      : await messageRepo.save({
+          lineId,
+          clientPhone: fromPhone,
+          content,
+          type: input.type as any,
+          direction: 'INBOUND',
+          status: 'SUCCESS',
+          sentAt: new Date(),
+        });
 
     // 4. Get or create conversation context
     let ctx = await contextRepo.get(lineId, fromPhone);
@@ -244,7 +249,7 @@ export class HandleInboundMessage implements HandleInboundMessageUseCase {
     await queue.enqueue(lineId, { to: fromPhone, content: replyText, type: 'TEXT', clientMessageId: inboundMessage.id });
 
     // 8. Update and Persist conversation history to Context Repo
-    const inboundHistory = { direction: 'INBOUND', content, type: 'TEXT', createdAt: new Date() } as any;
+    const inboundHistory = { direction: 'INBOUND', content, type: input.type, createdAt: new Date() } as any;
     const outboundHistory = { direction: 'OUTBOUND', content: replyText, type: 'TEXT', createdAt: new Date() } as any;
     
     ctx.lastMessages.push(inboundHistory);

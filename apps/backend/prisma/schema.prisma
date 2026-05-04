@@ -14,6 +14,7 @@ model Client {
   id          String    @id @default(uuid())
   phone       String    @unique
   name        String
+  avatarUrl   String?
   isBlocked   Boolean   @default(false)
   blockedUntil DateTime?
   aiPausedUntil DateTime?
@@ -119,6 +120,8 @@ model SaleRecord {
   status         String       @default("PENDING")
   items          Json
   invoiceId      String?
+  failureStage   String?
+  failureReason  String?
   paidAt         DateTime?
   invoicedAt     DateTime?
   createdAt      DateTime     @default(now())

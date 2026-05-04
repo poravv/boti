@@ -8,6 +8,7 @@ import {
   FormSelect,
   Icon,
   useToast,
+  cn,
 } from './ui';
 
 interface AIConfig {
@@ -26,31 +27,18 @@ interface ModelOption {
 
 const MODELS_BY_PROVIDER: Record<string, ModelOption[]> = {
   openai: [
-    { value: 'gpt-4.1', label: 'GPT-4.1', badge: 'Recomendado' },
-    { value: 'gpt-4o', label: 'GPT-4o' },
-    { value: 'gpt-4o-mini', label: 'GPT-4o Mini — Rápido y económico' },
-    { value: 'gpt-4-turbo', label: 'GPT-4 Turbo' },
-    { value: 'o1-mini', label: 'o1 Mini — Razonamiento avanzado' },
-    { value: 'o3-mini', label: 'o3 Mini — Razonamiento avanzado' },
+    { value: 'gpt-4o', label: 'GPT-4o (Omni)', badge: 'Best' },
+    { value: 'gpt-4o-mini', label: 'GPT-4o Mini' },
+    { value: 'o3-mini', label: 'o3 Mini (Reasoning)' },
   ],
   gemini: [
-    { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro', badge: 'Recomendado' },
-    { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash — Rápido' },
-    { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
-    { value: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro — Contexto largo' },
-    { value: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash' },
+    { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash', badge: 'Fastest' },
+    { value: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro' },
   ],
   anthropic: [
-    { value: 'claude-opus-4-7', label: 'Claude Opus 4.7', badge: 'Más capaz' },
-    { value: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6', badge: 'Recomendado' },
-    { value: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5 — Rápido y económico' },
+    { value: 'claude-3-5-sonnet-latest', label: 'Claude 3.5 Sonnet', badge: 'Recommended' },
+    { value: 'claude-3-5-haiku-latest', label: 'Claude 3.5 Haiku' },
   ],
-};
-
-const RECOMMENDED_MODEL: Record<string, string> = {
-  openai: 'gpt-4.1',
-  gemini: 'gemini-2.5-pro',
-  anthropic: 'claude-sonnet-4-6',
 };
 
 const AIConfiguration = () => {
@@ -59,12 +47,13 @@ const AIConfiguration = () => {
   const [config, setConfig] = useState<AIConfig>({
     systemPrompt: '',
     businessContext: {},
-    assignedAiProvider: 'gemini',
+    assignedAiProvider: 'openai',
   });
   const [jsonText, setJsonText] = useState('{}');
   const [newApiKey, setNewApiKey] = useState('');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [activeTab, setActiveTab] = useState<'PROMPT' | 'KNOWLEDGE' | 'CONFIG'>('PROMPT');
   const toast = useToast();
 
   useEffect(() => {
@@ -72,34 +61,24 @@ const AIConfiguration = () => {
       try {
         const data = await apiFetchJson<{ lines: { id: string; name: string }[] }>('/api/lines');
         setLines(data.lines || []);
-        if (data.lines?.length > 0 && !selectedLineId) {
-          setSelectedLineId(data.lines[0].id);
-        }
-      } catch (err) {
-        console.error('Error fetching lines:', err);
-      }
+        if (data.lines?.length > 0 && !selectedLineId) setSelectedLineId(data.lines[0].id);
+      } catch (err) { console.error(err); }
     };
     fetchLines();
   }, []);
 
   useEffect(() => {
     if (!selectedLineId) return;
-
     const fetchConfig = async () => {
       setLoading(true);
       try {
         const [contextData, configData] = await Promise.all([
-          apiFetchJson<{ businessContext: any; systemPrompt: string }>(`/api/lines/${selectedLineId}/context`),
-          apiFetchJson<{ assignedAiProvider: string; hasApiKey?: boolean; aiModel?: string }>(`/api/lines/${selectedLineId}/config`),
+          apiFetchJson<any>(`/api/lines/${selectedLineId}/context`),
+          apiFetchJson<any>(`/api/lines/${selectedLineId}/config`),
         ]);
         setConfig(prev => ({ ...prev, ...contextData, ...configData }));
-        setNewApiKey('');
         setJsonText(JSON.stringify(contextData.businessContext || {}, null, 2));
-      } catch (err) {
-        console.error('Error fetching config:', err);
-      } finally {
-        setLoading(false);
-      }
+      } catch (err) { console.error(err); } finally { setLoading(false); }
     };
     fetchConfig();
   }, [selectedLineId]);
@@ -107,287 +86,207 @@ const AIConfiguration = () => {
   const handleSave = async () => {
     setSaving(true);
     try {
-      let parsedContext: Record<string, unknown> = {};
-      try {
-        parsedContext = JSON.parse(jsonText);
-      } catch {
-        toast.show('Error en el formato JSON del contexto de negocio.', {
-          variant: 'error',
-          title: 'JSON inválido',
-        });
+      let parsedContext = {};
+      try { parsedContext = JSON.parse(jsonText); } catch {
+        toast.show('JSON inválido en el contexto de negocio.', { variant: 'error' });
         setSaving(false);
         return;
       }
-
       await apiFetchJson(`/api/lines/${selectedLineId}/context`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ businessContext: parsedContext, systemPrompt: config.systemPrompt }),
       });
-      const configPayload: Record<string, unknown> = {
-        assignedAiProvider: config.assignedAiProvider,
-        aiModel: config.aiModel,
-      };
+      const configPayload: any = { assignedAiProvider: config.assignedAiProvider, aiModel: config.aiModel };
       if (newApiKey.trim()) configPayload.aiApiKey = newApiKey.trim();
-
       await apiFetchJson(`/api/lines/${selectedLineId}/config`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(configPayload),
       });
-      if (newApiKey.trim()) {
-        setConfig(prev => ({ ...prev, hasApiKey: true }));
-        setNewApiKey('');
-      }
-
-      toast.show('Configuración guardada correctamente.', {
-        variant: 'success',
-        title: 'Guardado',
-      });
-    } catch {
-      toast.show('Hubo un problema al guardar la configuración.', {
-        variant: 'error',
-        title: 'Error',
-      });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleFormatJson = () => {
-    try {
-      setJsonText(JSON.stringify(JSON.parse(jsonText), null, 2));
-    } catch {
-      toast.show('No se puede formatear: el JSON tiene errores.', { variant: 'warning' });
-    }
+      toast.show('Configuración actualizada con éxito.', { variant: 'success' });
+    } catch { toast.show('Error al guardar.', { variant: 'error' }); } finally { setSaving(false); }
   };
 
   return (
-    <section className="space-y-6">
-      <div className="mb-6">
-        <h1 className="text-heading-lg font-bold text-on-surface">Configuración de IA</h1>
-        <p className="text-on-surface-variant text-body mt-1">Configura el comportamiento del asistente por línea</p>
+    <div className="space-y-10">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div>
+          <h1 className="text-3xl font-black text-foreground tracking-tight">Cerebro de IA</h1>
+          <p className="text-muted-foreground mt-2 font-medium">Configura cómo piensa y qué sabe tu asistente para cada línea.</p>
+        </div>
+        <div className="flex items-center gap-3 bg-white p-2 rounded-2xl border border-border shadow-sm">
+           <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest pl-2">Línea activa</span>
+           <select 
+            value={selectedLineId}
+            onChange={(e) => setSelectedLineId(e.target.value)}
+            className="bg-muted/50 border-none rounded-xl px-4 py-2 text-sm font-bold outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+           >
+             {lines.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+           </select>
+        </div>
       </div>
 
-      <div className="grid grid-cols-12 gap-6 items-start">
-        <div className="col-span-12 lg:col-span-8 space-y-6">
-          <Card variant="glass" padding="lg" className="animate-fade-in-up">
-            <Card.Header>
-              <div className="flex items-center gap-3">
-                <Icon name="account_tree" size="md" filled className="text-secondary" />
-                <h3 className="text-title font-semibold text-on-surface uppercase">Seleccionar línea</h3>
-              </div>
-            </Card.Header>
-            <Card.Body>
-              <FormSelect
-                aria-label="Seleccionar línea"
-                value={selectedLineId}
-                onChange={(event) => setSelectedLineId(event.target.value)}
-                disabled={lines.length === 0}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+        <div className="lg:col-span-2 space-y-8">
+          {/* Tabs Navigation */}
+          <div className="flex gap-2 p-1.5 bg-muted/40 rounded-2xl border border-border/50 w-fit">
+            {[
+              { id: 'PROMPT', label: 'Personalidad', icon: 'psychology' },
+              { id: 'KNOWLEDGE', label: 'Conocimiento', icon: 'database' },
+              { id: 'CONFIG', label: 'Parámetros', icon: 'settings' }
+            ].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as any)}
+                className={cn(
+                  "flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold uppercase tracking-widest transition-all",
+                  activeTab === tab.id ? "bg-white text-primary shadow-premium border border-primary/10" : "text-muted-foreground hover:bg-white/50"
+                )}
               >
-                {lines.length === 0 && <option value="">No hay líneas disponibles</option>}
-                {lines.map((line) => (
-                  <option key={line.id} value={line.id}>
-                    {line.name}
-                  </option>
-                ))}
-              </FormSelect>
-            </Card.Body>
-          </Card>
+                <Icon name={tab.icon} size="xs" />
+                {tab.label}
+              </button>
+            ))}
+          </div>
 
-          <Card
-            variant="glass"
-            padding="lg"
-            className="animate-fade-in-up"
-            style={{ animationDelay: '60ms' }}
-          >
-            <Card.Header>
-              <div className="flex items-center gap-3">
-                <Icon name="psychology_alt" size="md" className="text-secondary" />
-                <h3 className="text-title font-semibold text-on-surface uppercase">Personalidad y modelo</h3>
-              </div>
-            </Card.Header>
-            <Card.Body className="gap-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormSelect
-                  label="Proveedor de IA"
-                  value={config.assignedAiProvider}
-                  onChange={(event) => {
-                    const provider = event.target.value;
-                    const currentModels = MODELS_BY_PROVIDER[provider] ?? [];
-                    const currentModelValid = currentModels.some(m => m.value === config.aiModel);
-                    setConfig({
-                      ...config,
-                      assignedAiProvider: provider,
-                      aiModel: currentModelValid ? config.aiModel : RECOMMENDED_MODEL[provider],
-                    });
-                  }}
-                >
-                  <option value="gemini">Google Gemini</option>
-                  <option value="openai">OpenAI</option>
-                  <option value="anthropic">Anthropic Claude</option>
-                </FormSelect>
-
-                <FormSelect
-                  label="Modelo"
-                  value={config.aiModel || RECOMMENDED_MODEL[config.assignedAiProvider] || ''}
-                  onChange={(event) => setConfig({ ...config, aiModel: event.target.value })}
-                >
-                  {(MODELS_BY_PROVIDER[config.assignedAiProvider] ?? []).map((model) => (
-                    <option key={model.value} value={model.value}>
-                      {model.badge ? `${model.label} ★` : model.label}
-                    </option>
-                  ))}
-                </FormSelect>
-
-                <div className="md:col-span-2 flex flex-col gap-1">
-                  <FormInput
-                    label="API Key (Opcional)"
-                    type="password"
-                    placeholder={config.hasApiKey ? '••••••••  (clave ya configurada)' : 'sk-…'}
-                    value={newApiKey}
-                    onChange={(event) => setNewApiKey(event.target.value)}
-                    helperText={config.hasApiKey ? 'Ingresá una nueva clave para reemplazar la existente.' : 'Si se deja vacío, se usará la clave por defecto.'}
-                  />
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center justify-between">
-                  <label
-                    htmlFor="system-prompt"
-                    className="text-caption uppercase tracking-wider text-on-surface-variant"
-                  >
-                    Prompt del sistema
-                  </label>
-                  <span className="text-overline font-mono text-on-surface-variant/70">
-                    {config.systemPrompt.length} / 4000
-                  </span>
+          <Card variant="solid" className="min-h-[500px] flex flex-col">
+            {activeTab === 'PROMPT' && (
+              <div className="flex-1 flex flex-col space-y-6 animate-in">
+                <div className="flex justify-between items-center">
+                   <div>
+                      <h3 className="text-lg font-bold text-foreground">Prompt del Sistema</h3>
+                      <p className="text-xs text-muted-foreground font-medium">Define el rol, tono y restricciones del bot.</p>
+                   </div>
+                   <Badge variant="primary" size="sm">{config.systemPrompt.length} caracteres</Badge>
                 </div>
                 <textarea
-                  id="system-prompt"
                   value={config.systemPrompt}
-                  onChange={(event) =>
-                    setConfig({ ...config, systemPrompt: event.target.value })
-                  }
-                  disabled={loading}
-                  placeholder="Ej. Eres un asistente de ventas experto en seguros…"
-                  className="w-full h-48 bg-white/70 backdrop-blur-xl border border-outline-variant/60 hover:border-action/40 focus:border-action rounded-xl p-4 text-body text-on-surface placeholder:text-on-surface-variant/70 focus-ring transition-all duration-250 ease-premium resize-y"
+                  onChange={(e) => setConfig({...config, systemPrompt: e.target.value})}
+                  placeholder="Eres un asistente experto en..."
+                  className="flex-1 w-full bg-muted/20 border border-border/50 rounded-2xl p-6 text-sm font-medium leading-relaxed focus:bg-white focus:border-primary/20 focus:ring-4 focus:ring-primary/5 transition-all outline-none resize-none custom-scrollbar"
                 />
               </div>
-            </Card.Body>
-          </Card>
+            )}
 
-          <Card
-            variant="glass"
-            padding="lg"
-            className="animate-fade-in-up"
-            style={{ animationDelay: '120ms' }}
-          >
-            <Card.Header>
-              <div className="flex items-center gap-3">
-                <Icon name="database" size="md" className="text-secondary" />
-                <h3 className="text-title font-semibold text-on-surface uppercase">Contexto de negocio (JSON)</h3>
-              </div>
-              <Badge variant="success" size="sm">
-                Datos dinámicos
-              </Badge>
-            </Card.Header>
-            <Card.Body>
-              <p className="text-body-sm text-on-surface-variant">
-                Definí la información base que el bot usará para responder (precios, FAQs,
-                horarios, etc.) en formato JSON.
-              </p>
-              <div className="relative">
-                <div className="absolute top-3 right-3 z-10">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    leadingIcon="format_align_left"
-                    onClick={handleFormatJson}
-                  >
-                    Formatear
-                  </Button>
+            {activeTab === 'KNOWLEDGE' && (
+              <div className="flex-1 flex flex-col space-y-6 animate-in">
+                <div className="flex justify-between items-center">
+                   <div>
+                      <h3 className="text-lg font-bold text-foreground">Base de Datos JSON</h3>
+                      <p className="text-xs text-muted-foreground font-medium">Información específica de tu negocio que el bot consultará.</p>
+                   </div>
+                   <Button variant="ghost" size="sm" onClick={() => setJsonText(JSON.stringify(JSON.parse(jsonText), null, 2))}>
+                      Formatear JSON
+                   </Button>
                 </div>
-                <textarea
-                  aria-label="Contexto de negocio JSON"
-                  value={jsonText}
-                  onChange={(event) => setJsonText(event.target.value)}
-                  spellCheck={false}
-                  placeholder='{ "empresa": "Mi Negocio", "servicios": [] }'
-                  className="w-full h-80 bg-inverse-surface text-inverse-on-surface font-mono text-body-sm p-5 pt-14 rounded-2xl border border-outline-variant/40 focus-ring transition-all duration-250 ease-premium resize-y"
-                />
+                <div className="flex-1 relative group">
+                  <textarea
+                    value={jsonText}
+                    onChange={(e) => setJsonText(e.target.value)}
+                    spellCheck={false}
+                    className="w-full h-full bg-slate-900 text-slate-300 font-mono text-[11px] p-6 rounded-2xl border border-slate-800 focus:ring-4 focus:ring-primary/5 transition-all outline-none resize-none custom-scrollbar"
+                  />
+                  <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                     <Badge variant="neutral" className="bg-slate-800 text-slate-400 border-slate-700">Read-Only Mode Off</Badge>
+                  </div>
+                </div>
               </div>
-            </Card.Body>
+            )}
+
+            {activeTab === 'CONFIG' && (
+              <div className="flex-1 space-y-10 animate-in">
+                 <div className="space-y-6">
+                    <h3 className="text-lg font-bold text-foreground">Proveedor & Modelo</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                       <FormSelect 
+                        label="Proveedor de IA"
+                        value={config.assignedAiProvider}
+                        onChange={(e) => setConfig({...config, assignedAiProvider: e.target.value})}
+                       >
+                         <option value="openai">OpenAI (ChatGPT)</option>
+                         <option value="gemini">Google Cloud (Gemini)</option>
+                         <option value="anthropic">Anthropic (Claude)</option>
+                       </FormSelect>
+                       <FormSelect 
+                        label="Modelo Específico"
+                        value={config.aiModel}
+                        onChange={(e) => setConfig({...config, aiModel: e.target.value})}
+                       >
+                         {MODELS_BY_PROVIDER[config.assignedAiProvider]?.map(m => (
+                           <option key={m.value} value={m.value}>{m.label}</option>
+                         ))}
+                       </FormSelect>
+                    </div>
+                 </div>
+
+                 <div className="space-y-6">
+                    <h3 className="text-lg font-bold text-foreground">Seguridad</h3>
+                    <div className="max-w-md">
+                       <FormInput 
+                        label="API Key Personalizada"
+                        type="password"
+                        placeholder={config.hasApiKey ? '••••••••••••••••' : 'Ingresa tu clave si prefieres usar tu propia cuenta'}
+                        value={newApiKey}
+                        onChange={(e) => setNewApiKey(e.target.value)}
+                       />
+                    </div>
+                 </div>
+              </div>
+            )}
           </Card>
         </div>
 
-        <div className="col-span-12 lg:col-span-4 space-y-6 lg:sticky lg:top-24">
-          <Card
-            variant="solid"
-            padding="lg"
-            className="bg-primary text-white border-none shadow-glass-xl relative overflow-hidden animate-fade-in-up"
-            style={{ animationDelay: '180ms' }}
-          >
-            <div
-              aria-hidden="true"
-              className="absolute -top-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-3xl pointer-events-none"
-            />
-            <div className="relative flex flex-col gap-4">
-              <div className="flex items-center gap-2">
-                <Icon name="verified_user" size="md" className="text-white/80" />
-                <h4 className="text-title font-semibold uppercase text-white">Guardar cambios</h4>
+        {/* Sidebar Actions */}
+        <div className="space-y-6">
+           <Card variant="solid" className="bg-primary text-primary-foreground border-none shadow-glass-xl relative overflow-hidden group">
+              <div className="relative z-10 space-y-6">
+                 <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                       <Icon name="verified_user" size="md" />
+                    </div>
+                    <h4 className="font-black uppercase tracking-widest text-xs">Publicar Cambios</h4>
+                 </div>
+                 <p className="text-xs font-medium text-primary-foreground/70">
+                    Al guardar, la IA actualizará su conocimiento instantáneamente para todos los clientes activos.
+                 </p>
+                 <Button 
+                  variant="primary" 
+                  size="lg" 
+                  fullWidth 
+                  className="bg-white text-primary hover:bg-gray-50 border-none shadow-premium font-black tracking-widest text-[10px]"
+                  loading={saving}
+                  onClick={handleSave}
+                 >
+                    SINCRONIZAR CEREBRO
+                 </Button>
               </div>
-              <p className="text-body-sm text-white/70">
-                Los cambios se aplicarán instantáneamente a todas las conversaciones activas en
-                esta línea.
-              </p>
-              <Button
-                variant="secondary"
-                size="lg"
-                fullWidth
-                loading={saving}
-                disabled={!selectedLineId}
-                leadingIcon={saving ? undefined : 'save'}
-                onClick={handleSave}
-                className="bg-white text-primary hover:bg-surface-container-low"
-              >
-                {saving ? 'Guardando…' : 'Guardar configuración'}
-              </Button>
-            </div>
-          </Card>
+              <Icon name="sparkles" size="xl" className="absolute -right-4 -bottom-4 text-white/5 w-32 h-32 rotate-12 transition-transform group-hover:scale-125" />
+           </Card>
 
-          <Card
-            variant="glass"
-            padding="md"
-            className="animate-fade-in-up"
-            style={{ animationDelay: '240ms' }}
-          >
-            <Card.Header>
-              <div className="flex items-center gap-2 text-on-surface-variant">
-                <Icon name="info" size="sm" />
-                <span className="text-caption uppercase tracking-wider">Consejos</span>
-              </div>
-            </Card.Header>
-            <Card.Body>
-              <ul className="space-y-2">
-                {[
-                  'Los modelos con ★ son los más recomendados para ventas autónomas.',
-                  'GPT-4.1 y Gemini 2.5 Pro tienen el mejor function calling.',
-                  'Modelos "Mini" o "Flash" son más rápidos pero menos precisos en herramientas complejas.',
-                  'Evitá JSON de más de 50KB para mejor performance.',
-                ].map((tip) => (
-                  <li key={tip} className="flex gap-2 text-body-sm text-on-surface-variant">
-                    <Icon name="check_circle" size="xs" className="text-success mt-0.5" />
-                    <span>{tip}</span>
-                  </li>
-                ))}
+           <Card variant="solid">
+              <h4 className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] mb-4">Mejores Prácticas</h4>
+              <ul className="space-y-4">
+                 {[
+                   { title: 'Tono Consistente', desc: 'Define si el bot trata de "tú" o "usted".' },
+                   { title: 'Evita Alucinaciones', desc: 'Indica claramente qué responder si no sabe algo.' },
+                   { title: 'JSON Estructurado', desc: 'Usa listas simples para precios y servicios.' }
+                 ].map((item, i) => (
+                   <li key={i} className="flex gap-3">
+                      <div className="w-6 h-6 rounded-lg bg-success/10 text-success flex items-center justify-center shrink-0">
+                         <Icon name="check" size="xs" />
+                      </div>
+                      <div>
+                         <p className="text-xs font-bold text-foreground">{item.title}</p>
+                         <p className="text-[10px] text-muted-foreground font-medium">{item.desc}</p>
+                      </div>
+                   </li>
+                 ))}
               </ul>
-            </Card.Body>
-          </Card>
+           </Card>
         </div>
       </div>
-    </section>
+    </div>
   );
 };
 

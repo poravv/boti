@@ -21,19 +21,26 @@ export function AppShell({
   children,
 }: AppShellProps) {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex">
+      {/* Sidebar - Desktop */}
       <Sidebar user={user} onLogout={onLogout} items={items} />
-      <Header
-        user={user}
-        notifications={notifications}
-        onClearNotifications={onClearNotifications}
-      />
-      <main
-        style={{ paddingTop: 'calc(var(--app-header-h) + 2rem)' }}
-        className="md:ml-64 px-4 md:px-6 pb-24 md:pb-12"
-      >
-        <div className="max-w-7xl mx-auto">{children}</div>
-      </main>
+
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0 md:ml-[var(--sidebar-width)]">
+        <Header
+          user={user}
+          notifications={notifications}
+          onClearNotifications={onClearNotifications}
+        />
+        
+        <main className="flex-1 p-4 md:p-8 mt-[var(--header-height)] pb-24 md:pb-8">
+          <div className="max-w-[1600px] mx-auto animate-in">
+            {children}
+          </div>
+        </main>
+      </div>
+
+      {/* Bottom Nav - Mobile */}
       <BottomNav items={items} />
     </div>
   );

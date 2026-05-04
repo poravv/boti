@@ -31,16 +31,15 @@ export function Header({ user, notifications, onClearNotifications, actions }: H
   return (
     <header
       role="banner"
-      style={{ height: 'var(--app-header-h)' }}
-      className="fixed top-0 left-0 md:left-64 right-0 z-sticky bg-surface-container-lowest/95 backdrop-blur-xl border-b border-outline-variant/30 flex items-center px-4 md:px-6 gap-4"
+      className="fixed top-0 left-0 md:left-[var(--sidebar-width)] right-0 h-[var(--header-height)] z-sticky bg-white/70 backdrop-blur-xl border-b border-border/50 flex items-center px-6 md:px-10 gap-6"
     >
       {/* Page title */}
       <div className="flex-1 min-w-0">
-        <h1 className="text-on-surface font-semibold text-heading-sm truncate">{title}</h1>
+        <h1 className="text-foreground font-bold text-xl tracking-tight truncate">{title}</h1>
       </div>
 
       {/* Actions */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-4">
         {actions}
 
         {/* Notifications */}
@@ -48,12 +47,12 @@ export function Header({ user, notifications, onClearNotifications, actions }: H
           <NotificationCenter notifications={notifications} onClear={onClearNotifications} />
         </div>
 
-        {/* Avatar */}
+        {/* Profile Shortcut */}
         <button
           type="button"
           aria-label={`Perfil de ${user?.name ?? 'usuario'}`}
           onClick={() => navigate('/profile')}
-          className="w-9 h-9 rounded-full bg-action flex items-center justify-center text-on-action text-caption font-bold uppercase shadow-glass-sm hover:shadow-glass transition-shadow duration-200 focus-ring flex-shrink-0 cursor-pointer"
+          className="w-9 h-9 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary text-xs font-bold uppercase shadow-sm hover:shadow-md transition-all duration-300 focus-ring flex-shrink-0 cursor-pointer"
         >
           {avatarChar}
         </button>

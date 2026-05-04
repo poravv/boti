@@ -30,13 +30,14 @@ interface LineState {
 
 export class BaileysWhatsAppAdapter implements IWhatsAppProvider {
   private lines = new Map<string, LineState>();
-  private onMessageCallback?: (lineId: string, from: string, fromName: string, content: string, type: string) => void;
+  private onMessageCallback?: (lineId: string, from: string, fromName: string, content: string, type: string, avatarUrl?: string | null) => void;
   // Dedup: track seen Baileys message IDs to skip replays on reconnect.
   private seenIds = new Map<string, number>();
   // One pending reconnect timer per line — cancel before reconnecting to prevent accumulation.
   private reconnectTimers = new Map<string, ReturnType<typeof setTimeout>>();
   // Backoff attempt counter per line — reset to 0 on successful connection.
   private reconnectAttempts = new Map<string, number>();
+  private avatarCache = new Map<string, { avatarUrl: string | null; ts: number }>();
 
   constructor(
     private readonly redis: Redis,
@@ -54,6 +55,34 @@ export class BaileysWhatsAppAdapter implements IWhatsAppProvider {
   /** Register handler for incoming messages */
   setOnMessage(cb: typeof this.onMessageCallback) {
     this.onMessageCallback = cb;
+  }
+
+  private async getCachedAvatarUrl(sock: WASocket, lineId: string, phone: string, jid: string): Promise<string | null> {
+    const cacheKey = `${lineId}:${phone}`;
+    const cached = this.avatarCache.get(cacheKey);
+    if (cached && Date.now() - cached.ts < 24 * 60 * 60 * 1000) {
+      return cached.avatarUrl;
+    }
+
+    const candidates = Array.from(new Set([
+      jid,
+      `${phone}@s.whatsapp.net`,
+    ].filter(Boolean)));
+
+    for (const candidate of candidates) {
+      try {
+        const avatarUrl = await sock.profilePictureUrl(candidate, 'image');
+        if (avatarUrl) {
+          this.avatarCache.set(cacheKey, { avatarUrl, ts: Date.now() });
+          return avatarUrl;
+        }
+      } catch {
+        // Profile photos may be private or unavailable.
+      }
+    }
+
+    this.avatarCache.set(cacheKey, { avatarUrl: null, ts: Date.now() });
+    return null;
   }
 
   // forceNewQr=true (default): used by API calls — wipes existing creds so Baileys emits a fresh QR.
@@ -261,7 +290,8 @@ export class BaileysWhatsAppAdapter implements IWhatsAppProvider {
         if (baileysId && this.seenIds.has(baileysId)) continue;
         if (baileysId) this.seenIds.set(baileysId, Date.now());
 
-        this.onMessageCallback?.(lineId, fromPhone, fromName, content, msgType);
+        const avatarUrl = await this.getCachedAvatarUrl(sock, lineId, fromPhone, jid);
+        this.onMessageCallback?.(lineId, fromPhone, fromName, content, msgType, avatarUrl);
       }
     });
 

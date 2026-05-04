@@ -7,9 +7,9 @@ while ! nc -z postgres 5432; do
 done
 echo "Database is up!"
 
-# Sync database schema
-echo "Syncing database schema..."
-npx prisma db push
+# Apply versioned database migrations
+echo "Applying database migrations..."
+npx prisma migrate deploy
 
 # Backfill default org and patch existing rows without orgId
 echo "Running org backfill..."
