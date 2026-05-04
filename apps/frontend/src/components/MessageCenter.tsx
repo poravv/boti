@@ -143,6 +143,28 @@ const MessageCenter = () => {
     });
   }, [activeChat?.id, fetchMessages, fetchNotes]);
 
+  // Polling fallback — silently syncs messages every 4s while a chat is open.
+  // Acts as safety net when WS events are missed (network hiccup, reconnect gap, etc.).
+  useEffect(() => {
+    if (!activeChat) return;
+    const phone = activeChat.phone;
+    const poll = async () => {
+      try {
+        const data = await apiFetchJson<{ messages: Message[] }>(`/api/messages/${phone}?limit=50`);
+        if (!data.messages) return;
+        setMessages(prev => {
+          // Skip re-render if nothing changed
+          const prevLast = prev[prev.length - 1]?.id;
+          const newLast = data.messages[data.messages.length - 1]?.id;
+          if (prev.length === data.messages.length && prevLast === newLast) return prev;
+          return data.messages;
+        });
+      } catch { /* silent */ }
+    };
+    const interval = setInterval(poll, 4000);
+    return () => clearInterval(interval);
+  }, [activeChat?.id]);
+
   // WebSocket Integration
   useEffect(() => {
     const handleWSEvent = (event: Event) => {
@@ -195,6 +217,16 @@ const MessageCenter = () => {
 
   const handleSendMessage = async (content: string) => {
     if (!activeChat) return;
+    // Optimistic append — shows message instantly before HTTP round-trip completes
+    const optimisticId = `optimistic-${Date.now()}`;
+    const optimistic: Message = {
+      id: optimisticId,
+      content,
+      direction: 'OUTBOUND',
+      type: 'TEXT',
+      createdAt: new Date().toISOString(),
+    };
+    setMessages(prev => [...prev, optimistic]);
     try {
       await apiFetch('/api/messages/send', {
         method: 'POST',
@@ -206,8 +238,12 @@ const MessageCenter = () => {
           type: 'TEXT',
         }),
       });
-      fetchMessages(activeChat.phone);
-    } catch { /* ... */ }
+      // Replace optimistic entry with real DB record (polling will catch it within 4s)
+      setMessages(prev => prev.filter(m => m.id !== optimisticId));
+    } catch {
+      // On failure remove optimistic message
+      setMessages(prev => prev.filter(m => m.id !== optimisticId));
+    }
   };
 
   const handleSendNote = async (content: string) => {
