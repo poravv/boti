@@ -22,185 +22,318 @@ interface WhatsAppLine {
 }
 
 const STATUS_CONFIG = {
-  CONNECTED: { label: 'Conectado', tone: 'success', icon: 'check_circle' },
-  QR_PENDING: { label: 'QR Pendiente', tone: 'warning', icon: 'qr_code' },
-  CONNECTING: { label: 'Enlazando...', tone: 'primary', icon: 'sync' },
-  DISCONNECTED: { label: 'Desconectado', tone: 'neutral', icon: 'link_off' },
+  CONNECTED:    { label: 'Conectado',     tone: 'success', icon: 'check_circle' },
+  QR_PENDING:   { label: 'QR Pendiente',  tone: 'warning', icon: 'qr_code'      },
+  CONNECTING:   { label: 'Enlazando…',    tone: 'primary', icon: 'progress_activity' },
+  DISCONNECTED: { label: 'Desconectado',  tone: 'neutral', icon: 'link_off'     },
 } as const;
 
 const WhatsAppConnections = () => {
-  const [lines, setLines] = useState<WhatsAppLine[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [showAddLine, setShowAddLine] = useState(false);
-  const [newLineName, setNewLineName] = useState('');
+  const [lines,        setLines]        = useState<WhatsAppLine[]>([]);
+  const [loading,      setLoading]      = useState(true);
+  const [showAddLine,  setShowAddLine]  = useState(false);
+  const [newLineName,  setNewLineName]  = useState('');
   const [activeQrLine, setActiveQrLine] = useState<string | null>(null);
-  const [currentQr, setCurrentQr] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+  const [currentQr,    setCurrentQr]   = useState<string | null>(null);
+  const [submitting,   setSubmitting]   = useState(false);
   const toast = useToast();
 
   const fetchLines = async () => {
     try {
       const data = await apiFetchJson<{ lines: WhatsAppLine[] }>('/api/lines');
       setLines(data.lines || []);
-    } catch (err) { console.error(err); } finally { setLoading(false); }
+    } catch { /* silent */ } finally { setLoading(false); }
   };
 
   useEffect(() => { fetchLines(); }, []);
 
+  // Real-time status updates via WebSocket
   useEffect(() => {
     const handleWSEvent = (event: Event) => {
       const detail = (event as CustomEvent).detail;
       if (!detail || detail.event !== 'line:status') return;
-      const data = detail.data || {};
-      setLines(prev => prev.map(l => l.id === data.lineId ? { ...l, status: data.status, qrCode: data.qrCode } : l));
+      const { lineId, status, qrCode } = detail.data || {};
+      if (!lineId) return;
+
+      setLines(prev => prev.map(l =>
+        l.id === lineId ? { ...l, status, ...(qrCode !== undefined && { qrCode }) } : l
+      ));
+
+      // Auto-show QR when backend emits it for the active line
+      if (status === 'QR_PENDING' && qrCode && lineId === activeQrLine) {
+        setCurrentQr(qrCode);
+      }
+      // Auto-close QR panel when line connects
+      if (status === 'CONNECTED' && lineId === activeQrLine) {
+        setActiveQrLine(null);
+        setCurrentQr(null);
+        toast.show('¡Línea conectada exitosamente!', { variant: 'success' });
+        fetchLines();
+      }
     };
     window.addEventListener('boti:ws-event', handleWSEvent);
     return () => window.removeEventListener('boti:ws-event', handleWSEvent);
-  }, []);
+  }, [activeQrLine]);
 
   const handleConnect = async (lineId: string) => {
+    if (submitting) return;
     setSubmitting(true);
+    setActiveQrLine(lineId);
+    setCurrentQr(null);
     try {
       const data = await apiFetchJson<{ qrCode?: string }>(`/api/lines/${lineId}/connect`, { method: 'POST' });
-      setActiveQrLine(lineId);
       setCurrentQr(data.qrCode ?? null);
       fetchLines();
-    } catch { toast.show('Error al iniciar vinculación', { variant: 'error' }); } finally { setSubmitting(false); }
+    } catch {
+      toast.show('Error al iniciar vinculación', { variant: 'error' });
+      setActiveQrLine(null);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
+  const handleDisconnect = async (lineId: string) => {
+    try {
+      await apiFetch(`/api/lines/${lineId}/disconnect`, { method: 'POST' });
+      fetchLines();
+      if (activeQrLine === lineId) { setActiveQrLine(null); setCurrentQr(null); }
+    } catch { toast.show('Error al desconectar', { variant: 'error' }); }
+  };
+
+  const connectedCount    = lines.filter(l => l.status === 'CONNECTED').length;
+  const disconnectedCount = lines.filter(l => l.status === 'DISCONNECTED').length;
+
   return (
-    <div className="space-y-10">
-      <div className="flex justify-between items-end">
+    <div className="space-y-8">
+      {/* Header */}
+      <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-3xl font-black text-foreground tracking-tight">Canales de WhatsApp</h1>
-          <p className="text-muted-foreground mt-2 font-medium">Gestiona tus líneas y la conexión en tiempo real.</p>
+          <p className="text-muted-foreground mt-1.5 font-medium">
+            {loading ? 'Cargando…' : `${connectedCount} conectado${connectedCount !== 1 ? 's' : ''} · ${disconnectedCount} desconectado${disconnectedCount !== 1 ? 's' : ''}`}
+          </p>
         </div>
-        <Button variant="primary" size="lg" className="rounded-2xl font-black tracking-widest text-[10px] shadow-premium" onClick={() => setShowAddLine(true)}>
+        <Button
+          variant="primary"
+          size="lg"
+          className="rounded-2xl font-black tracking-widest text-[10px] shadow-premium"
+          onClick={() => setShowAddLine(true)}
+        >
           <Icon name="add" size="sm" className="mr-2" /> NUEVA LÍNEA
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Connection Wizard / QR Display */}
-        <Card variant="solid" className="lg:col-span-2 relative overflow-hidden flex flex-col justify-center items-center p-12 min-h-[400px]">
-          {activeQrLine && currentQr ? (
-            <div className="flex flex-col items-center space-y-8 animate-in zoom-in duration-500">
-               <div className="text-center space-y-2">
-                  <h3 className="text-xl font-black text-foreground uppercase tracking-tight">Escanea para Conectar</h3>
-                  <p className="text-sm text-muted-foreground font-medium">Usa WhatsApp en tu teléfono para escanear el código.</p>
-               </div>
-               <div className="p-8 bg-white rounded-3xl shadow-glass-xl border border-border/50 relative group">
-                  <QRCodeSVG value={currentQr} size={256} level="H" />
-                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 bg-white/90 transition-opacity rounded-3xl backdrop-blur-sm">
-                     <Button variant="secondary" size="sm" onClick={() => { setActiveQrLine(null); setCurrentQr(null); }}>
-                        <Icon name="close" size="xs" className="mr-2" /> CANCELAR
-                     </Button>
-                  </div>
-               </div>
-               <div className="flex gap-4">
-                  {[1, 2, 3].map(i => (
-                    <div key={i} className="flex items-center gap-2">
-                       <div className="w-5 h-5 rounded-full bg-primary/10 text-primary text-[10px] font-black flex items-center justify-center">{i}</div>
-                       <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Paso {i}</span>
+      {/* Main grid — lines first in DOM (mobile-first order) */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+
+        {/* ── Lines list — visible first on mobile, right column on desktop ── */}
+        <div className="space-y-4 order-1 lg:order-2">
+          <Card variant="solid" padding="none" className="overflow-hidden">
+            <div className="px-5 pt-5 pb-3 border-b border-border/50 flex items-center justify-between">
+              <h4 className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">
+                Mis Líneas
+              </h4>
+              <Button variant="ghost" size="sm" onClick={fetchLines}>
+                <Icon name="refresh" size="xs" />
+              </Button>
+            </div>
+
+            {loading ? (
+              <div className="p-5 space-y-3">
+                {[1, 2].map(i => <div key={i} className="h-20 bg-muted animate-pulse rounded-xl" />)}
+              </div>
+            ) : lines.length === 0 ? (
+              <div className="p-5">
+                <EmptyState
+                  title="Sin líneas configuradas"
+                  description="Añade tu primera línea de WhatsApp para empezar."
+                  icon="smartphone"
+                />
+              </div>
+            ) : (
+              <div className="divide-y divide-border/40">
+                {lines.map((line) => {
+                  const cfg = STATUS_CONFIG[line.status] ?? STATUS_CONFIG.DISCONNECTED;
+                  const isActive = activeQrLine === line.id;
+                  const isConnected = line.status === 'CONNECTED';
+                  const isConnecting = line.status === 'CONNECTING' || line.status === 'QR_PENDING';
+
+                  return (
+                    <div
+                      key={line.id}
+                      className={cn(
+                        'p-4 flex items-start gap-4 transition-colors',
+                        isActive && !isConnected ? 'bg-action/5' : 'hover:bg-muted/30'
+                      )}
+                    >
+                      {/* Status dot + phone icon */}
+                      <div className={cn(
+                        'w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0',
+                        isConnected  ? 'bg-success/10 text-success' :
+                        isConnecting ? 'bg-warning/10 text-warning' :
+                                       'bg-muted text-muted-foreground'
+                      )}>
+                        <Icon
+                          name={isConnecting ? 'progress_activity' : 'smartphone'}
+                          size="sm"
+                          className={isConnecting ? 'animate-spin' : ''}
+                        />
+                      </div>
+
+                      {/* Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-sm font-bold text-foreground truncate">{line.name}</p>
+                          <Badge variant={cfg.tone} size="sm">{cfg.label}</Badge>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">
+                          {line.phone || 'Sin número'}
+                        </p>
+
+                        {/* Actions */}
+                        <div className="flex items-center gap-3 mt-2">
+                          {!isConnected && !isConnecting && (
+                            <button
+                              onClick={() => handleConnect(line.id)}
+                              disabled={submitting}
+                              className="text-[11px] font-black text-action hover:text-action/80 hover:underline transition-colors disabled:opacity-40 flex items-center gap-1"
+                            >
+                              <Icon name="qr_code" size="xs" />
+                              {line.status === 'DISCONNECTED' ? 'RECONECTAR' : 'ENLAZAR'}
+                            </button>
+                          )}
+                          {isConnected && (
+                            <button
+                              onClick={() => handleDisconnect(line.id)}
+                              className="text-[11px] font-medium text-muted-foreground hover:text-destructive transition-colors"
+                            >
+                              Desconectar
+                            </button>
+                          )}
+                          {isConnecting && isActive && (
+                            <span className="text-[11px] text-warning font-medium">Esperando escaneo…</span>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                  ))}
-               </div>
+                  );
+                })}
+              </div>
+            )}
+          </Card>
+
+          {/* System health */}
+          <Card variant="solid" className="bg-success/5 border-success/20">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-8 h-8 rounded-lg bg-success/15 text-success flex items-center justify-center">
+                <Icon name="check_circle" size="sm" />
+              </div>
+              <h4 className="font-black uppercase tracking-widest text-xs text-success">Sistema Operativo</h4>
+            </div>
+            <p className="text-[11px] font-medium text-muted-foreground leading-relaxed">
+              Protocolo WhatsApp Web activo · Encriptado de extremo a extremo.
+            </p>
+          </Card>
+        </div>
+
+        {/* ── QR Wizard — second on mobile, left 2/3 on desktop ── */}
+        <Card
+          variant="solid"
+          className="lg:col-span-2 order-2 lg:order-1 relative overflow-hidden flex flex-col justify-center items-center p-10 min-h-[420px]"
+        >
+          {activeQrLine && currentQr ? (
+            <div className="flex flex-col items-center space-y-8 animate-in zoom-in duration-500 relative z-10">
+              <div className="text-center space-y-1.5">
+                <h3 className="text-xl font-black text-foreground tracking-tight">Escanea para Conectar</h3>
+                <p className="text-sm text-muted-foreground">Abre WhatsApp → Dispositivos vinculados → Escanear QR</p>
+              </div>
+
+              <div className="p-6 bg-white rounded-3xl shadow-glass-xl border border-border/30">
+                <QRCodeSVG value={currentQr} size={220} level="H" />
+              </div>
+
+              <div className="flex items-center gap-8 text-center">
+                {['Abre WhatsApp', 'Dispositivos vinculados', 'Escanea el QR'].map((step, i) => (
+                  <div key={i} className="space-y-1.5">
+                    <div className="w-7 h-7 rounded-full bg-action/15 text-action text-[11px] font-black flex items-center justify-center mx-auto">
+                      {i + 1}
+                    </div>
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest max-w-[80px]">{step}</p>
+                  </div>
+                ))}
+              </div>
+
+              <Button variant="ghost" size="sm" onClick={() => { setActiveQrLine(null); setCurrentQr(null); }}>
+                <Icon name="close" size="xs" className="mr-1.5" /> Cancelar
+              </Button>
+            </div>
+          ) : activeQrLine && !currentQr ? (
+            // Connecting state — waiting for QR
+            <div className="flex flex-col items-center gap-6 relative z-10">
+              <div className="w-16 h-16 border-4 border-action/20 border-t-action rounded-full animate-spin" />
+              <div className="text-center">
+                <h3 className="text-lg font-bold text-foreground">Generando código QR…</h3>
+                <p className="text-sm text-muted-foreground mt-1">Esto puede tardar unos segundos.</p>
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => setActiveQrLine(null)}>Cancelar</Button>
             </div>
           ) : (
-            <div className="text-center space-y-6 max-w-sm">
-               <div className="w-20 h-20 bg-muted/50 rounded-3xl flex items-center justify-center mx-auto mb-6">
-                  <Icon name="qr_code" size="xl" className="text-muted-foreground/30" />
-               </div>
-               <h3 className="text-lg font-bold text-foreground">Configurador de Enlace</h3>
-               <p className="text-sm text-muted-foreground font-medium">Selecciona una línea de la lista para generar un nuevo código QR de vinculación.</p>
-               <div className="pt-4 flex flex-wrap justify-center gap-2">
-                  <Badge variant="neutral" dot>Seguro</Badge>
-                  <Badge variant="neutral" dot>Encripado</Badge>
-                  <Badge variant="neutral" dot>Multidispositivo</Badge>
-               </div>
+            // Idle — prompt to select a line
+            <div className="flex flex-col items-center text-center space-y-5 max-w-sm relative z-10">
+              <div className="w-20 h-20 bg-muted/50 rounded-3xl flex items-center justify-center">
+                <Icon name="qr_code" size="xl" className="text-muted-foreground/30" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-foreground">Listo para conectar</h3>
+                <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">
+                  Selecciona una línea de la lista{' '}
+                  <span className="lg:hidden">de arriba</span>
+                  <span className="hidden lg:inline">de la derecha</span>
+                  {' '}y presiona <strong className="text-action">RECONECTAR</strong> para generar el código QR.
+                </p>
+              </div>
+              <div className="flex flex-wrap justify-center gap-2 pt-2">
+                <Badge variant="neutral" dot>Seguro</Badge>
+                <Badge variant="neutral" dot>Encriptado</Badge>
+                <Badge variant="neutral" dot>Multidispositivo</Badge>
+              </div>
             </div>
           )}
+
           {/* Decorative mesh */}
           <div className="absolute inset-0 bg-[radial-gradient(#e2e8f0_1px,transparent_1px)] [background-size:24px_24px] opacity-20 pointer-events-none" />
         </Card>
-
-        {/* Status Wall Sidebar */}
-        <div className="space-y-6">
-           <Card variant="solid">
-              <h4 className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] mb-6">Muro de Estado</h4>
-              {loading ? (
-                <div className="space-y-4">
-                   {[1, 2, 3].map(i => <div key={i} className="h-16 bg-muted animate-pulse rounded-2xl" />)}
-                </div>
-              ) : lines.length === 0 ? (
-                <EmptyState title="Sin líneas" description="Añade tu primera línea para empezar." icon="smartphone" />
-              ) : (
-                <div className="space-y-3">
-                   {lines.map((line) => {
-                     const cfg = STATUS_CONFIG[line.status] || STATUS_CONFIG.DISCONNECTED;
-                     return (
-                       <div key={line.id} className="group p-4 bg-muted/20 hover:bg-white hover:shadow-premium border border-transparent hover:border-border transition-all duration-300 rounded-2xl flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                             <div className={cn(
-                               "w-10 h-10 rounded-xl flex items-center justify-center transition-colors",
-                               line.status === 'CONNECTED' ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"
-                             )}>
-                                <Icon name="smartphone" size="sm" />
-                             </div>
-                             <div>
-                                <p className="text-sm font-bold text-foreground truncate max-w-[120px]">{line.name}</p>
-                                <p className="text-[10px] text-muted-foreground font-medium">{line.phone || 'Sin número'}</p>
-                             </div>
-                          </div>
-                          <div className="flex flex-col items-end gap-2">
-                             <Badge variant={cfg.tone} size="sm" className="px-2">{cfg.label}</Badge>
-                             {line.status !== 'CONNECTED' && (
-                               <button
-                                onClick={() => handleConnect(line.id)}
-                                disabled={submitting}
-                                className="text-[10px] font-black text-primary hover:text-action hover:underline transition-colors disabled:opacity-40"
-                               >
-                                 {line.status === 'DISCONNECTED' ? 'RECONECTAR' : 'ENLAZAR'}
-                               </button>
-                             )}
-                          </div>
-                       </div>
-                     );
-                   })}
-                </div>
-              )}
-           </Card>
-
-           <Card variant="solid" className="bg-success text-success-foreground border-none">
-              <div className="flex items-center gap-3 mb-4">
-                 <Icon name="shield_check" size="md" />
-                 <h4 className="font-black uppercase tracking-widest text-xs">Salud del Sistema</h4>
-              </div>
-              <p className="text-[10px] font-bold text-success-foreground/80 leading-relaxed uppercase tracking-wider">
-                 Todos los nodos operando con latencia óptima. Protocolo WhatsApp v2.24 activo.
-              </p>
-           </Card>
-        </div>
       </div>
 
+      {/* Add line modal */}
       <Modal open={showAddLine} onClose={() => setShowAddLine(false)} title="Agregar Nueva Línea" size="sm">
-         <div className="space-y-6">
-            <FormInput 
-              label="NOMBRE DE LA LÍNEA"
-              placeholder="Ej: Ventas Argentina"
-              value={newLineName}
-              onChange={(e) => setNewLineName(e.target.value)}
-            />
-            <Button variant="primary" size="lg" fullWidth disabled={!newLineName.trim()} onClick={async () => {
+        <div className="space-y-6">
+          <FormInput
+            label="NOMBRE DE LA LÍNEA"
+            placeholder="Ej: Ventas Paraguay"
+            value={newLineName}
+            onChange={(e) => setNewLineName(e.target.value)}
+          />
+          <Button
+            variant="primary"
+            size="lg"
+            fullWidth
+            disabled={!newLineName.trim() || submitting}
+            onClick={async () => {
               const id = newLineName.toLowerCase().replace(/\s+/g, '-');
-              await apiFetchJson(`/api/lines/${id}/connect`, { method: 'POST' });
-              fetchLines();
-              setShowAddLine(false);
-              setNewLineName('');
-            }}>
-               CREAR LÍNEA
-            </Button>
-         </div>
+              try {
+                const data = await apiFetchJson<{ qrCode?: string }>(`/api/lines/${id}/connect`, { method: 'POST' });
+                setActiveQrLine(id);
+                setCurrentQr(data.qrCode ?? null);
+                fetchLines();
+                setShowAddLine(false);
+                setNewLineName('');
+              } catch { toast.show('Error al crear la línea', { variant: 'error' }); }
+            }}
+          >
+            CREAR Y CONECTAR LÍNEA
+          </Button>
+        </div>
       </Modal>
     </div>
   );

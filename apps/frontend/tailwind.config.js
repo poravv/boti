@@ -53,9 +53,31 @@ export default {
           DEFAULT: '#F8FAFC',
           foreground: '#0F172A',
         },
-        success: '#22C55E',
-        warning: '#F59E0B',
-        info: '#3B82F6',
+        success: {
+          DEFAULT: '#22C55E',
+          foreground: '#FFFFFF',
+          container: '#F0FDF4',
+        },
+        'on-success-container': '#166534',
+        warning: {
+          DEFAULT: '#F59E0B',
+          foreground: '#FFFFFF',
+          container: '#FFFBEB',
+        },
+        'on-warning-container': '#92400E',
+        info: {
+          DEFAULT: '#3B82F6',
+          foreground: '#FFFFFF',
+          container: '#EFF6FF',
+        },
+        'on-info-container': '#1E40AF',
+        error: {
+          DEFAULT: '#EF4444',
+          foreground: '#FFFFFF',
+          container: '#FEF2F2',
+        },
+        'on-error-container': '#991B1B',
+        'inverse-surface': '#0F172A',
 
         // ─── M3 / Deep Tech Narrative semantic tokens ─────────────────
         action: {
@@ -158,6 +180,15 @@ export default {
           '0%': { opacity: '0', transform: 'translateX(20px)' },
           '100%': { opacity: '1', transform: 'translateX(0)' },
         },
+        'bounce-in': {
+          '0%':   { opacity: '0', transform: 'translateY(-8px) scale(0.97)' },
+          '60%':  { opacity: '1', transform: 'translateY(2px)  scale(1.01)' },
+          '100%': {               transform: 'translateY(0)    scale(1)'    },
+        },
+        'fade-in-down': {
+          '0%':   { opacity: '0', transform: 'translateY(-8px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)'    },
+        },
       },
 
       animation: {
@@ -169,6 +200,9 @@ export default {
         'pulse-soft': 'pulse-soft 2s ease-in-out infinite',
         float: 'float 3.5s ease-in-out infinite',
         'slide-in-right': 'slide-in-right 400ms cubic-bezier(0.22, 1, 0.36, 1) both',
+        'bounce-in':      'bounce-in 350ms cubic-bezier(0.22, 1, 0.36, 1) both',
+        'fade-in-down':   'fade-in-down 280ms cubic-bezier(0.22, 1, 0.36, 1) both',
+        'bounce-slow':    'bounce 3s ease-in-out infinite',
       },
 
       zIndex: {

@@ -43,6 +43,10 @@
     @apply bg-white/70 backdrop-blur-xl border border-white/30 shadow-glass;
   }
 
+  .glass-elevated {
+    @apply bg-white/98 backdrop-blur-xl border border-white/60 shadow-glass-lg rounded-xl;
+  }
+
   .glass-dark {
     @apply bg-black/40 backdrop-blur-xl border border-white/10 shadow-glass;
   }
@@ -83,6 +87,16 @@
   /* Focus ring — accessible focus indicator */
   .focus-ring {
     @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-action focus-visible:ring-offset-2;
+  }
+
+  /* Generic enter animation — used without tailwindcss-animate plugin */
+  .animate-in {
+    @apply animate-fade-in-up;
+  }
+
+  /* Semantic text style */
+  .text-title {
+    @apply text-sm font-semibold;
   }
 
   /* Landing page section divider */
