@@ -5,6 +5,7 @@ import makeWASocket, {
   DisconnectReason,
   type WASocket,
   makeCacheableSignalKeyStore,
+  fetchLatestBaileysVersion,
 } from '@whiskeysockets/baileys';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -14,7 +15,8 @@ import type { IWhatsAppProvider } from '@boti/core';
 import { useRedisAuthState } from './RedisAuthState.js';
 
 const AUTH_DIR = path.join(process.cwd(), '.baileys-auth');
-const BAILEYS_VERSION: [number, number, number] = [2, 3000, 1033893291];
+// Fallback version used when fetchLatestBaileysVersion() fails (network issues in Docker, etc.)
+const FALLBACK_WA_VERSION: [number, number, number] = [2, 3000, 1033893291];
 
 const baileysLogger = (P as any).default({ level: 'info' });
 
@@ -125,8 +127,20 @@ export class BaileysWhatsAppAdapter implements IWhatsAppProvider {
     // 3. Load fresh auth state (empty if just cleared, or first-time connect)
     const { state, saveCreds, clear: clearAuth } = await useRedisAuthState(lineId, this.redis);
 
+    // Fetch current WA Web version dynamically; fall back to known-good value on failure.
+    let waVersion = FALLBACK_WA_VERSION;
+    try {
+      const { version } = await fetchLatestBaileysVersion();
+      if (version) {
+        waVersion = version;
+        baileysLogger.info({ version: waVersion }, 'WA version fetched from server');
+      }
+    } catch {
+      baileysLogger.warn({ fallback: waVersion }, 'Could not fetch WA version — using fallback');
+    }
+
     const sock = makeWASocket({
-      version: BAILEYS_VERSION,
+      version: waVersion,
       auth: {
         creds: state.creds,
         keys: makeCacheableSignalKeyStore(state.keys, baileysLogger),

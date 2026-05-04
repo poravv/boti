@@ -143,7 +143,7 @@ const MessageCenter = () => {
     });
   }, [activeChat?.id, fetchMessages, fetchNotes]);
 
-  // WebSocket Integration (Simplified but robust)
+  // WebSocket Integration
   useEffect(() => {
     const handleWSEvent = (event: Event) => {
       const detail = (event as CustomEvent).detail;
@@ -151,15 +151,36 @@ const MessageCenter = () => {
       const body = (detail.data || detail.payload || {});
 
       if (detail.event === 'message:new') {
-        const phone = (body.fromPhone || body.clientPhone || body.remoteJid || body.to)?.split('@')[0];
-        if (phone) {
-          setChats(prev => mergeChatUpdate(prev, { phone, lastMsg: body.content, time: new Date().toISOString() }));
-          if (activeChatRef.current?.phone === phone) {
-            fetchMessages(phone);
+        // Extract phone from the richest available field
+        const rawPhone = (body.chat?.phone || body.fromPhone || body.clientPhone || '').split('@')[0];
+        if (!rawPhone) return;
+
+        // Update chat list — use full chat object from WS (includes avatarUrl, name, etc.)
+        if (body.chat?.phone) {
+          const chatPhone = body.chat.phone.split('@')[0];
+          setChats(prev => mergeChatUpdate(prev, { ...body.chat, phone: chatPhone }));
+        } else {
+          setChats(prev => mergeChatUpdate(prev, {
+            phone: rawPhone,
+            lastMsg: body.content ?? '',
+            time: new Date().toISOString(),
+          }));
+        }
+
+        // If this chat is currently open, append message directly (instant, no HTTP round-trip)
+        if (activeChatRef.current?.phone === rawPhone) {
+          if (body.message?.id) {
+            setMessages(prev => {
+              if (prev.some(m => m.id === body.message.id)) return prev;
+              return [...prev, body.message as Message];
+            });
+          } else {
+            // Fallback for payloads without full message object
+            fetchMessages(rawPhone);
           }
         }
       }
-      
+
       if (detail.event === 'note:new') {
         const note = body.note;
         if (note && activeChatRef.current?.phone === note.clientPhone) {
