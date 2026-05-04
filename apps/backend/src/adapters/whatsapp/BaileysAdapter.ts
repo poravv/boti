@@ -237,13 +237,12 @@ export class BaileysWhatsAppAdapter implements IWhatsAppProvider {
           // Skip auto-reconnect if this close was triggered by connectLine itself.
           if (lineState.intentionalClose) return;
 
-          // Only wipe creds on definitive session-invalidation signals.
-          // 401 = explicitly logged out by WhatsApp.
-          // conflict = another device took the session.
-          // 408 is a transient timeout — do NOT wipe creds, just reconnect.
-          const isSessionInvalid =
-            statusCode === 401 ||
-            lastDisconnect?.error?.message?.includes('conflict');
+          // Only wipe creds on genuine session invalidation.
+          // 401 = explicitly logged out by WhatsApp → must re-pair.
+          // 440 "conflict/replaced" is NOT session invalidation — it means another
+          // device/socket took the slot. Wiping auth on 440 causes an infinite loop:
+          // new socket connects → WA kicks it again → wipe → connect → loop.
+          const isSessionInvalid = statusCode === 401;
           if (isSessionInvalid) {
             baileysLogger.info({ lineId, statusCode }, 'Session invalidated — wiping Redis auth');
             await clearAuth();

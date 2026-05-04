@@ -38,6 +38,12 @@ export class BullMQAdapter implements IMessageQueue {
       async (job: Job) => {
         const { lineId, to, content, type, mediaPath, clientMessageId } = job.data;
 
+        // Strip @lid / @s.whatsapp.net suffix — DB always stores bare phone numbers.
+        // The 'to' from the queue may be a full JID (e.g. '254756035538976@lid') for
+        // contacts that use WhatsApp's LID system. Without this strip, outbound messages
+        // get saved with the suffix and can't be found by the /api/messages/:phone query.
+        const clientPhone = to.split('@')[0];
+
         // Notify frontend: PENDING
         if (clientMessageId) this.wsNotify('message:status', { id: clientMessageId, status: 'PENDING' });
 
@@ -51,7 +57,7 @@ export class BullMQAdapter implements IMessageQueue {
 
           // Save outbound message to DB
           const saved = await this.messageRepo.save({
-            lineId, clientPhone: to, content, type, direction: 'OUTBOUND', status: 'SUCCESS', sentAt: new Date(),
+            lineId, clientPhone, content, type, direction: 'OUTBOUND', status: 'SUCCESS', sentAt: new Date(),
           });
 
           // Update status in DB
@@ -59,7 +65,7 @@ export class BullMQAdapter implements IMessageQueue {
 
           // Notify frontend: SUCCESS & NEW MESSAGE (include saved record for direct append)
           this.wsNotify('message:status', { id: clientMessageId ?? saved.id, status: 'SUCCESS', outboundId: msgId });
-          this.wsNotify('message:new', { lineId, fromPhone: to, content, type, direction: 'OUTBOUND', message: saved });
+          this.wsNotify('message:new', { lineId, fromPhone: clientPhone, content, type, direction: 'OUTBOUND', message: saved });
 
           logger.info({ lineId, to, type, msgId }, 'Message sent successfully');
         } catch (err: any) {
