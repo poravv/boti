@@ -95,14 +95,20 @@ export class BaileysWhatsAppAdapter implements IWhatsAppProvider {
   // forceNewQr=true (default): used by API calls — wipes existing creds so Baileys emits a fresh QR.
   // forceNewQr=false: used by internal auto-reconnect — preserves creds so Baileys can resume a
   //   session (e.g. after a 515 stream restart following a successful pairing).
-  async connectLine(lineId: string, forceNewQr = true): Promise<string | null> {
-    // Cancel any pending auto-reconnect timer and reset backoff counter.
+  // isAutoReconnect=true: called from the internal reconnect timer — must NOT reset the backoff
+  //   counter so exponential backoff accumulates across rapid 440 conflict cycles.
+  async connectLine(lineId: string, forceNewQr = true, isAutoReconnect = false): Promise<string | null> {
+    // Cancel any pending auto-reconnect timer.
     const pendingTimer = this.reconnectTimers.get(lineId);
     if (pendingTimer) {
       clearTimeout(pendingTimer);
       this.reconnectTimers.delete(lineId);
     }
-    this.reconnectAttempts.delete(lineId);
+    // Only reset backoff counter for user-triggered or startup connects.
+    // Auto-reconnect keeps the counter so delays grow: 5s → 10s → 20s → 40s → 60s.
+    if (!isAutoReconnect) {
+      this.reconnectAttempts.delete(lineId);
+    }
 
     const existingLine = this.lines.get(lineId);
 
@@ -207,7 +213,9 @@ export class BaileysWhatsAppAdapter implements IWhatsAppProvider {
         if (connection === 'open') {
           lineState.status = 'CONNECTED';
           lineState.qrCode = null;
-          this.reconnectAttempts.delete(lineId); // reset backoff on successful connection
+          // Do NOT reset reconnectAttempts here — let backoff accumulate during rapid 440
+          // conflict cycles (e.g. rolling K8s deployments where old and new pods fight).
+          // The counter resets only on explicit user-triggered connectLine calls.
           // Extract the authenticated phone number from Baileys user JID (e.g. "5959XXXXXXX:0@s.whatsapp.net")
           const phone = sock.user?.id?.split(':')[0]?.split('@')[0] ?? undefined;
           baileysLogger.info({ lineId, phone }, 'WhatsApp connection opened successfully');
@@ -256,7 +264,7 @@ export class BaileysWhatsAppAdapter implements IWhatsAppProvider {
             baileysLogger.info({ lineId, attempt, delay }, 'Scheduling reconnect');
             const timer = setTimeout(() => {
               this.reconnectTimers.delete(lineId);
-              this.connectLine(lineId, false);
+              this.connectLine(lineId, false, true); // isAutoReconnect=true — preserves backoff counter
             }, delay);
             this.reconnectTimers.set(lineId, timer);
           }

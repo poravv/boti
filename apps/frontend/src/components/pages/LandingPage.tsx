@@ -193,13 +193,13 @@ function ProductMockup() {
       {/* Glow behind */}
       <div aria-hidden className="absolute inset-0 -m-8 rounded-3xl bg-action/20 blur-3xl" />
 
-      <div className="relative rounded-2xl overflow-hidden border border-white/10 shadow-glass-xl bg-[#0F1923]" style={{ minHeight: '360px' }}>
+      <div className="relative rounded-2xl overflow-hidden border border-gray-200 shadow-[0_20px_60px_rgba(0,0,0,0.25)] bg-white" style={{ minHeight: '360px' }}>
         {/* Browser chrome */}
-        <div className="h-10 bg-[#151E2A] flex items-center gap-2 px-4 border-b border-white/5">
+        <div className="h-10 bg-gray-100 flex items-center gap-2 px-4 border-b border-gray-200">
           <span className="w-3 h-3 rounded-full bg-red-400/80" />
           <span className="w-3 h-3 rounded-full bg-yellow-400/80" />
           <span className="w-3 h-3 rounded-full bg-green-400/80" />
-          <div className="flex-1 bg-white/5 rounded-full px-3 py-1 text-[11px] text-white/30 mx-3 truncate">
+          <div className="flex-1 bg-gray-200/60 rounded-full px-3 py-1 text-[11px] text-gray-400 mx-3 truncate">
             app.mindtechpy.net/messages
           </div>
         </div>
@@ -207,7 +207,7 @@ function ProductMockup() {
         {/* App content */}
         <div className="flex" style={{ height: '320px' }}>
           {/* Contact list */}
-          <div className="w-44 border-r border-white/5 p-3 space-y-1.5 flex-shrink-0 overflow-hidden bg-[#111924]">
+          <div className="w-44 border-r border-gray-100 p-3 space-y-1.5 flex-shrink-0 overflow-hidden bg-white">
             {[
               { name: 'Ana García', msg: '¿Tienen stock?', active: true, time: '10:32' },
               { name: 'Carlos M.', msg: 'Perfecto, gracias', active: false, time: '10:28' },
@@ -215,32 +215,32 @@ function ProductMockup() {
             ].map((c) => (
               <div
                 key={c.name}
-                className={`flex items-center gap-2 rounded-xl px-2 py-2 cursor-pointer ${c.active ? 'bg-action/20' : 'hover:bg-white/5'}`}
+                className={`flex items-center gap-2 rounded-xl px-2 py-2 cursor-pointer ${c.active ? 'bg-action/10' : 'hover:bg-gray-50'}`}
               >
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-[11px] font-bold ${c.active ? 'bg-action text-white' : 'bg-white/10 text-white/60'}`}>
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-[11px] font-bold ${c.active ? 'bg-action text-white' : 'bg-gray-200 text-gray-500'}`}>
                   {c.name[0]}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex justify-between items-center">
-                    <p className="text-[11px] font-semibold text-white/80 truncate">{c.name}</p>
-                    <span className="text-[9px] text-white/30">{c.time}</span>
+                    <p className={`text-[11px] font-semibold truncate ${c.active ? 'text-gray-800' : 'text-gray-500'}`}>{c.name}</p>
+                    <span className="text-[9px] text-gray-400">{c.time}</span>
                   </div>
-                  <p className="text-[10px] text-white/40 truncate">{c.msg}</p>
+                  <p className="text-[10px] text-gray-400 truncate">{c.msg}</p>
                 </div>
               </div>
             ))}
           </div>
 
           {/* Chat area */}
-          <div className="flex-1 flex flex-col bg-[#0F1923]">
+          <div className="flex-1 flex flex-col bg-[#f8fafc]">
             {/* Chat header */}
-            <div className="px-4 py-2.5 border-b border-white/5 flex items-center gap-2.5 bg-[#111924]">
+            <div className="px-4 py-2.5 border-b border-gray-100 flex items-center gap-2.5 bg-white">
               <div className="w-7 h-7 rounded-full bg-action flex items-center justify-center text-[11px] font-bold text-white">A</div>
               <div>
-                <p className="text-[12px] font-semibold text-white/90">Ana García</p>
+                <p className="text-[12px] font-semibold text-gray-800">Ana García</p>
                 <div className="flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse-soft" />
-                  <p className="text-[10px] text-green-400/80">IA activa</p>
+                  <p className="text-[10px] text-green-600">IA activa</p>
                 </div>
               </div>
             </div>
@@ -248,31 +248,31 @@ function ProductMockup() {
             {/* Messages */}
             <div className="flex-1 p-3 space-y-2.5 overflow-hidden">
               <div className="flex justify-start">
-                <div className="bg-white/8 rounded-2xl rounded-tl-sm px-3 py-2 max-w-[75%] border border-white/5">
-                  <p className="text-[11px] text-white/80">¿Tienen stock del iPhone 15 Pro?</p>
+                <div className="bg-white rounded-2xl rounded-tl-sm px-3 py-2 max-w-[75%] border border-gray-100 shadow-sm">
+                  <p className="text-[11px] text-gray-700">¿Tienen stock del iPhone 15 Pro?</p>
                 </div>
               </div>
               <div className="flex justify-end">
                 <div className="relative bg-action rounded-2xl rounded-tr-sm px-3 py-2 max-w-[75%] shadow-action-glow-sm">
-                  <p className="text-[11px] text-white leading-relaxed">¡Hola Ana! Sí, tenemos disponibilidad en todas las capacidades. ¿Te enviamos el catálogo completo con precios?</p>
-                  <span className="absolute -top-1 -left-1 w-3 h-3 rounded-full bg-green-400 border-2 border-[#0F1923] animate-pulse-soft" aria-label="IA respondiendo" />
+                  <p className="text-[11px] text-white leading-relaxed">¡Hola Ana! Sí, tenemos disponibilidad. ¿Te enviamos el catálogo con precios?</p>
+                  <span className="absolute -top-1 -left-1 w-3 h-3 rounded-full bg-green-400 border-2 border-white animate-pulse-soft" aria-label="IA respondiendo" />
                 </div>
               </div>
               <div className="flex justify-start">
-                <div className="bg-white/8 rounded-2xl rounded-tl-sm px-3 py-2 max-w-[75%] border border-white/5">
-                  <p className="text-[11px] text-white/80">Sí, y también el link de pago</p>
+                <div className="bg-white rounded-2xl rounded-tl-sm px-3 py-2 max-w-[75%] border border-gray-100 shadow-sm">
+                  <p className="text-[11px] text-gray-700">Sí, y también el link de pago</p>
                 </div>
               </div>
               <div className="flex justify-end">
                 <div className="bg-action rounded-2xl rounded-tr-sm px-3 py-2 max-w-[75%] shadow-action-glow-sm">
-                  <p className="text-[11px] text-white leading-relaxed">Perfecto! Te comparto el catálogo y el link de pago seguro de PagoPar. ¡Muy fácil!</p>
+                  <p className="text-[11px] text-white leading-relaxed">Perfecto! Te comparto el catálogo y el link de pago seguro de PagoPar.</p>
                 </div>
               </div>
             </div>
 
             {/* Input */}
-            <div className="p-3 border-t border-white/5">
-              <div className="rounded-xl border border-white/10 px-3 py-2 text-[11px] text-white/25 bg-white/5">
+            <div className="p-3 border-t border-gray-100 bg-white">
+              <div className="rounded-xl border border-gray-200 px-3 py-2 text-[11px] text-gray-400 bg-white">
                 Escribí un mensaje...
               </div>
             </div>
@@ -371,13 +371,13 @@ function StatsBar() {
     { value: '<2 min', label: 'Tiempo de respuesta' },
   ];
   return (
-    <section className="bg-[#0D2D2A] border-y border-action/20">
+    <section className="bg-surface-container-low/60 border-y border-outline-variant/30">
       <div className="max-w-7xl mx-auto px-6 py-10">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-0 lg:divide-x lg:divide-action/15">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-0 lg:divide-x lg:divide-outline-variant/30">
           {stats.map((s) => (
             <div key={s.label} className="text-center lg:px-8">
               <div className="text-display-sm text-action font-bold mb-1">{s.value}</div>
-              <div className="text-caption text-white/50 uppercase tracking-wider font-semibold">{s.label}</div>
+              <div className="text-caption text-on-surface/50 uppercase tracking-wider font-semibold">{s.label}</div>
             </div>
           ))}
         </div>

@@ -53,6 +53,10 @@ export function ContactsPage() {
     return matchesSearch && matchesTab;
   });
 
+  const todayStr = new Date().toDateString();
+  const newToday = contacts.filter(c => c.lastMsgAt && new Date(c.lastMsgAt).toDateString() === todayStr).length;
+  const withoutResponse = contacts.filter(c => c.unreadCount > 0).length;
+
   return (
     <div className="max-w-5xl mx-auto space-y-10">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -96,15 +100,19 @@ export function ContactsPage() {
            </Card>
 
            <Card variant="solid" className="bg-primary/5 border-primary/10">
-              <h4 className="text-[10px] font-black text-primary uppercase tracking-[0.2em] mb-3">Segmentación</h4>
+              <h4 className="text-[10px] font-black text-primary uppercase tracking-[0.2em] mb-3">Actividad</h4>
               <div className="space-y-2">
                  <div className="flex justify-between items-center text-xs font-bold text-foreground/70">
-                    <span>Nuevos hoy</span>
-                    <Badge variant="primary" size="sm">0</Badge>
+                    <span>Mensajes hoy</span>
+                    <Badge variant="primary" size="sm">{newToday}</Badge>
                  </div>
                  <div className="flex justify-between items-center text-xs font-bold text-foreground/70">
-                    <span>Sin respuesta</span>
-                    <Badge variant="danger" size="sm">0</Badge>
+                    <span>Sin leer</span>
+                    <Badge variant={withoutResponse > 0 ? 'danger' : 'neutral'} size="sm">{withoutResponse}</Badge>
+                 </div>
+                 <div className="flex justify-between items-center text-xs font-bold text-foreground/70">
+                    <span>Total contactos</span>
+                    <Badge variant="neutral" size="sm">{contacts.length}</Badge>
                  </div>
               </div>
            </Card>
