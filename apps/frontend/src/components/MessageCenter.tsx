@@ -202,7 +202,9 @@ const MessageCenter = () => {
       if (detail.event === 'note:new') {
         const note = body.note;
         if (note && activeChatRef.current?.phone === note.clientPhone) {
-          setNotes(prev => [...prev, note]);
+          // Dedup: handleSendNote already appended the note from the HTTP response.
+          // The WS event is the broadcast for other connected clients — skip if already present.
+          setNotes(prev => prev.some(n => n.id === note.id) ? prev : [...prev, note]);
         }
       }
     };
