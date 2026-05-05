@@ -72,10 +72,15 @@ const App = () => {
   useEffect(() => {
     if (!token) return;
 
-    const socketUrl = import.meta.env.VITE_WS_URL
+    // Normalize WS URL — always ensure the /ws path is present.
+    // If VITE_WS_URL is set without the path (e.g. wss://host instead of wss://host/ws),
+    // the K8s ingress routes the connection to the frontend container instead of the
+    // backend, causing an infinite reconnect loop.
+    const rawWsUrl = (import.meta.env.VITE_WS_URL as string | undefined)
       ?? (window.location.protocol === 'https:'
-        ? `wss://${window.location.host}/ws`
-        : `ws://${window.location.hostname || 'localhost'}:3001/ws`);
+        ? `wss://${window.location.host}`
+        : `ws://${window.location.hostname || 'localhost'}:3001`);
+    const socketUrl = rawWsUrl.replace(/\/ws\/?$/, '') + '/ws';
 
     let ws: WebSocket | null = null;
     let closedByEffect = false;

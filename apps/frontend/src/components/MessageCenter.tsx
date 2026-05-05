@@ -143,27 +143,12 @@ const MessageCenter = () => {
     });
   }, [activeChat?.id, fetchMessages, fetchNotes]);
 
-  // Polling fallback — silently syncs messages every 4s while a chat is open.
-  // Acts as safety net when WS events are missed (network hiccup, reconnect gap, etc.).
+  // Light chat-list poll every 30s — catches new conversations and unread counts if a
+  // WS event was missed during a brief reconnect window. Much lighter than per-message polling.
   useEffect(() => {
-    if (!activeChat) return;
-    const phone = activeChat.phone;
-    const poll = async () => {
-      try {
-        const data = await apiFetchJson<{ messages: Message[] }>(`/api/messages/${phone}?limit=50`);
-        if (!data.messages) return;
-        setMessages(prev => {
-          // Skip re-render if nothing changed
-          const prevLast = prev[prev.length - 1]?.id;
-          const newLast = data.messages[data.messages.length - 1]?.id;
-          if (prev.length === data.messages.length && prevLast === newLast) return prev;
-          return data.messages;
-        });
-      } catch { /* silent */ }
-    };
-    const interval = setInterval(poll, 4000);
+    const interval = setInterval(fetchChats, 30000);
     return () => clearInterval(interval);
-  }, [activeChat?.id]);
+  }, [fetchChats]);
 
   // WebSocket Integration
   useEffect(() => {
@@ -193,6 +178,17 @@ const MessageCenter = () => {
         if (activeChatRef.current?.phone === rawPhone) {
           if (body.message?.id) {
             setMessages(prev => {
+              // Replace optimistic entry (operator send) with the real DB record
+              if (body.message.direction === 'OUTBOUND') {
+                const optimisticIdx = prev.findLastIndex(
+                  m => m.id.startsWith('optimistic-') && m.content === body.message.content
+                );
+                if (optimisticIdx >= 0) {
+                  const next = [...prev];
+                  next[optimisticIdx] = body.message as Message;
+                  return next;
+                }
+              }
               if (prev.some(m => m.id === body.message.id)) return prev;
               return [...prev, body.message as Message];
             });
